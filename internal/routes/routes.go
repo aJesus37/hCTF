@@ -13,6 +13,7 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/template"
+	"github.com/pocketbase/pocketbase/tools/types"
 )
 
 type Result struct {
@@ -21,9 +22,10 @@ type Result struct {
 }
 
 type Challenge struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	ID          string                  `json:"id"`
+	Name        string                  `json:"name"`
+	Description string                  `json:"description"`
+	Tags        types.JSONArray[string] `json:"tags"`
 }
 
 // ValidateFlag validates a submitted flag
@@ -148,22 +150,15 @@ func DeleteChallenge(app *pocketbase.PocketBase, re *core.RequestEvent) error {
 }
 
 func GetChallenge(app *pocketbase.PocketBase, re *core.RequestEvent) error {
-	challengeID := re.Request.PathValue("id")
+	record, err := app.FindRecordById("challenges", re.Request.PathValue("id"))
 
-	// Fetch the challenge from the database
-	challenge := Challenge{}
-	err := app.DB().NewQuery("SELECT * FROM challenges WHERE id = {:id}").Bind(dbx.Params{"id": challengeID}).One(&challenge)
 	if err != nil {
-		return apis.NewInternalServerError("Could not get challenge", err)
+		return apis.NewBadRequestError("Invalid challenge ID", err)
 	}
 
-	jsonData, err := json.Marshal(challenge)
-	if err != nil {
-		return apis.NewInternalServerError("Failed to serialize challenge", err)
-	}
+	record = record.Hide("collectionId", "collectionName")
 
-	re.Response.WriteHeader(http.StatusOK)
-	re.Response.Write(jsonData)
+	re.JSON(http.StatusOK, record)
 	return nil
 }
 
@@ -174,9 +169,13 @@ func CreateQuestion(app *pocketbase.PocketBase, re *core.RequestEvent) error {
 		return apis.NewBadRequestError("Invalid request body", err)
 	}
 
-	// Insert the new question into the database
-	_, err := app.DB().NewQuery("INSERT INTO questions (challenge_id, name, description, flag, case_sensitive, category, flag_mask, hints) VALUES ({:challenge_id}, {:name}, {:description}, {:flag}, {:case_sensitive}, {:category}, {:flag_mask}, {:hints})").Bind(dbx.Params{
-		"challenge_id":   challengeID,
+	collection, err := app.FindCollectionByNameOrId("questions")
+	if err != nil {
+		return err
+	}
+
+	record := core.NewRecord(collection)
+	record.Load(map[string]any{
 		"name":           rawQuestion.Name,
 		"description":    rawQuestion.Description,
 		"flag":           rawQuestion.Flag,
@@ -184,8 +183,10 @@ func CreateQuestion(app *pocketbase.PocketBase, re *core.RequestEvent) error {
 		"category":       rawQuestion.Category,
 		"flag_mask":      rawQuestion.FlagMask,
 		"hints":          rawQuestion.Hints,
-	}).Execute()
+		"challenge_id":   challengeID,
+	})
 
+	err = app.Save(record)
 	if err != nil {
 		fmt.Printf("Error inserting question: %v\n", err)
 		return apis.NewInternalServerError("Could not create question", err)
