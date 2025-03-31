@@ -58,6 +58,7 @@ github.com/pocketbase/pocketbase/forms
 github.com/pocketbase/pocketbase/mails
 github.com/pocketbase/pocketbase/mails/templates
 github.com/pocketbase/pocketbase/migrations
+github.com/pocketbase/pocketbase/plugins/migratecmd
 github.com/pocketbase/pocketbase/tools/archive
 github.com/pocketbase/pocketbase/tools/auth
 github.com/pocketbase/pocketbase/tools/cron
