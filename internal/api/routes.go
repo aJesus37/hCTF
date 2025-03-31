@@ -45,15 +45,17 @@ func RegisterAPIRoutes(se *core.ServeEvent, app *pocketbase.PocketBase, template
 	challengesManagement.DELETE("/{id}", func(re *core.RequestEvent) error {
 		return routes.DeleteChallenge(app, re)
 	})
+	challengesManagement.PUT("/{id}", func(re *core.RequestEvent) error {
+		return routes.UpdateChallenge(app, re)
+	})
 
-	// Protected API endpoints
 	se.Router.GET("/api/v1/challenges/{id}/questions", func(re *core.RequestEvent) error {
 		return routes.ListChallengeQuestions(app, re)
-	}).Bind(apis.RequireAuth())
+	})
 
 	se.Router.POST("/api/v1/questions/{id}/answers", func(re *core.RequestEvent) error {
 		return routes.SubmitQuestionAnswer(app, templateRegistry, re)
-	}).Bind(apis.RequireAuth())
+	})
 
 	se.Router.GET("/api/v1/questions/{id}", func(re *core.RequestEvent) error {
 		return routes.GetQuestion(app, re)
@@ -61,6 +63,10 @@ func RegisterAPIRoutes(se *core.ServeEvent, app *pocketbase.PocketBase, template
 
 	se.Router.POST("/api/v1/challenges/{id}/questions", func(re *core.RequestEvent) error {
 		return routes.CreateQuestion(app, re)
+	}).Bind(apis.RequireAuth("_superusers"))
+
+	se.Router.PUT("/api/v1/questions/{id}", func(re *core.RequestEvent) error {
+		return routes.UpdateQuestion(app, re)
 	}).Bind(apis.RequireAuth("_superusers"))
 
 	se.Router.DELETE("/api/v1/questions/{id}", func(re *core.RequestEvent) error {

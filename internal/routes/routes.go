@@ -227,3 +227,56 @@ func GetQuestion(app *pocketbase.PocketBase, re *core.RequestEvent) error {
 	re.Response.Write(jsonData)
 	return nil
 }
+
+func UpdateQuestion(app *pocketbase.PocketBase, re *core.RequestEvent) error {
+	questionID := re.Request.PathValue("id")
+	rawQuestion := RawQuestion{}
+
+	if err := json.NewDecoder(re.Request.Body).Decode(&rawQuestion); err != nil {
+		return apis.NewBadRequestError("Invalid request body", err)
+	}
+
+	// Update the question in the database
+	_, err := app.DB().NewQuery("UPDATE questions SET name = {:name}, description = {:description}, flag = {:flag}, case_sensitive = {:case_sensitive}, category = {:category}, flag_mask = {:flag_mask}, hints = {:hints} WHERE id = {:id}").Bind(dbx.Params{
+		"name":           rawQuestion.Name,
+		"description":    rawQuestion.Description,
+		"flag":           rawQuestion.Flag,
+		"case_sensitive": rawQuestion.CaseSensitive,
+		"category":       rawQuestion.Category,
+		"flag_mask":      rawQuestion.FlagMask,
+		"hints":          rawQuestion.Hints,
+		"id":             questionID,
+	}).Execute()
+
+	if err != nil {
+		fmt.Printf("Error updating question: %v\n", err)
+		return apis.NewInternalServerError("Could not update question", err)
+	}
+
+	re.Response.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+func UpdateChallenge(app *pocketbase.PocketBase, re *core.RequestEvent) error {
+	challengeID := re.Request.PathValue("id")
+	challenge := Challenge{}
+
+	if err := json.NewDecoder(re.Request.Body).Decode(&challenge); err != nil {
+		return apis.NewBadRequestError("Invalid request body", err)
+	}
+
+	// Update the challenge in the database
+	_, err := app.DB().NewQuery("UPDATE challenges SET name = {:name}, description = {:description} WHERE id = {:id}").Bind(dbx.Params{
+		"name":        challenge.Name,
+		"description": challenge.Description,
+		"id":          challengeID,
+	}).Execute()
+
+	if err != nil {
+		fmt.Printf("Error updating challenge: %v\n", err)
+		return apis.NewInternalServerError("Could not update challenge", err)
+	}
+
+	re.Response.WriteHeader(http.StatusNoContent)
+	return nil
+}
