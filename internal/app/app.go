@@ -4,11 +4,13 @@ import (
 	"hCTF/internal/api"
 	"hCTF/internal/config"
 	"hCTF/internal/static"
+	_ "hCTF/migrations"
 	"io/fs"
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 	"github.com/pocketbase/pocketbase/tools/template"
 )
 
@@ -35,6 +37,8 @@ func New() (*App, error) {
 	}
 
 	app.setupRoutes()
+
+	migratecmd.MustRegister(app.pb, app.pb.RootCmd, migratecmd.Config{})
 
 	return app, nil
 }
