@@ -49,6 +49,12 @@ func RegisterAPIRoutes(se *core.ServeEvent, app *pocketbase.PocketBase, template
 		return routes.UpdateChallenge(app, re)
 	})
 
+	login := se.Router.Group("/api/v1/login").Bind(apis.RequireGuestOnly())
+
+	login.POST("/sign-up", func(re *core.RequestEvent) error {
+		return routes.SignUp(app, re)
+	})
+
 	se.Router.GET("/api/v1/challenges/{id}/questions", func(re *core.RequestEvent) error {
 		return routes.ListChallengeQuestions(app, re)
 	})

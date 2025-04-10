@@ -28,6 +28,13 @@ type Challenge struct {
 	Tags        types.JSONArray[string] `json:"tags"`
 }
 
+type UserSignUp struct {
+	Password        string `json:"password"`
+	PasswordConfirm string `json:"password_confirm"`
+	Email           string `json:"email"`
+	Name            string `json:"name"`
+}
+
 // ValidateFlag validates a submitted flag
 func SubmitQuestionAnswer(app *pocketbase.PocketBase, templateRegistry *template.Registry, re *core.RequestEvent) error {
 	flag := re.Request.FormValue("flag")
@@ -325,4 +332,35 @@ func UpdateChallenge(app *pocketbase.PocketBase, re *core.RequestEvent) error {
 
 	re.Response.WriteHeader(http.StatusNoContent)
 	return nil
+}
+
+func SignUp(app *pocketbase.PocketBase, re *core.RequestEvent) error {
+	signUpData := UserSignUp{}
+	if err := json.NewDecoder(re.Request.Body).Decode(&signUpData); err != nil {
+		return apis.NewBadRequestError("Invalid request body", err)
+	}
+
+	users, err := re.App.FindCollectionByNameOrId("users")
+	if err != nil {
+		return err
+	}
+
+	record := core.NewRecord(users)
+
+	record.Load(map[string]any{
+		"password":         signUpData.Password,
+		"password_confirm": signUpData.PasswordConfirm,
+		"name":             signUpData.Name,
+		"email":            signUpData.Email,
+	})
+
+	err = app.Save(record)
+	if err != nil {
+		if err.Error() == "password: Must be at least 8 character(s)." {
+			return apis.NewBadRequestError("One or more rules have not been met.", err)
+		}
+		return apis.NewInternalServerError("failed to save user", err)
+	}
+
+	return re.NoContent(http.StatusCreated)
 }
