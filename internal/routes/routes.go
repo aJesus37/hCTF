@@ -3,8 +3,6 @@ package routes
 import (
 	"encoding/json"
 	"fmt"
-	"hCTF/internal/templates"
-	"log"
 	"net/http"
 	"strings"
 
@@ -75,12 +73,14 @@ func SubmitQuestionAnswer(app *pocketbase.PocketBase, templateRegistry *template
 	}
 
 	// Render home page in HTML
-	html, err := templateRegistry.LoadFS(templates.TemplateFS, "html/submit-question.html").Render(result)
-	if err != nil {
-		log.Printf("Template error details: %v", err)
-		return apis.NewBadRequestError("Template error", err)
-	}
-	return re.HTML(http.StatusOK, html)
+	// html, err := templateRegistry.LoadFS(templates.TemplateFS, "html/submit-question.html").Render(result)
+	// if err != nil {
+	// 	log.Printf("Template error details: %v", err)
+	// 	return apis.NewBadRequestError("Template error", err)
+	// }
+	// return re.HTML(http.StatusOK, html)
+
+	return re.JSON(http.StatusOK, result.Success)
 }
 
 // APIGetChallenges returns all challenges
