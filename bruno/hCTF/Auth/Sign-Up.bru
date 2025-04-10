@@ -1,0 +1,20 @@
+meta {
+  name: Sign-Up
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/api/v1/login/sign-up
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "password": "zikapassword123",
+    "password_confirm": "zikapassword123",
+    "name": "Mlk Zika",
+    "email": "zika@heaven-labs.com"
+  }
+}

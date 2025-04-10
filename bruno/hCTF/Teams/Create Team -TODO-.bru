@@ -5,7 +5,23 @@ meta {
 }
 
 post {
-  url: 0.0.0.0:8090
-  body: none
-  auth: inherit
+  url: {{host}}/api/collections/teams/records
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{userToken}}
+}
+
+body:json {
+  {
+    "name": "{{team_name}}",
+    "description": "{{team_description}}"
+  }
+}
+
+vars:pre-request {
+  team_name: Test Team 8
+  team_description: This is the test team 8
 }

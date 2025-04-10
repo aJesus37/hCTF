@@ -1,0 +1,23 @@
+meta {
+  name: Submit Answer
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/api/v1/questions/:id/answers
+  body: formUrlEncoded
+  auth: bearer
+}
+
+params:path {
+  id: r12db792892acfd
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:form-urlencoded {
+  flag: louse
+}
