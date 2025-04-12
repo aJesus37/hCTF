@@ -1,0 +1,36 @@
+<html lang="en">
+  {{ template "head" "hCTF - Login"}}
+  <body>
+    {{ template "navbar" .}}
+
+    <div class="hero is-fullheight">
+      <div class="hero-body">
+        <div class="container is-max-tablet">
+          <form hx-post="/api/collections/users/auth-with-password" hx-ext="json-enc">
+            <div class="field">
+              <p class="control has-icons-left">
+                <input name="identity" class="input" type="email" placeholder="Email" />
+                <span class="icon is-small is-left">
+                  <i class="nf nf-md-email"></i>
+                </span>
+              </p>
+            </div>
+            <div class="field">
+              <p class="control has-icons-left">
+                <input name="password" class="input" type="password" placeholder="Password" />
+                <span class="icon is-small is-left">
+                  <i class="nf nf-fa-lock"></i>
+                </span>
+              </p>
+            </div>
+            <div class="field">
+              <p class="control">
+                <button type="submit" class="button">Login</button>
+              </p>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -24,6 +24,10 @@ func RegisterViewRoutes(se *core.ServeEvent, app *pocketbase.PocketBase, templat
 		return views.RenderLearn(re, templateRegistry)
 	})
 
+	se.Router.GET("/login", func(re *core.RequestEvent) error {
+		return views.RenderLogin(re, templateRegistry)
+	})
+
 }
 
 // RegisterAPIRoutes registers all API-related routes
@@ -130,7 +134,8 @@ func RegisterHooks(se *core.ServeEvent, app *pocketbase.PocketBase) {
 
 	// Sets the "Set-Cookie" response header, so that the browser retains the token as a Cookie
 	app.OnRecordAuthRequest().BindFunc(func(e *core.RecordAuthRequestEvent) error {
-		e.Response.Header().Set("Set-Cookie", "Authorization="+e.Token)
+		e.Response.Header().Set("Set-Cookie", "Authorization="+e.Token+"; Path=/; HttpOnly; SameSite=Lax")
+		e.Response.Header().Set("HX-Redirect", "/home")
 
 		return e.Next()
 	})

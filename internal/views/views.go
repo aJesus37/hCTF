@@ -62,3 +62,17 @@ func RenderChallenges(app *pocketbase.PocketBase, re *core.RequestEvent, templat
 func RenderLearn(re *core.RequestEvent, templateRegistry *template.Registry) error {
 	return apis.NewNotFoundError("Learn page not found", nil)
 }
+
+func RenderLogin(re *core.RequestEvent, templateRegistry *template.Registry) error {
+	html, err := templateRegistry.LoadFS(
+		templates.TemplateFS,
+		"html/auth/login.html",
+		"html/navbar.html",
+		"html/head.html",
+	).Render("")
+	if err != nil {
+		return apis.NewInternalServerError("failed to render login page", err)
+	}
+
+	return re.HTML(http.StatusOK, html)
+}
