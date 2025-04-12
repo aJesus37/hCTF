@@ -84,28 +84,37 @@ func RegisterHooks(se *core.ServeEvent, app *pocketbase.PocketBase) {
 
 	// These 2 will guarantee that if a non-admin creates a team, the team will be added to them
 	app.OnRecordCreateRequest("teams").BindFunc(func(e *core.RecordRequestEvent) error {
+		if e.Auth.IsSuperuser() {
+			e.Record.Set("created_by_admin", e.Auth.Id)
+		} else {
 		e.Record.Set("created_by", e.Auth.Id)
+			e.Record.Set("owner", e.Auth.Id)
+		}
 
 		return e.Next()
 	})
 	app.OnRecordAfterCreateSuccess("teams").BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.IsSuperuser() {
+		if e.Record.GetString("created_by_admin") != "" {
 			return e.Next()
 		}
+
 		users, err := app.FindCollectionByNameOrId("users")
 		if err != nil {
+			_ = app.Delete(e.Record)
 			return apis.NewInternalServerError("failed to find users collection", err)
 		}
 
 		user, err := app.FindRecordById(users, e.Record.GetString("created_by"))
 		if err != nil {
-			return apis.NewInternalServerError("failed to find user that created the team", err)
+			_ = app.Delete(e.Record)
+			return apis.NewInternalServerError("creator not found in users or superusers", err)
 		}
 
 		user.Set("team", e.Record.GetString("id"))
 
 		err = app.Save(user)
 		if err != nil {
+			_ = app.Delete(e.Record)
 			return apis.NewInternalServerError("could not attach team to user", err)
 		}
 
