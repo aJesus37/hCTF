@@ -1,0 +1,19 @@
+meta {
+  name: Delete Team
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{host}}/api/collections/teams/records/:id
+  body: none
+  auth: bearer
+}
+
+params:path {
+  id: bxh7583us56q1p2
+}
+
+auth:bearer {
+  token: {{userToken}}
+}
