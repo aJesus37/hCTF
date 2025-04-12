@@ -111,4 +111,10 @@ func RegisterHooks(se *core.ServeEvent, app *pocketbase.PocketBase) {
 
 		return e.Next()
 	})
+
+	app.OnRecordEnrich("teams").BindFunc(func(e *core.RecordEnrichEvent) error {
+		e.Record.Hide("collectionName", "updated", "created_by", "created_by_admin")
+
+		return e.Next()
+	})
 }
