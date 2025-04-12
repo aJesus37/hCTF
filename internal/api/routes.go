@@ -87,7 +87,7 @@ func RegisterHooks(se *core.ServeEvent, app *pocketbase.PocketBase) {
 		if e.Auth.IsSuperuser() {
 			e.Record.Set("created_by_admin", e.Auth.Id)
 		} else {
-		e.Record.Set("created_by", e.Auth.Id)
+			e.Record.Set("created_by", e.Auth.Id)
 			e.Record.Set("owner", e.Auth.Id)
 		}
 
