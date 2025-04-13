@@ -29,6 +29,10 @@ func RegisterViewRoutes(se *core.ServeEvent, app *pocketbase.PocketBase, templat
 		return views.RenderLogin(re, templateRegistry)
 	})
 
+	se.Router.GET("/teams", func(re *core.RequestEvent) error {
+		return views.RenderTeams(re, templateRegistry)
+	})
+
 }
 
 // RegisterAPIRoutes registers all API-related routes
@@ -83,6 +87,17 @@ func RegisterAPIRoutes(se *core.ServeEvent, app *pocketbase.PocketBase, template
 	se.Router.DELETE("/api/v1/questions/{id}", func(re *core.RequestEvent) error {
 		return routes.DeleteQuestion(app, re)
 	}).Bind(apis.RequireAuth("_superusers"))
+
+	// Adds default 404 when there is no route match
+	// TODO: Add a proper page instead of JSON
+	// TODO: Make it not break the staticFS
+	// se.Router.BindFunc(func(re *core.RequestEvent) error {
+	// 	if !se.Router.HasRoute(re.Request.Method, re.Request.URL.Path) {
+	// 		return re.NotFoundError("not found", errors.New(""))
+	// 	}
+	// 	return re.Next()
+	// })
+
 }
 
 func RegisterHooks(se *core.ServeEvent, app *pocketbase.PocketBase) {

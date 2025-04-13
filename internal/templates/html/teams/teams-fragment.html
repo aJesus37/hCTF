@@ -1,0 +1,18 @@
+{{ define "teamsFragment" }}
+<div class="columns container pt-5">
+    <div class="column">
+        <ul x-data="{ teams: [], async fetchTeams() { 
+            const response = await axios.get('/api/collections/teams/records');
+            this.teams = response.data.items; // Ensure 'items' exists in the API response
+        } }" x-init="fetchTeams">
+            <template x-for="team in teams" :key="team.id"> <!-- Add a unique key -->
+                <li class="section box">
+                    <h2 x-text="team.name" class="title is-2"></h2> <!-- Display team name -->
+                    <h3 x-text="team.description" class="subtitle"></h3> <!-- Display team description -->
+                </li>
+            </template>
+        </ul>
+    </div>
+</div>
+
+{{ end }}

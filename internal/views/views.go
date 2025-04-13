@@ -76,3 +76,18 @@ func RenderLogin(re *core.RequestEvent, templateRegistry *template.Registry) err
 
 	return re.HTML(http.StatusOK, html)
 }
+
+func RenderTeams(re *core.RequestEvent, templateRegistry *template.Registry) error {
+	html, err := templateRegistry.LoadFS(
+		templates.TemplateFS,
+		"html/teams/teams.html",
+		"html/teams/teams-fragment.html",
+		"html/navbar.html",
+		"html/head.html",
+	).Render("")
+	if err != nil {
+		return apis.NewInternalServerError("failed to render teams page", err)
+	}
+
+	return re.HTML(http.StatusOK, html)
+}
