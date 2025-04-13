@@ -54,6 +54,9 @@ func (a *App) setupRoutes() {
 		// Register static assets
 		se.Router.GET("/static/{path...}", apis.Static(a.staticFS, true))
 
+		// Register Middlewares
+		api.RegisterMiddlewares(se, a.pb)
+
 		// Register view routes
 		api.RegisterViewRoutes(se, a.pb, a.templateRegistry)
 

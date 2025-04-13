@@ -7,6 +7,7 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/template"
 )
 
@@ -134,9 +135,21 @@ func RegisterHooks(se *core.ServeEvent, app *pocketbase.PocketBase) {
 
 	// Sets the "Set-Cookie" response header, so that the browser retains the token as a Cookie
 	app.OnRecordAuthRequest().BindFunc(func(e *core.RecordAuthRequestEvent) error {
-		e.Response.Header().Set("Set-Cookie", "Authorization="+e.Token+"; Path=/; HttpOnly; SameSite=Lax")
+		e.Response.Header().Set("Set-Cookie", "hctf_auth="+e.Token+"; Path=/; HttpOnly; SameSite=Lax")
 		e.Response.Header().Set("HX-Redirect", "/home")
 
 		return e.Next()
 	})
+}
+
+func RegisterMiddlewares(se *core.ServeEvent, app *pocketbase.PocketBase) {
+	se.Router.Bind(&hook.Handler[*core.RequestEvent]{Id: "cookie", Func: func(e *core.RequestEvent) error {
+		cookie, err := e.Request.Cookie("hctf_auth")
+		if err == nil && cookie != nil {
+			// Set Authorization header from cookie value
+			e.Request.Header.Set("Authorization", cookie.Value)
+		}
+		return e.Next()
+	},
+		Priority: -1050})
 }
