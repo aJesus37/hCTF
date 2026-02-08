@@ -117,6 +117,14 @@ tasks:
       - sudo rm -f /usr/local/bin/{{.BINARY_NAME}}
       - echo "Uninstalled from /usr/local/bin/{{.BINARY_NAME}}"
 
+  setup-sql:
+    desc: Download DuckDB WASM for local SQL Playground support
+    cmds:
+      - sh scripts/setup-duckdb-local.sh
+    preconditions:
+      - sh: test -f scripts/setup-duckdb-local.sh
+        msg: "Setup script not found"
+
   help:
     desc: Show help information
     cmds:
