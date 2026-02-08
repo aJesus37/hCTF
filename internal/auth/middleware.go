@@ -18,6 +18,7 @@ const (
 type Claims struct {
 	UserID  string `json:"user_id"`
 	Email   string `json:"email"`
+	Name    string `json:"name"`
 	IsAdmin bool   `json:"is_admin"`
 	jwt.RegisteredClaims
 }
@@ -25,10 +26,11 @@ type Claims struct {
 var jwtSecret = []byte("change-this-secret-in-production")
 
 // GenerateToken creates a JWT token for the user
-func GenerateToken(userID, email string, isAdmin bool) (string, error) {
+func GenerateToken(userID, email, name string, isAdmin bool) (string, error) {
 	claims := &Claims{
 		UserID:  userID,
 		Email:   email,
+		Name:    name,
 		IsAdmin: isAdmin,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(168 * time.Hour)), // 7 days

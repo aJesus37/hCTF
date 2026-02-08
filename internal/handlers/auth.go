@@ -62,7 +62,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate token
-	token, err := auth.GenerateToken(user.ID, user.Email, user.IsAdmin)
+	token, err := auth.GenerateToken(user.ID, user.Email, user.Name, user.IsAdmin)
 	if err != nil {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 		return
@@ -111,7 +111,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate token
-	token, err := auth.GenerateToken(user.ID, user.Email, user.IsAdmin)
+	token, err := auth.GenerateToken(user.ID, user.Email, user.Name, user.IsAdmin)
 	if err != nil {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 		return
