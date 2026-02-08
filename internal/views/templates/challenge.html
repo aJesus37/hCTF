@@ -1,0 +1,62 @@
+{{define "content"}}
+<div class="mb-8">
+    <a href="/challenges" class="text-blue-400 hover:text-blue-300 mb-4 inline-block">&larr; Back to Challenges</a>
+    <h1 class="text-4xl font-bold text-white mb-2">{{.Challenge.Name}}</h1>
+    <div class="flex gap-4 items-center mb-4">
+        <span class="px-3 py-1 rounded text-sm
+            {{if eq .Challenge.Difficulty "easy"}}bg-green-600 text-green-100
+            {{else if eq .Challenge.Difficulty "medium"}}bg-yellow-600 text-yellow-100
+            {{else}}bg-red-600 text-red-100{{end}}">
+            {{.Challenge.Difficulty}}
+        </span>
+        <span class="text-gray-400">Category: <span class="text-blue-400">{{.Challenge.Category}}</span></span>
+    </div>
+    <p class="text-gray-300">{{.Challenge.Description}}</p>
+</div>
+
+<div class="space-y-6">
+    {{range .Questions}}
+    <div class="bg-dark-surface border border-dark-border rounded-lg p-6">
+        <h2 class="text-2xl font-bold text-white mb-4">{{.Name}}</h2>
+        <p class="text-gray-300 mb-4">{{.Description}}</p>
+
+        {{if .FileURL}}
+        <div class="mb-4">
+            <a href="{{.FileURL}}" class="text-blue-400 hover:text-blue-300">
+                📎 Download File
+            </a>
+        </div>
+        {{end}}
+
+        <div class="mb-4">
+            <span class="text-sm text-gray-400">Flag format:</span>
+            <code class="ml-2 px-2 py-1 bg-dark-bg rounded text-green-400">{{.FlagMask}}</code>
+        </div>
+
+        <div class="mb-4">
+            <span class="text-sm text-yellow-400">Points: {{.Points}}</span>
+        </div>
+
+        {{if $.User}}
+        <form hx-post="/api/questions/{{.ID}}/submit"
+              hx-target="#result-{{.ID}}"
+              hx-swap="innerHTML"
+              class="flex gap-2">
+            <input type="text"
+                   name="flag"
+                   placeholder="Enter flag..."
+                   class="flex-1 px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-blue-500"
+                   required>
+            <button type="submit"
+                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded">
+                Submit
+            </button>
+        </form>
+        <div id="result-{{.ID}}" class="mt-4"></div>
+        {{else}}
+        <p class="text-yellow-400">Please <a href="/login" class="text-blue-400 hover:text-blue-300">login</a> to submit flags</p>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{end}}

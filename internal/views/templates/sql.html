@@ -1,0 +1,212 @@
+{{define "content"}}
+<div class="mb-8">
+    <h1 class="text-4xl font-bold text-purple-400 mb-4">SQL Playground</h1>
+    <p class="text-gray-300">Query CTF data using SQL (powered by DuckDB WASM)</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+    <!-- Schema sidebar -->
+    <div class="lg:col-span-1 bg-dark-surface border border-dark-border rounded-lg p-4">
+        <h3 class="text-lg font-bold text-white mb-4">Schema</h3>
+        <div class="space-y-4 text-sm">
+            <div>
+                <h4 class="font-bold text-blue-400 mb-2">challenges</h4>
+                <ul class="text-gray-400 space-y-1 ml-4">
+                    <li>id, name, category</li>
+                    <li>difficulty, visible</li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-blue-400 mb-2">questions</h4>
+                <ul class="text-gray-400 space-y-1 ml-4">
+                    <li>id, challenge_id</li>
+                    <li>name, points</li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-blue-400 mb-2">submissions</h4>
+                <ul class="text-gray-400 space-y-1 ml-4">
+                    <li>id, question_id</li>
+                    <li>user_id, is_correct</li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-blue-400 mb-2">users</h4>
+                <ul class="text-gray-400 space-y-1 ml-4">
+                    <li>id, name, team_id</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="mt-6">
+            <h4 class="font-bold text-white mb-2">Examples</h4>
+            <button onclick="setQuery(exampleQueries[0])" class="text-left w-full text-sm text-blue-400 hover:text-blue-300 mb-2">
+                Top 10 users
+            </button>
+            <button onclick="setQuery(exampleQueries[1])" class="text-left w-full text-sm text-blue-400 hover:text-blue-300 mb-2">
+                Hardest challenges
+            </button>
+            <button onclick="setQuery(exampleQueries[2])" class="text-left w-full text-sm text-blue-400 hover:text-blue-300">
+                Category stats
+            </button>
+        </div>
+    </div>
+
+    <!-- Query editor and results -->
+    <div class="lg:col-span-3 space-y-4">
+        <div>
+            <textarea id="query-editor"
+                      class="w-full h-48 px-4 py-3 bg-dark-bg border border-dark-border text-white font-mono text-sm rounded focus:outline-none focus:border-purple-500"
+                      placeholder="SELECT * FROM challenges LIMIT 10;">SELECT c.name, c.category, c.difficulty, COUNT(s.id) as solves
+FROM challenges c
+LEFT JOIN questions q ON c.id = q.challenge_id
+LEFT JOIN submissions s ON q.id = s.question_id AND s.is_correct = 1
+WHERE c.visible = 1
+GROUP BY c.id, c.name, c.category, c.difficulty
+ORDER BY solves DESC;</textarea>
+        </div>
+
+        <div class="flex gap-2">
+            <button onclick="executeQuery()"
+                    class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded">
+                Run Query
+            </button>
+            <button onclick="clearQuery()"
+                    class="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded">
+                Clear
+            </button>
+        </div>
+
+        <div id="query-results" class="bg-dark-surface border border-dark-border rounded-lg p-4 min-h-64">
+            <p class="text-gray-400">Results will appear here...</p>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/+esm';
+
+    let db, conn;
+
+    const exampleQueries = [
+        `-- Top 10 users by points
+SELECT u.name, SUM(q.points) as total_points, COUNT(*) as solves
+FROM users u
+JOIN submissions s ON u.id = s.user_id
+JOIN questions q ON s.question_id = q.id
+WHERE s.is_correct = 1
+GROUP BY u.id, u.name
+ORDER BY total_points DESC
+LIMIT 10;`,
+
+        `-- Most difficult challenges (fewest solves)
+SELECT c.name, c.category, c.difficulty, COUNT(s.id) as solve_count
+FROM challenges c
+LEFT JOIN questions q ON c.id = q.challenge_id
+LEFT JOIN submissions s ON q.id = s.question_id AND s.is_correct = 1
+GROUP BY c.id, c.name, c.category, c.difficulty
+ORDER BY solve_count ASC
+LIMIT 10;`,
+
+        `-- Category statistics
+SELECT category, COUNT(*) as challenge_count, AVG(solve_count) as avg_solves
+FROM (
+    SELECT c.category, c.id, COUNT(s.id) as solve_count
+    FROM challenges c
+    LEFT JOIN questions q ON c.id = q.challenge_id
+    LEFT JOIN submissions s ON q.id = s.question_id AND s.is_correct = 1
+    GROUP BY c.category, c.id
+)
+GROUP BY category;`
+    ];
+
+    window.exampleQueries = exampleQueries;
+
+    window.setQuery = function(query) {
+        document.getElementById('query-editor').value = query;
+    };
+
+    window.clearQuery = function() {
+        document.getElementById('query-editor').value = '';
+        document.getElementById('query-results').innerHTML = '<p class="text-gray-400">Results will appear here...</p>';
+    };
+
+    window.executeQuery = async function() {
+        const query = document.getElementById('query-editor').value.trim();
+        if (!query) return;
+
+        const resultsDiv = document.getElementById('query-results');
+        resultsDiv.innerHTML = '<p class="text-gray-400">Executing query...</p>';
+
+        try {
+            if (!conn) {
+                await initDB();
+            }
+
+            const result = await conn.query(query);
+            const rows = result.toArray();
+
+            if (rows.length === 0) {
+                resultsDiv.innerHTML = '<p class="text-yellow-400">No results found</p>';
+                return;
+            }
+
+            const columns = Object.keys(rows[0]);
+            let html = '<div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-dark-bg"><tr>';
+
+            columns.forEach(col => {
+                html += `<th class="px-4 py-2 text-left text-gray-400">${col}</th>`;
+            });
+            html += '</tr></thead><tbody class="divide-y divide-dark-border">';
+
+            rows.forEach(row => {
+                html += '<tr class="hover:bg-dark-bg">';
+                columns.forEach(col => {
+                    const value = row[col] === null ? '-' : row[col];
+                    html += `<td class="px-4 py-2 text-gray-300">${value}</td>`;
+                });
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            html += `<p class="mt-4 text-sm text-gray-400">${rows.length} row(s) returned</p>`;
+            resultsDiv.innerHTML = html;
+        } catch (error) {
+            resultsDiv.innerHTML = `<p class="text-red-400">Error: ${error.message}</p>`;
+        }
+    };
+
+    async function initDB() {
+        const resultsDiv = document.getElementById('query-results');
+        resultsDiv.innerHTML = '<p class="text-gray-400">Loading database...</p>';
+
+        const bundle = await duckdb.selectBundle({
+            mvp: {
+                mainModule: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/dist/duckdb-mvp.wasm',
+                mainWorker: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/dist/duckdb-browser-mvp.worker.js'
+            }
+        });
+
+        const worker = new Worker(bundle.mainWorker);
+        const logger = new duckdb.ConsoleLogger();
+        db = new duckdb.AsyncDuckDB(logger, worker);
+        await db.instantiate(bundle.mainModule);
+
+        conn = await db.connect();
+
+        // Load snapshot data
+        const snapshot = await fetch('/api/sql/snapshot').then(r => r.json());
+
+        // Create tables from JSON data
+        await conn.insertJSONFromPath('challenges', { data: snapshot.challenges });
+        await conn.insertJSONFromPath('questions', { data: snapshot.questions });
+        await conn.insertJSONFromPath('submissions', { data: snapshot.submissions });
+        await conn.insertJSONFromPath('users', { data: snapshot.users });
+
+        resultsDiv.innerHTML = '<p class="text-green-400">Database loaded! Run a query to get started.</p>';
+    }
+
+    // Auto-init on page load
+    initDB();
+</script>
+{{end}}

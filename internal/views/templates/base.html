@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} - hCTF2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js" defer></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            bg: '#0f172a',
+                            surface: '#1e293b',
+                            border: '#334155',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <nav class="bg-dark-surface border-b border-dark-border">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <a href="/" class="flex items-center px-2 text-xl font-bold text-blue-400">hCTF2</a>
+                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                        <a href="/challenges" class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-300 hover:text-white">
+                            Challenges
+                        </a>
+                        <a href="/scoreboard" class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-300 hover:text-white">
+                            Scoreboard
+                        </a>
+                        <a href="/sql" class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-300 hover:text-white">
+                            SQL Playground
+                        </a>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    {{if .User}}
+                        <span class="text-sm text-gray-300 mr-4">{{.User.Name}}</span>
+                        {{if .User.IsAdmin}}
+                            <a href="/admin" class="text-sm text-purple-400 hover:text-purple-300 mr-4">Admin</a>
+                        {{end}}
+                        <button hx-post="/api/auth/logout" hx-swap="none" class="text-sm text-red-400 hover:text-red-300">
+                            Logout
+                        </button>
+                    {{else}}
+                        <a href="/login" class="text-sm text-gray-300 hover:text-white mr-4">Login</a>
+                        <a href="/register" class="text-sm text-blue-400 hover:text-blue-300">Register</a>
+                    {{end}}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {{template "content" .}}
+    </main>
+
+    <footer class="mt-auto border-t border-dark-border py-6">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-400">
+            <p>hCTF2 - A modern CTF platform with SQL-powered analytics</p>
+        </div>
+    </footer>
+</body>
+</html>

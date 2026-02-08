@@ -1,0 +1,126 @@
+version: '3'
+
+vars:
+  BINARY_NAME: hctf2
+  MAIN_PATH: cmd/server/main.go
+  BUILD_FLAGS: -ldflags="-s -w"
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  build:
+    desc: Build the application
+    cmds:
+      - CGO_ENABLED=0 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}} {{.MAIN_PATH}}
+    sources:
+      - '**/*.go'
+      - 'internal/views/templates/**/*.html'
+      - 'internal/database/migrations/**/*.sql'
+    generates:
+      - '{{.BINARY_NAME}}'
+
+  run:
+    desc: Run the application with admin setup
+    cmds:
+      - go run {{.MAIN_PATH}} --port 8090 --admin-email admin@hctf.local --admin-password changeme
+
+  run-dev:
+    desc: Run the application without admin setup
+    cmds:
+      - go run {{.MAIN_PATH}} --port 8090
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -f {{.BINARY_NAME}} {{.BINARY_NAME}}-* *.db *.db-shm *.db-wal
+
+  test:
+    desc: Run tests
+    cmds:
+      - go test ./... -v
+
+  deps:
+    desc: Install dependencies
+    cmds:
+      - go mod download
+      - go mod tidy
+
+  fmt:
+    desc: Format code
+    cmds:
+      - go fmt ./...
+
+  build-prod:
+    desc: Create a production build for Linux AMD64
+    cmds:
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-linux-amd64 {{.MAIN_PATH}}
+
+  build-all:
+    desc: Build for all platforms
+    cmds:
+      - task: build-linux
+      - task: build-darwin
+      - task: build-windows
+
+  build-linux:
+    desc: Build for Linux AMD64
+    cmds:
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-linux-amd64 {{.MAIN_PATH}}
+
+  build-darwin:
+    desc: Build for macOS AMD64
+    cmds:
+      - CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-darwin-amd64 {{.MAIN_PATH}}
+
+  build-windows:
+    desc: Build for Windows AMD64
+    cmds:
+      - CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}}-windows-amd64.exe {{.MAIN_PATH}}
+
+  lint:
+    desc: Run linters
+    cmds:
+      - golangci-lint run ./...
+    preconditions:
+      - sh: command -v golangci-lint
+        msg: "golangci-lint not installed. Install from https://golangci-lint.run/usage/install/"
+
+  watch:
+    desc: Watch for changes and rebuild
+    cmds:
+      - task: build
+      - task: run-dev
+    watch: true
+
+  db-reset:
+    desc: Reset the database
+    cmds:
+      - rm -f hctf2.db hctf2.db-shm hctf2.db-wal
+      - echo "Database reset. Run 'task run' to recreate."
+
+  install:
+    desc: Install the binary to /usr/local/bin
+    cmds:
+      - task: build
+      - sudo cp {{.BINARY_NAME}} /usr/local/bin/
+      - echo "Installed to /usr/local/bin/{{.BINARY_NAME}}"
+    preconditions:
+      - sh: '[ -f {{.BINARY_NAME}} ]'
+        msg: "Binary not found. Run 'task build' first."
+
+  uninstall:
+    desc: Uninstall the binary from /usr/local/bin
+    cmds:
+      - sudo rm -f /usr/local/bin/{{.BINARY_NAME}}
+      - echo "Uninstalled from /usr/local/bin/{{.BINARY_NAME}}"
+
+  help:
+    desc: Show help information
+    cmds:
+      - echo "hCTF2 - Modern CTF Platform"
+      - echo ""
+      - echo "Available tasks:"
+      - task --list

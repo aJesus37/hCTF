@@ -1,0 +1,14 @@
+server:
+  port: 8090
+  host: 0.0.0.0
+
+database:
+  path: ./hctf2.db
+
+auth:
+  jwt_secret: "change-this-to-a-random-secret-in-production"
+  session_duration: 168h # 7 days
+
+admin:
+  email: admin@example.com
+  password: changeme

@@ -1,0 +1,87 @@
+package models
+
+import "time"
+
+type User struct {
+	ID           string     `json:"id"`
+	Email        string     `json:"email"`
+	PasswordHash string     `json:"-"`
+	Name         string     `json:"name"`
+	AvatarURL    *string    `json:"avatar_url,omitempty"`
+	TeamID       *string    `json:"team_id,omitempty"`
+	IsAdmin      bool       `json:"is_admin"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
+type Team struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description,omitempty"`
+	OwnerID     string    `json:"owner_id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type Challenge struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Category    string    `json:"category"`
+	Difficulty  string    `json:"difficulty"`
+	Tags        *string   `json:"tags,omitempty"`
+	Visible     bool      `json:"visible"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type Question struct {
+	ID            string    `json:"id"`
+	ChallengeID   string    `json:"challenge_id"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	Flag          string    `json:"-"`
+	FlagMask      *string   `json:"flag_mask,omitempty"`
+	CaseSensitive bool      `json:"case_sensitive"`
+	Points        int       `json:"points"`
+	FileURL       *string   `json:"file_url,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type Hint struct {
+	ID         string    `json:"id"`
+	QuestionID string    `json:"question_id"`
+	Content    string    `json:"content"`
+	Cost       int       `json:"cost"`
+	Order      int       `json:"order"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type Submission struct {
+	ID            string    `json:"id"`
+	QuestionID    string    `json:"question_id"`
+	UserID        string    `json:"user_id"`
+	TeamID        *string   `json:"team_id,omitempty"`
+	SubmittedFlag string    `json:"submitted_flag"`
+	IsCorrect     bool      `json:"is_correct"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+type HintUnlock struct {
+	ID        string    `json:"id"`
+	HintID    string    `json:"hint_id"`
+	UserID    string    `json:"user_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type ScoreboardEntry struct {
+	Rank       int       `json:"rank"`
+	UserID     string    `json:"user_id"`
+	UserName   string    `json:"user_name"`
+	TeamID     *string   `json:"team_id,omitempty"`
+	TeamName   *string   `json:"team_name,omitempty"`
+	Points     int       `json:"points"`
+	SolveCount int       `json:"solve_count"`
+	LastSolve  time.Time `json:"last_solve"`
+}

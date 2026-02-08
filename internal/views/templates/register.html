@@ -1,0 +1,60 @@
+{{define "content"}}
+<div class="max-w-md mx-auto">
+    <div class="bg-dark-surface border border-dark-border rounded-lg p-8">
+        <h1 class="text-3xl font-bold text-white mb-6 text-center">Register</h1>
+
+        <form hx-post="/api/auth/register"
+              hx-target="#message"
+              hx-swap="innerHTML"
+              class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Name</label>
+                <input type="text"
+                       name="name"
+                       required
+                       class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-blue-500">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                <input type="email"
+                       name="email"
+                       required
+                       class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-blue-500">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                <input type="password"
+                       name="password"
+                       required
+                       minlength="8"
+                       class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-blue-500">
+            </div>
+
+            <button type="submit"
+                    class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium">
+                Register
+            </button>
+        </form>
+
+        <div id="message" class="mt-4"></div>
+
+        <p class="mt-6 text-center text-sm text-gray-400">
+            Already have an account?
+            <a href="/login" class="text-blue-400 hover:text-blue-300">Login here</a>
+        </p>
+    </div>
+</div>
+
+<script>
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+    if (evt.detail.successful && evt.detail.xhr.status === 200) {
+        window.location.href = '/';
+    } else if (!evt.detail.successful) {
+        const msg = evt.detail.xhr.responseText || 'Registration failed';
+        document.getElementById('message').innerHTML = `<p class="text-red-400">${msg}</p>`;
+    }
+});
+</script>
+{{end}}
