@@ -84,6 +84,8 @@
             {{template "sql-content" .}}
         {{else if eq .Page "admin"}}
             {{template "admin-content" .}}
+        {{else if eq .Page "error"}}
+            {{template "error-content" .}}
         {{else}}
             {{template "index-content" .}}
         {{end}}

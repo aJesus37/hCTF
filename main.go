@@ -264,6 +264,19 @@ func (s *Server) render(w http.ResponseWriter, name string, data interface{}) {
 	}
 }
 
+// Error handler for rendering error pages
+func (s *Server) renderError(w http.ResponseWriter, statusCode int, title, message string) {
+	w.WriteHeader(statusCode)
+	data := map[string]interface{}{
+		"Title":      title,
+		"Page":       "error",
+		"User":       nil,
+		"StatusCode": statusCode,
+		"Message":    message,
+	}
+	s.render(w, "base.html", data)
+}
+
 // Page handlers
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	// Fetch statistics
