@@ -82,6 +82,8 @@
             {{template "scoreboard-content" .}}
         {{else if eq .Page "sql"}}
             {{template "sql-content" .}}
+        {{else if eq .Page "admin"}}
+            {{template "admin-content" .}}
         {{else}}
             {{template "index-content" .}}
         {{end}}

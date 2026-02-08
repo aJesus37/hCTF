@@ -156,6 +156,12 @@ func main() {
 	r.Get("/login", s.handleLoginPage)
 	r.Get("/register", s.handleRegisterPage)
 
+	// Admin UI route
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireAdmin)
+		r.Get("/admin", s.handleAdminDashboard)
+	})
+
 	// API routes - Auth
 	r.Post("/api/auth/register", s.authH.Register)
 	r.Post("/api/auth/login", s.authH.Login)
@@ -362,6 +368,33 @@ func (s *Server) handleRegisterPage(w http.ResponseWriter, r *http.Request) {
 		"Title": "Register",
 		"Page":  "register",
 		"User":  auth.GetUserFromContext(r.Context()),
+	}
+	s.render(w, "base.html", data)
+}
+
+func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+
+	// Fetch all challenges (including hidden)
+	challenges, err := s.db.GetChallenges(false)
+	if err != nil {
+		http.Error(w, "Failed to fetch challenges", http.StatusInternalServerError)
+		return
+	}
+
+	// Fetch all questions
+	questions, err := s.db.GetAllQuestions()
+	if err != nil {
+		http.Error(w, "Failed to fetch questions", http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Title":      "Admin Dashboard",
+		"Page":       "admin",
+		"User":       claims,
+		"Challenges": challenges,
+		"Questions":  questions,
 	}
 	s.render(w, "base.html", data)
 }

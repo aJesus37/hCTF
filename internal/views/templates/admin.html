@@ -1,0 +1,329 @@
+{{define "admin-content"}}
+<div class="mb-8">
+    <h1 class="text-4xl font-bold text-purple-400 mb-4">Admin Dashboard</h1>
+    <p class="text-gray-300">Manage challenges and questions for the CTF</p>
+</div>
+
+<div x-data="{ tab: 'challenges', showCreateForm: false, editingId: null }" class="space-y-8">
+    <!-- Tab Navigation -->
+    <div class="border-b border-dark-border">
+        <div class="flex space-x-8">
+            <button
+                @click="tab = 'challenges'"
+                :class="tab === 'challenges' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400 hover:text-gray-300'"
+                class="pb-3 font-medium transition">
+                Challenges
+            </button>
+            <button
+                @click="tab = 'questions'"
+                :class="tab === 'questions' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400 hover:text-gray-300'"
+                class="pb-3 font-medium transition">
+                Questions
+            </button>
+        </div>
+    </div>
+
+    <!-- Challenges Tab -->
+    <div x-show="tab === 'challenges'" class="space-y-6">
+        <!-- Create Challenge Button -->
+        <button
+            @click="showCreateForm = !showCreateForm"
+            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium transition">
+            + Create Challenge
+        </button>
+
+        <!-- Create Challenge Form -->
+        <div x-show="showCreateForm" class="bg-dark-surface border border-dark-border rounded-lg p-6 space-y-4">
+            <h3 class="text-xl font-bold text-white mb-4">Create New Challenge</h3>
+            <form
+                hx-post="/api/admin/challenges"
+                hx-target="#challenges-list"
+                hx-swap="beforeend"
+                @htmx:afterSwap="showCreateForm = false; $el.reset()"
+                class="space-y-4">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Challenge Name *</label>
+                    <input
+                        type="text"
+                        name="name"
+                        required
+                        placeholder="e.g., Web Security 101"
+                        class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Description *</label>
+                    <textarea
+                        name="description"
+                        required
+                        placeholder="Challenge description..."
+                        rows="3"
+                        class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Category *</label>
+                        <select
+                            name="category"
+                            required
+                            class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500">
+                            <option value="">Select category</option>
+                            <option value="web">Web</option>
+                            <option value="crypto">Crypto</option>
+                            <option value="pwn">Pwn</option>
+                            <option value="forensics">Forensics</option>
+                            <option value="misc">Misc</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Difficulty *</label>
+                        <select
+                            name="difficulty"
+                            required
+                            class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500">
+                            <option value="">Select difficulty</option>
+                            <option value="easy">Easy</option>
+                            <option value="medium">Medium</option>
+                            <option value="hard">Hard</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center">
+                    <input
+                        type="checkbox"
+                        id="visible-create"
+                        name="visible"
+                        value="on"
+                        checked
+                        class="w-4 h-4 rounded border-dark-border bg-dark-bg cursor-pointer">
+                    <label for="visible-create" class="ml-2 text-sm text-gray-300 cursor-pointer">Visible to users</label>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button
+                        type="submit"
+                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium transition">
+                        Create
+                    </button>
+                    <button
+                        type="button"
+                        @click="showCreateForm = false"
+                        class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded font-medium transition">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Challenges List -->
+        <div id="challenges-list" class="space-y-4">
+            {{range .Challenges}}
+            <div id="challenge-{{.ID}}" class="bg-dark-surface border border-dark-border rounded-lg p-6 hover:border-purple-500 transition">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <h3 class="text-xl font-bold text-white">{{.Name}}</h3>
+                        <p class="text-sm text-gray-400">
+                            Category: <span class="text-blue-400">{{.Category}}</span> •
+                            Difficulty: <span class="font-medium
+                                {{if eq .Difficulty "easy"}}text-green-400
+                                {{else if eq .Difficulty "medium"}}text-yellow-400
+                                {{else}}text-red-400{{end}}">{{.Difficulty}}</span>
+                            {{if not .Visible}}<span class="ml-2 text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">Hidden</span>{{end}}
+                        </p>
+                    </div>
+                </div>
+                <p class="text-gray-300 mb-4">{{.Description}}</p>
+                <div class="flex gap-2">
+                    <button
+                        hx-get="/admin/challenges/{{.ID}}/edit"
+                        hx-target="#challenge-{{.ID}}"
+                        hx-swap="outerHTML"
+                        class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition">
+                        Edit
+                    </button>
+                    <button
+                        @click="if(confirm('Delete this challenge? This action cannot be undone.')) { htmx.trigger('#del-challenge-{{.ID}}', 'click') }"
+                        class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition">
+                        Delete
+                    </button>
+                    <button
+                        style="display:none"
+                        id="del-challenge-{{.ID}}"
+                        hx-delete="/api/admin/challenges/{{.ID}}"
+                        hx-target="#challenge-{{.ID}}"
+                        hx-swap="outerHTML swap:1s">
+                    </button>
+                </div>
+            </div>
+            {{end}}
+            {{if not .Challenges}}
+            <div class="text-center py-8 text-gray-400">
+                <p>No challenges yet. Create one to get started!</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- Questions Tab -->
+    <div x-show="tab === 'questions'" class="space-y-6">
+        <!-- Create Question Button -->
+        <button
+            @click="showCreateForm = !showCreateForm"
+            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium transition">
+            + Create Question
+        </button>
+
+        <!-- Create Question Form -->
+        <div x-show="showCreateForm" class="bg-dark-surface border border-dark-border rounded-lg p-6 space-y-4">
+            <h3 class="text-xl font-bold text-white mb-4">Create New Question</h3>
+            <form
+                hx-post="/api/admin/questions"
+                hx-target="#questions-list"
+                hx-swap="beforeend"
+                @htmx:afterSwap="showCreateForm = false; $el.reset()"
+                class="space-y-4">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Challenge *</label>
+                    <select
+                        name="challenge_id"
+                        required
+                        class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500">
+                        <option value="">Select challenge</option>
+                        {{range .Challenges}}
+                        <option value="{{.ID}}">{{.Name}}</option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Question Name *</label>
+                    <input
+                        type="text"
+                        name="name"
+                        required
+                        placeholder="e.g., Find the SQL Injection"
+                        class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Description *</label>
+                    <textarea
+                        name="description"
+                        required
+                        placeholder="Question description and hints..."
+                        rows="3"
+                        class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Flag *</label>
+                        <input
+                            type="text"
+                            name="flag"
+                            required
+                            placeholder="flag{...}"
+                            class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Points *</label>
+                        <input
+                            type="number"
+                            name="points"
+                            required
+                            value="100"
+                            min="1"
+                            class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Flag Mask (leave empty to auto-generate)</label>
+                    <input
+                        type="text"
+                        name="flag_mask"
+                        placeholder="flag{****}"
+                        class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500">
+                </div>
+
+                <div class="flex items-center">
+                    <input
+                        type="checkbox"
+                        id="case-sensitive-create"
+                        name="case_sensitive"
+                        value="on"
+                        class="w-4 h-4 rounded border-dark-border bg-dark-bg cursor-pointer">
+                    <label for="case-sensitive-create" class="ml-2 text-sm text-gray-300 cursor-pointer">Case sensitive flag</label>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button
+                        type="submit"
+                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium transition">
+                        Create
+                    </button>
+                    <button
+                        type="button"
+                        @click="showCreateForm = false"
+                        class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded font-medium transition">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Questions List -->
+        <div id="questions-list" class="space-y-4">
+            {{range .Questions}}
+            <div id="question-{{.ID}}" class="bg-dark-surface border border-dark-border rounded-lg p-6 hover:border-purple-500 transition">
+                <div class="mb-3">
+                    <h3 class="text-xl font-bold text-white">{{.Name}}</h3>
+                    <p class="text-sm text-gray-400">
+                        Challenge ID: <span class="text-blue-400">{{.ChallengeID}}</span> •
+                        Points: <span class="text-green-400 font-medium">{{.Points}}</span>
+                    </p>
+                </div>
+                <p class="text-gray-300 mb-2 text-sm">{{.Description}}</p>
+                <p class="text-gray-400 text-xs mb-4">
+                    Flag: <code class="bg-dark-bg px-2 py-1 rounded text-purple-400">{{.Flag}}</code>
+                    {{if .FlagMask}}<span class="ml-2">Mask: <code class="bg-dark-bg px-2 py-1 rounded text-yellow-400">{{.FlagMask}}</code></span>{{end}}
+                </p>
+                <div class="flex gap-2">
+                    <button
+                        hx-get="/admin/questions/{{.ID}}/edit"
+                        hx-target="#question-{{.ID}}"
+                        hx-swap="outerHTML"
+                        class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition">
+                        Edit
+                    </button>
+                    <button
+                        @click="if(confirm('Delete this question? This action cannot be undone.')) { htmx.trigger('#del-question-{{.ID}}', 'click') }"
+                        class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition">
+                        Delete
+                    </button>
+                    <button
+                        style="display:none"
+                        id="del-question-{{.ID}}"
+                        hx-delete="/api/admin/questions/{{.ID}}"
+                        hx-target="#question-{{.ID}}"
+                        hx-swap="outerHTML swap:1s">
+                    </button>
+                </div>
+            </div>
+            {{end}}
+            {{if not .Questions}}
+            <div class="text-center py-8 text-gray-400">
+                <p>No questions yet. Create one to get started!</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</div>
+
+{{end}}

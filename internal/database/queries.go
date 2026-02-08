@@ -170,6 +170,27 @@ func (db *DB) GetQuestionByID(id string) (*models.Question, error) {
 	return &q, nil
 }
 
+func (db *DB) GetAllQuestions() ([]models.Question, error) {
+	query := `SELECT id, challenge_id, name, description, flag, flag_mask, case_sensitive, points, file_url, created_at, updated_at
+	          FROM questions ORDER BY created_at DESC`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var questions []models.Question
+	for rows.Next() {
+		var q models.Question
+		if err := rows.Scan(&q.ID, &q.ChallengeID, &q.Name, &q.Description, &q.Flag, &q.FlagMask, &q.CaseSensitive, &q.Points, &q.FileURL, &q.CreatedAt, &q.UpdatedAt); err != nil {
+			return nil, err
+		}
+		questions = append(questions, q)
+	}
+	return questions, nil
+}
+
 func (db *DB) UpdateQuestion(id, name, description, flag string, flagMask *string, caseSensitive bool, points int, fileURL *string) error {
 	if flagMask == nil || *flagMask == "" {
 		mask := generateFlagMask(flag)

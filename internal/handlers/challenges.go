@@ -145,20 +145,86 @@ type CreateChallengeRequest struct {
 }
 
 func (h *ChallengeHandler) CreateChallenge(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
 	var req CreateChallengeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
+
+	if strings.Contains(contentType, "application/json") {
+		// JSON request
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+	} else {
+		// Form data from HTMX
+		if err := r.ParseForm(); err != nil {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<div class="text-red-400">Invalid request</div>`))
+			return
+		}
+		req.Name = r.FormValue("name")
+		req.Description = r.FormValue("description")
+		req.Category = r.FormValue("category")
+		req.Difficulty = r.FormValue("difficulty")
+		req.Visible = r.FormValue("visible") == "on"
 	}
 
 	challenge, err := h.db.CreateChallenge(req.Name, req.Description, req.Category, req.Difficulty, req.Tags, req.Visible)
 	if err != nil {
-		http.Error(w, "Failed to create challenge", http.StatusInternalServerError)
+		if strings.Contains(contentType, "application/json") {
+			http.Error(w, "Failed to create challenge", http.StatusInternalServerError)
+		} else {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<div class="text-red-400">Failed to create challenge</div>`))
+		}
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(challenge)
+	if strings.Contains(contentType, "application/json") {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(challenge)
+	} else {
+		// Return HTML card for HTMX
+		w.Header().Set("Content-Type", "text/html")
+		html := fmt.Sprintf(`<div id="challenge-%s" class="bg-dark-surface border border-dark-border rounded-lg p-6 hover:border-purple-500 transition">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <h3 class="text-xl font-bold text-white">%s</h3>
+                        <p class="text-sm text-gray-400">
+                            Category: <span class="text-blue-400">%s</span> •
+                            Difficulty: <span class="font-medium %s">%s</span>
+                            %s
+                        </p>
+                    </div>
+                </div>
+                <p class="text-gray-300 mb-4">%s</p>
+                <div class="flex gap-2">
+                    <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition">
+                        Edit
+                    </button>
+                    <button class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition">
+                        Delete
+                    </button>
+                </div>
+            </div>`,
+			challenge.ID,
+			challenge.Name,
+			challenge.Category,
+			map[string]string{
+				"easy":   "text-green-400",
+				"medium": "text-yellow-400",
+				"hard":   "text-red-400",
+			}[challenge.Difficulty],
+			challenge.Difficulty,
+			func() string {
+				if !challenge.Visible {
+					return `<span class="ml-2 text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">Hidden</span>`
+				}
+				return ""
+			}(),
+			challenge.Description,
+		)
+		w.Write([]byte(html))
+	}
 }
 
 func (h *ChallengeHandler) UpdateChallenge(w http.ResponseWriter, r *http.Request) {
@@ -183,12 +249,19 @@ func (h *ChallengeHandler) DeleteChallenge(w http.ResponseWriter, r *http.Reques
 	id := chi.URLParam(r, "id")
 
 	if err := h.db.DeleteChallenge(id); err != nil {
-		http.Error(w, "Failed to delete challenge", http.StatusInternalServerError)
+		contentType := r.Header.Get("Content-Type")
+		if strings.Contains(contentType, "application/json") {
+			http.Error(w, "Failed to delete challenge", http.StatusInternalServerError)
+		} else {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<div class="text-red-400">Failed to delete challenge</div>`))
+		}
 		return
 	}
 
+	// For HTMX, return empty response (element will be removed by hx-swap)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Challenge deleted"))
+	w.Write([]byte(""))
 }
 
 type CreateQuestionRequest struct {
@@ -203,20 +276,91 @@ type CreateQuestionRequest struct {
 }
 
 func (h *ChallengeHandler) CreateQuestion(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
 	var req CreateQuestionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
+
+	if strings.Contains(contentType, "application/json") {
+		// JSON request
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+	} else {
+		// Form data from HTMX
+		if err := r.ParseForm(); err != nil {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<div class="text-red-400">Invalid request</div>`))
+			return
+		}
+		req.ChallengeID = r.FormValue("challenge_id")
+		req.Name = r.FormValue("name")
+		req.Description = r.FormValue("description")
+		req.Flag = r.FormValue("flag")
+		flagMask := r.FormValue("flag_mask")
+		if flagMask != "" {
+			req.FlagMask = &flagMask
+		}
+		req.CaseSensitive = r.FormValue("case_sensitive") == "on"
+		points := 100
+		if p := r.FormValue("points"); p != "" {
+			fmt.Sscanf(p, "%d", &points)
+		}
+		req.Points = points
 	}
 
 	question, err := h.db.CreateQuestion(req.ChallengeID, req.Name, req.Description, req.Flag, req.FlagMask, req.CaseSensitive, req.Points, req.FileURL)
 	if err != nil {
-		http.Error(w, "Failed to create question", http.StatusInternalServerError)
+		if strings.Contains(contentType, "application/json") {
+			http.Error(w, "Failed to create question", http.StatusInternalServerError)
+		} else {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<div class="text-red-400">Failed to create question</div>`))
+		}
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(question)
+	if strings.Contains(contentType, "application/json") {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(question)
+	} else {
+		// Return HTML card for HTMX
+		w.Header().Set("Content-Type", "text/html")
+		flagMaskStr := ""
+		if question.FlagMask != nil {
+			flagMaskStr = fmt.Sprintf(`<span class="ml-2">Mask: <code class="bg-dark-bg px-2 py-1 rounded text-yellow-400">%s</code></span>`, *question.FlagMask)
+		}
+		html := fmt.Sprintf(`<div id="question-%s" class="bg-dark-surface border border-dark-border rounded-lg p-6 hover:border-purple-500 transition">
+                <div class="mb-3">
+                    <h3 class="text-xl font-bold text-white">%s</h3>
+                    <p class="text-sm text-gray-400">
+                        Challenge: <span class="text-blue-400">%s</span> •
+                        Points: <span class="text-green-400 font-medium">%d</span>
+                    </p>
+                </div>
+                <p class="text-gray-300 mb-2 text-sm">%s</p>
+                <p class="text-gray-400 text-xs mb-4">
+                    Flag: <code class="bg-dark-bg px-2 py-1 rounded text-purple-400">%s</code>
+                    %s
+                </p>
+                <div class="flex gap-2">
+                    <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition">
+                        Edit
+                    </button>
+                    <button class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition">
+                        Delete
+                    </button>
+                </div>
+            </div>`,
+			question.ID,
+			question.Name,
+			question.ChallengeID,
+			question.Points,
+			question.Description,
+			question.Flag,
+			flagMaskStr,
+		)
+		w.Write([]byte(html))
+	}
 }
 
 func (h *ChallengeHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
@@ -241,10 +385,17 @@ func (h *ChallengeHandler) DeleteQuestion(w http.ResponseWriter, r *http.Request
 	id := chi.URLParam(r, "id")
 
 	if err := h.db.DeleteQuestion(id); err != nil {
-		http.Error(w, "Failed to delete question", http.StatusInternalServerError)
+		contentType := r.Header.Get("Content-Type")
+		if strings.Contains(contentType, "application/json") {
+			http.Error(w, "Failed to delete question", http.StatusInternalServerError)
+		} else {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<div class="text-red-400">Failed to delete question</div>`))
+		}
 		return
 	}
 
+	// For HTMX, return empty response (element will be removed by hx-swap)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Question deleted"))
+	w.Write([]byte(""))
 }
