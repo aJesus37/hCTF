@@ -392,8 +392,10 @@
                 hx-swap="beforeend scroll:#hints-list:bottom"
                 @htmx:after-request="
                     if($event.detail.successful) {
-                        showCreateForm = false;
+                        const selectedQuestion = $el.querySelector('select[name=question_id]').value;
                         $el.reset();
+                        $el.querySelector('select[name=question_id]').value = selectedQuestion;
+                        $el.querySelector('textarea[name=content]').focus();
                         notification = 'Hint created successfully!';
                         notificationType = 'success';
                         showNotification = true;
@@ -474,9 +476,9 @@
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition">Edit</button>
+                    <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition" disabled title="Edit functionality coming soon">Edit</button>
                     <button @click="if(confirm('Delete?')) { htmx.trigger(this.nextElementSibling, 'click') }" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition">Delete</button>
-                    <button style="display:none" hx-delete="/api/admin/hints/{{.ID}}" hx-target="this" hx-swap="outerHTML swap:1s"></button>
+                    <button style="display:none" hx-delete="/api/admin/hints/{{.ID}}" hx-target="closest #hint-{{.ID}}" hx-swap="outerHTML swap:1s"></button>
                 </div>
             </div>
             {{end}}

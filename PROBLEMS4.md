@@ -1,0 +1,8 @@
+- Edit button wont work for Hints
+- All hints appear as "Hint 1" in the challenges page
+- When hint is unlocked, a JSON with text "{"message":"Hint unlocked successfully"}" take its place instead of the hint itself
+- When submitting correctly for a question you took hints, it shows the question points instead of the actual value gained because of the hints used
+- When reloading the Questions page for a challenge, a challenge which I have already solved won't appear as solved. I want it so that the correct answer appears grayed-out in the submit form instead
+- The Teams scoreboard will appear duplicated when there are 2 people in a team and both have a solve which gave points
+- When creating hints, when one is created, ideally, the Question should remain selected and the Content be emptied (with form focus for this field). 
+- When showing the hings in the Challenges page, line breaks will turn into spaces. Should maintain the breaks instead.

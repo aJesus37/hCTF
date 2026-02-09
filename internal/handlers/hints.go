@@ -50,15 +50,20 @@ func (h *HintHandler) UnlockHint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	// Return a signal to refresh the hints container
+	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("HX-Trigger", "refreshHints")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"message":"Hint unlocked successfully"}`))
+	w.Write([]byte(""))
 }
 
 // GetHints returns hints for a question (with unlock status) as HTML for HTMX
 func (h *HintHandler) GetHints(w http.ResponseWriter, r *http.Request) {
 	questionID := chi.URLParam(r, "questionId")
 	claims := auth.GetUserFromContext(r.Context())
+
+	// Store questionID in a format accessible to the unlock button
+	containerID := "hints-container-" + questionID
 
 	hints, err := h.db.GetHintsByQuestionID(questionID)
 	if err != nil {
@@ -89,9 +94,9 @@ func (h *HintHandler) GetHints(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	for _, hint := range hints {
 		if unlockedMap[hint.ID] {
-			// Show unlocked hint with content
+			// Show unlocked hint with content (preserve line breaks)
 			fmt.Fprintf(w, `<div class="p-3 bg-green-900 border border-green-700 rounded text-green-100 text-sm">
-                <strong>Hint %d:</strong> %s
+                <strong>Hint %d:</strong> <pre class="whitespace-pre-wrap font-sans">%s</pre>
                 <span class="ml-2 text-xs opacity-75">(Cost: %d points)</span>
             </div>`, hint.Order, hint.Content, hint.Cost)
 		} else {
@@ -100,13 +105,12 @@ func (h *HintHandler) GetHints(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, `<div class="p-3 bg-gray-700 border border-gray-600 rounded text-gray-200 text-sm flex justify-between items-center">
                     <span><strong>Hint %d</strong> (Cost: %d points)</span>
                     <button hx-post="/api/hints/%s/unlock"
-                        hx-target="closest div"
-                        hx-swap="outerHTML swap:0.5s"
-                        @htmx:afterSwap="setTimeout(() => location.reload(), 500)"
+                        hx-target="#%s"
+                        hx-swap="innerHTML swap:0.5s"
                         class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition">
                         Unlock
                     </button>
-                </div>`, hint.Order, hint.Cost, hint.ID)
+                </div>`, hint.Order, hint.Cost, hint.ID, containerID)
 			} else {
 				// Show locked hint without unlock button (not authenticated)
 				fmt.Fprintf(w, `<div class="p-3 bg-gray-700 border border-gray-600 rounded text-gray-200 text-sm">

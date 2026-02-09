@@ -397,12 +397,24 @@ func (s *Server) handleChallengeDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Get solved questions for user
+	solvedQuestions := make(map[string]bool)
+	if claims != nil {
+		for _, q := range questions {
+			solved, _ := s.db.HasUserSolved(q.ID, claims.UserID)
+			if solved {
+				solvedQuestions[q.ID] = true
+			}
+		}
+	}
+
 	data := map[string]interface{}{
-		"Title":     challenge.Name,
-		"Page":      "challenge",
-		"User":      claims,
-		"Challenge": challenge,
-		"Questions": questions,
+		"Title":           challenge.Name,
+		"Page":            "challenge",
+		"User":            claims,
+		"Challenge":       challenge,
+		"Questions":       questions,
+		"SolvedQuestions": solvedQuestions,
 	}
 	s.render(w, "base.html", data)
 }
