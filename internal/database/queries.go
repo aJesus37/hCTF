@@ -658,6 +658,17 @@ func (db *DB) GetUserTotalHintCost(userID string) (int, error) {
 	return total, err
 }
 
+// GetUserHintCostForQuestion calculates total points spent on hints by user for a specific question
+func (db *DB) GetUserHintCostForQuestion(userID, questionID string) (int, error) {
+	query := `SELECT COALESCE(SUM(h.cost), 0) FROM hint_unlocks hu
+	          JOIN hints h ON hu.hint_id = h.id
+	          WHERE hu.user_id = ? AND h.question_id = ?`
+
+	var total int
+	err := db.QueryRow(query, userID, questionID).Scan(&total)
+	return total, err
+}
+
 // UpdateHint updates hint content, cost, and order
 func (db *DB) UpdateHint(id, content string, cost, order int) error {
 	query := `UPDATE hints SET content = ?, cost = ?, "order" = ? WHERE id = ?`

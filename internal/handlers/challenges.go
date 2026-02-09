@@ -129,7 +129,22 @@ func (h *ChallengeHandler) SubmitFlag(w http.ResponseWriter, r *http.Request) {
 
 	// Return HTMX-friendly HTML response
 	if isCorrect {
-		w.Write([]byte(fmt.Sprintf(`<div class="text-green-400">✅ Correct! You earned %d points</div>`, question.Points)))
+		// Calculate actual points earned after hint deductions
+		hintCost, err := h.db.GetUserHintCostForQuestion(claims.UserID, questionID)
+		if err != nil {
+			hintCost = 0
+		}
+		pointsEarned := question.Points - hintCost
+		if pointsEarned < 0 {
+			pointsEarned = 0
+		}
+
+		// Show hint cost info if hints were used
+		if hintCost > 0 {
+			w.Write([]byte(fmt.Sprintf(`<div class="text-green-400">✅ Correct! You earned %d points <span class="text-yellow-300 text-sm">(-%d hint cost)</span></div>`, pointsEarned, hintCost)))
+		} else {
+			w.Write([]byte(fmt.Sprintf(`<div class="text-green-400">✅ Correct! You earned %d points</div>`, pointsEarned)))
+		}
 	} else {
 		w.Write([]byte(`<div class="text-red-400">❌ Incorrect, try again</div>`))
 	}
