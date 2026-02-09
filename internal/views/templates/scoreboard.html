@@ -1,22 +1,23 @@
 {{define "scoreboard-content"}}
-<div class="mb-8">
-    <div class="flex justify-between items-center mb-4">
-        <h1 class="text-4xl font-bold text-green-400">Scoreboard</h1>
-        <div class="flex gap-2" x-data="{ mode: 'individual' }">
-            <button @click="mode = 'individual'"
-                    :class="mode === 'individual' ? 'bg-blue-600' : 'bg-gray-700'"
-                    class="px-4 py-2 rounded text-white font-semibold text-sm transition">
-                Individual
-            </button>
-            <button @click="mode = 'team'"
-                    :class="mode === 'team' ? 'bg-blue-600' : 'bg-gray-700'"
-                    class="px-4 py-2 rounded text-white font-semibold text-sm transition">
-                Team
-            </button>
+<div x-data="{ mode: 'individual' }">
+    <div class="mb-8">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-4xl font-bold text-green-400">Scoreboard</h1>
+            <div class="flex gap-2">
+                <button @click="mode = 'individual'"
+                        :class="mode === 'individual' ? 'bg-blue-600' : 'bg-gray-700'"
+                        class="px-4 py-2 rounded text-white font-semibold text-sm transition">
+                    Individual
+                </button>
+                <button @click="mode = 'team'"
+                        :class="mode === 'team' ? 'bg-blue-600' : 'bg-gray-700'"
+                        class="px-4 py-2 rounded text-white font-semibold text-sm transition">
+                    Team
+                </button>
+            </div>
         </div>
+        <p class="text-gray-300">Top ranked by points and solve time</p>
     </div>
-    <p class="text-gray-300">Top ranked by points and solve time</p>
-</div>
 
 <!-- Individual Scoreboard -->
 <div id="individual-view" x-show="mode === 'individual'"
@@ -96,5 +97,6 @@
             {{end}}
         </tbody>
     </table>
+</div>
 </div>
 {{end}}
