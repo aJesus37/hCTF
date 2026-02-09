@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -195,7 +196,7 @@ func (h *TeamHandler) GetTeam(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// GetTeamScoreboard returns team rankings
+// GetTeamScoreboard returns team rankings as HTML for HTMX or JSON for API
 func (h *TeamHandler) GetTeamScoreboard(w http.ResponseWriter, r *http.Request) {
 	scoreboard, err := h.db.GetTeamScoreboard(50)
 	if err != nil {
@@ -203,6 +204,57 @@ func (h *TeamHandler) GetTeamScoreboard(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(scoreboard)
+	// Check if this is an HTMX request (return HTML) or API request (return JSON)
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("Content-Type", "text/html")
+		// Return table body rows for HTMX to insert
+		fmt.Fprint(w, `<table class="w-full">
+        <thead class="bg-dark-bg border-b border-dark-border">
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Rank</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Team</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Points</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Solves</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Last Solve</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-dark-border">`)
+
+		for _, e := range scoreboard {
+			rankColor := "text-gray-400"
+			switch e.Rank {
+			case 1:
+				rankColor = "text-yellow-400"
+			case 2:
+				rankColor = "text-gray-300"
+			case 3:
+				rankColor = "text-orange-400"
+			}
+
+			var teamName string
+			if e.TeamName != nil {
+				teamName = *e.TeamName
+			} else if e.TeamID != nil {
+				teamName = "Team " + *e.TeamID
+			} else {
+				teamName = "-"
+			}
+
+			fmt.Fprintf(w, `<tr class="hover:bg-dark-bg transition">
+                <td class="px-6 py-4 whitespace-nowrap"><span class="text-sm font-bold %s">#%d</span></td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-white">%s</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-400">%d</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">%d</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">%s</td>
+            </tr>`,
+				rankColor, e.Rank, teamName, e.Points, e.SolveCount,
+				e.LastSolve.Format("Jan 02, 15:04"))
+		}
+
+		fmt.Fprint(w, `        </tbody>
+    </table>`)
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(scoreboard)
+	}
 }
