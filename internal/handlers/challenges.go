@@ -130,9 +130,12 @@ func (h *ChallengeHandler) SubmitFlag(w http.ResponseWriter, r *http.Request) {
 	// Return HTMX-friendly HTML response
 	if isCorrect {
 		// Calculate actual points earned after hint deductions
-		hintCost, err := h.db.GetUserHintCostForQuestion(claims.UserID, questionID)
-		if err != nil {
-			hintCost = 0
+		hintCost := 0
+		if h.db != nil {
+			cost, err := h.db.GetUserHintCostForQuestion(claims.UserID, questionID)
+			if err == nil {
+				hintCost = cost
+			}
 		}
 		pointsEarned := question.Points - hintCost
 		if pointsEarned < 0 {
