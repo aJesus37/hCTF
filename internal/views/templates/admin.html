@@ -35,6 +35,12 @@
                 class="pb-3 font-medium transition">
                 Questions
             </button>
+            <button
+                @click="tab = 'hints'"
+                :class="tab === 'hints' ? 'border-b-2 border-purple-500 text-purple-400' : 'text-gray-400 hover:text-gray-300'"
+                class="pb-3 font-medium transition">
+                Hints
+            </button>
         </div>
     </div>
 
@@ -363,6 +369,120 @@
             {{if not .Questions}}
             <div class="text-center py-8 text-gray-400">
                 <p>No questions yet. Create one to get started!</p>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+    <!-- Hints Tab -->
+    <div x-show="tab === 'hints'" class="space-y-6">
+        <!-- Create Hint Button -->
+        <button
+            @click="showCreateForm = !showCreateForm"
+            class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-medium transition">
+            + Create Hint
+        </button>
+
+        <!-- Create Hint Form -->
+        <div x-show="showCreateForm" class="bg-dark-surface border border-dark-border rounded-lg p-6 space-y-4">
+            <h3 class="text-xl font-bold text-white mb-4">Create New Hint</h3>
+            <form
+                hx-post="/api/admin/hints"
+                hx-target="#hints-list"
+                hx-swap="beforeend scroll:#hints-list:bottom"
+                @htmx:after-request="
+                    if($event.detail.successful) {
+                        showCreateForm = false;
+                        $el.reset();
+                        notification = 'Hint created successfully!';
+                        notificationType = 'success';
+                        showNotification = true;
+                        setTimeout(() => showNotification = false, 3000);
+                    } else {
+                        notification = $event.detail.xhr.responseText || 'Failed to create hint';
+                        notificationType = 'error';
+                        showNotification = true;
+                        setTimeout(() => showNotification = false, 5000);
+                    }
+                "
+                class="space-y-4">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Question *</label>
+                    <select
+                        name="question_id"
+                        required
+                        class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500">
+                        <option value="">Select a question...</option>
+                        {{range .Questions}}
+                        <option value="{{.ID}}">{{.Name}} ({{.Points}} points)</option>
+                        {{end}}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-1">Hint Content *</label>
+                    <textarea
+                        name="content"
+                        required
+                        rows="4"
+                        placeholder="e.g., Try looking at the source code..."
+                        class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Cost (points) *</label>
+                        <input
+                            type="number"
+                            name="cost"
+                            value="20"
+                            min="0"
+                            required
+                            class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-300 mb-1">Order *</label>
+                        <input
+                            type="number"
+                            name="order"
+                            value="1"
+                            min="1"
+                            required
+                            class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-purple-500">
+                    </div>
+                </div>
+
+                <button
+                    type="submit"
+                    class="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded font-medium transition">
+                    Create Hint
+                </button>
+            </form>
+        </div>
+
+        <!-- Hints List -->
+        <div id="hints-list" class="space-y-4">
+            {{range .Hints}}
+            <div id="hint-{{.ID}}" class="bg-dark-surface border border-dark-border rounded-lg p-6 hover:border-purple-500 transition">
+                <div class="flex justify-between items-start mb-3">
+                    <div class="flex-1">
+                        <p class="text-gray-300 mb-2">{{.Content}}</p>
+                        <p class="text-sm text-gray-400">
+                            Order: {{.Order}} • Cost: {{.Cost}} points
+                        </p>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition">Edit</button>
+                    <button @click="if(confirm('Delete?')) { htmx.trigger(this.nextElementSibling, 'click') }" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition">Delete</button>
+                    <button style="display:none" hx-delete="/api/admin/hints/{{.ID}}" hx-target="this" hx-swap="outerHTML swap:1s"></button>
+                </div>
+            </div>
+            {{end}}
+            {{if not .Hints}}
+            <div class="text-center py-8 text-gray-400">
+                <p>No hints yet. Create one to help users!</p>
             </div>
             {{end}}
         </div>

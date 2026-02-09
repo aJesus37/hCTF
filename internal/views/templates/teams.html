@@ -1,0 +1,167 @@
+{{define "teams-content"}}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <h1 class="text-4xl font-bold text-white mb-8">Teams</h1>
+
+    {{if .User.TeamID}}
+    <!-- User's Current Team -->
+    <div class="bg-dark-surface border border-dark-border rounded-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold text-white mb-4">Your Team: {{.Team.Name}}</h2>
+        {{if .Team.Description}}
+        <p class="text-gray-300 mb-4">{{.Team.Description}}</p>
+        {{end}}
+
+        <div class="mb-4 p-4 bg-dark-bg rounded">
+            <h3 class="text-lg font-semibold text-white mb-2">Team ID (Share this to invite):</h3>
+            <code class="text-green-400 font-mono text-lg">{{.Team.ID}}</code>
+        </div>
+
+        <h3 class="text-lg font-semibold text-white mb-3">Members ({{len .Members}}):</h3>
+        <ul class="space-y-2 mb-6 p-4 bg-dark-bg rounded">
+            {{range .Members}}
+            <li class="text-gray-300 flex justify-between items-center">
+                <span>{{.Name}}</span>
+                {{if eq .ID $.Team.OwnerID}}
+                <span class="text-yellow-400 text-xs font-semibold">Owner</span>
+                {{end}}
+            </li>
+            {{end}}
+        </ul>
+
+        {{if ne .User.ID .Team.OwnerID}}
+        <button
+            onclick="if(confirm('Leave team?')) { fetch('/api/teams/leave', {method: 'POST'}).then(r => r.ok ? location.reload() : alert('Failed to leave team')) }"
+            class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition">
+            Leave Team
+        </button>
+        {{end}}
+    </div>
+    {{else}}
+    <!-- No Team - Show Join/Create Options -->
+    <div class="grid md:grid-cols-2 gap-8 mb-8">
+        <!-- Join Team -->
+        <div class="bg-dark-surface border border-dark-border rounded-lg p-6">
+            <h2 class="text-2xl font-bold text-white mb-4">Join a Team</h2>
+            <p class="text-gray-300 mb-4">Enter a team ID to join an existing team:</p>
+            <form onsubmit="event.preventDefault(); joinTeam()" class="space-y-4">
+                <input
+                    id="team-id-input"
+                    type="text"
+                    placeholder="Paste team ID here"
+                    class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-blue-500"
+                    required
+                />
+                <button
+                    type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
+                    Join Team
+                </button>
+            </form>
+            <div id="join-message" class="mt-4 text-sm font-medium"></div>
+        </div>
+
+        <!-- Create Team -->
+        <div class="bg-dark-surface border border-dark-border rounded-lg p-6">
+            <h2 class="text-2xl font-bold text-white mb-4">Create a Team</h2>
+            <form onsubmit="event.preventDefault(); createTeam()" class="space-y-4">
+                <div>
+                    <label class="block text-gray-300 mb-2 font-semibold">Team Name</label>
+                    <input
+                        id="team-name"
+                        type="text"
+                        placeholder="My Awesome Team"
+                        required
+                        class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-green-500"
+                    />
+                </div>
+                <div>
+                    <label class="block text-gray-300 mb-2 font-semibold">Description (optional)</label>
+                    <textarea
+                        id="team-description"
+                        placeholder="Tell others about your team..."
+                        rows="3"
+                        class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-green-500"
+                    ></textarea>
+                </div>
+                <button
+                    type="submit"
+                    class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition">
+                    Create Team
+                </button>
+            </form>
+            <div id="create-message" class="mt-4 text-sm font-medium"></div>
+        </div>
+    </div>
+
+    <!-- All Teams List -->
+    <div class="bg-dark-surface border border-dark-border rounded-lg p-6">
+        <h2 class="text-2xl font-bold text-white mb-4">Available Teams</h2>
+        <div class="space-y-2">
+            {{if .AllTeams}}
+                {{range .AllTeams}}
+                <div class="flex justify-between items-start p-4 bg-dark-bg rounded hover:border-l-4 hover:border-purple-500 transition">
+                    <div>
+                        <span class="text-white font-semibold text-lg">{{.Name}}</span>
+                        {{if .Description}}
+                        <p class="text-sm text-gray-400 mt-1">{{.Description}}</p>
+                        {{end}}
+                    </div>
+                    <code class="text-gray-400 text-xs font-mono bg-dark-surface px-2 py-1 rounded">{{.ID}}</code>
+                </div>
+                {{end}}
+            {{else}}
+                <p class="text-gray-400 p-4">No other teams yet. Be the first to create one!</p>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+</div>
+
+<script>
+function joinTeam() {
+    const teamId = document.getElementById('team-id-input').value.trim();
+    if (!teamId) return;
+
+    fetch(`/api/teams/${teamId}/join`, {method: 'POST'})
+        .then(r => {
+            if (r.ok) {
+                location.reload();
+            } else {
+                r.text().then(msg => {
+                    document.getElementById('join-message').innerHTML = `<div class="text-red-400">Error: ${msg}</div>`;
+                });
+            }
+        })
+        .catch(err => {
+            document.getElementById('join-message').innerHTML = `<div class="text-red-400">Network error</div>`;
+        });
+}
+
+function createTeam() {
+    const name = document.getElementById('team-name').value.trim();
+    const description = document.getElementById('team-description').value.trim();
+
+    if (!name) {
+        document.getElementById('create-message').innerHTML = `<div class="text-red-400">Team name required</div>`;
+        return;
+    }
+
+    fetch('/api/teams', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name, description})
+    })
+    .then(r => {
+        if (r.ok) {
+            location.reload();
+        } else {
+            r.text().then(msg => {
+                document.getElementById('create-message').innerHTML = `<div class="text-red-400">Error: ${msg}</div>`;
+            });
+        }
+    })
+    .catch(err => {
+        document.getElementById('create-message').innerHTML = `<div class="text-red-400">Network error</div>`;
+    });
+}
+</script>
+{{end}}

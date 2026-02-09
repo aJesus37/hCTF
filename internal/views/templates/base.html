@@ -46,6 +46,11 @@
                         <a href="/scoreboard" class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-300 hover:text-white">
                             Scoreboard
                         </a>
+                        {{if .User}}
+                        <a href="/teams" class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-300 hover:text-white">
+                            Teams
+                        </a>
+                        {{end}}
                         <a href="/sql" class="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-300 hover:text-white">
                             SQL Playground
                         </a>
@@ -80,6 +85,8 @@
             {{template "challenges-content" .}}
         {{else if eq .Page "challenge"}}
             {{template "challenge-content" .}}
+        {{else if eq .Page "teams"}}
+            {{template "teams-content" .}}
         {{else if eq .Page "scoreboard"}}
             {{template "scoreboard-content" .}}
         {{else if eq .Page "sql"}}

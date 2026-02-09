@@ -37,6 +37,18 @@
             <span class="text-sm text-yellow-400">Points: {{.Points}}</span>
         </div>
 
+        <!-- Hints Section -->
+        <div class="mb-6 p-4 bg-dark-bg rounded border border-dark-border">
+            <h3 class="text-lg font-semibold text-white mb-3">Hints</h3>
+            <div id="hints-container-{{.ID}}"
+                 hx-get="/api/questions/{{.ID}}/hints"
+                 hx-trigger="load"
+                 hx-swap="innerHTML"
+                 class="space-y-2">
+                <p class="text-gray-400 text-sm">Loading hints...</p>
+            </div>
+        </div>
+
         {{if $.User}}
         <form hx-post="/api/questions/{{.ID}}/submit"
               hx-target="#result-{{.ID}}"

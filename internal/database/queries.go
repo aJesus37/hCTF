@@ -231,14 +231,20 @@ func (db *DB) GetScoreboard(limit int) ([]models.ScoreboardEntry, error) {
 			u.name as user_name,
 			u.team_id,
 			t.name as team_name,
-			COALESCE(SUM(q.points), 0) as points,
+			COALESCE(SUM(q.points), 0) - COALESCE(hint_costs.total_cost, 0) as points,
 			COUNT(DISTINCT s.question_id) as solve_count,
 			COALESCE(MAX(s.created_at), u.created_at) as last_solve
 		FROM users u
 		LEFT JOIN teams t ON u.team_id = t.id
 		LEFT JOIN submissions s ON u.id = s.user_id AND s.is_correct = 1
 		LEFT JOIN questions q ON s.question_id = q.id
-		GROUP BY u.id, u.name, u.team_id, t.name
+		LEFT JOIN (
+			SELECT hu.user_id, SUM(h.cost) as total_cost
+			FROM hint_unlocks hu
+			JOIN hints h ON hu.hint_id = h.id
+			GROUP BY hu.user_id
+		) hint_costs ON u.id = hint_costs.user_id
+		GROUP BY u.id, u.name, u.team_id, t.name, hint_costs.total_cost
 		ORDER BY points DESC, last_solve ASC
 		LIMIT ?
 	`
@@ -416,4 +422,270 @@ func (db *DB) GetCorrectSubmissionCount() (int, error) {
 	var count int
 	err := db.QueryRow("SELECT COUNT(*) FROM submissions WHERE is_correct = 1").Scan(&count)
 	return count, err
+}
+
+// Team queries
+
+// CreateTeam creates a new team
+func (db *DB) CreateTeam(name, description string, ownerID string) (*models.Team, error) {
+	query := `INSERT INTO teams (name, description, owner_id)
+	          VALUES (?, ?, ?)
+	          RETURNING id, name, description, owner_id, created_at, updated_at`
+
+	var t models.Team
+	err := db.QueryRow(query, name, description, ownerID).Scan(
+		&t.ID, &t.Name, &t.Description, &t.OwnerID, &t.CreatedAt, &t.UpdatedAt,
+	)
+	return &t, err
+}
+
+// GetTeamByID fetches a team by ID
+func (db *DB) GetTeamByID(id string) (*models.Team, error) {
+	query := `SELECT id, name, description, owner_id, created_at, updated_at
+	          FROM teams WHERE id = ?`
+
+	var t models.Team
+	err := db.QueryRow(query, id).Scan(
+		&t.ID, &t.Name, &t.Description, &t.OwnerID, &t.CreatedAt, &t.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// GetAllTeams fetches all teams ordered by name
+func (db *DB) GetAllTeams() ([]models.Team, error) {
+	query := `SELECT id, name, description, owner_id, created_at, updated_at
+	          FROM teams ORDER BY name ASC`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var teams []models.Team
+	for rows.Next() {
+		var t models.Team
+		if err := rows.Scan(&t.ID, &t.Name, &t.Description, &t.OwnerID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+			return nil, err
+		}
+		teams = append(teams, t)
+	}
+	return teams, nil
+}
+
+// JoinTeam updates user's team_id
+func (db *DB) JoinTeam(userID, teamID string) error {
+	query := `UPDATE users SET team_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	_, err := db.Exec(query, teamID, userID)
+	return err
+}
+
+// LeaveTeam sets user's team_id to NULL
+func (db *DB) LeaveTeam(userID string) error {
+	query := `UPDATE users SET team_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	_, err := db.Exec(query, userID)
+	return err
+}
+
+// GetTeamMembers returns all users in a team
+func (db *DB) GetTeamMembers(teamID string) ([]models.User, error) {
+	query := `SELECT id, email, name, avatar_url, team_id, is_admin, created_at, updated_at
+	          FROM users WHERE team_id = ? ORDER BY name ASC`
+
+	rows, err := db.Query(query, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []models.User
+	for rows.Next() {
+		var u models.User
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.AvatarURL, &u.TeamID, &u.IsAdmin, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+// GetTeamScoreboard returns team rankings with aggregated points
+func (db *DB) GetTeamScoreboard(limit int) ([]models.ScoreboardEntry, error) {
+	query := `
+		SELECT
+			t.id as team_id,
+			t.name as team_name,
+			COALESCE(SUM(q.points), 0) - COALESCE(hint_costs.total_cost, 0) as points,
+			COUNT(DISTINCT s.question_id) as solve_count,
+			COALESCE(MAX(s.created_at), t.created_at) as last_solve
+		FROM teams t
+		LEFT JOIN users u ON u.team_id = t.id
+		LEFT JOIN submissions s ON u.id = s.user_id AND s.is_correct = 1
+		LEFT JOIN questions q ON s.question_id = q.id
+		LEFT JOIN (
+			SELECT hu.user_id, SUM(h.cost) as total_cost
+			FROM hint_unlocks hu
+			JOIN hints h ON hu.hint_id = h.id
+			GROUP BY hu.user_id
+		) hint_costs ON u.id = hint_costs.user_id
+		GROUP BY t.id, t.name, hint_costs.total_cost
+		ORDER BY points DESC, last_solve ASC
+		LIMIT ?
+	`
+
+	rows, err := db.Query(query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []models.ScoreboardEntry
+	rank := 1
+	for rows.Next() {
+		var e models.ScoreboardEntry
+		var lastSolveStr string
+		if err := rows.Scan(&e.TeamID, &e.TeamName, &e.Points, &e.SolveCount, &lastSolveStr); err != nil {
+			return nil, err
+		}
+
+		parsedTime, err := time.Parse("2006-01-02 15:04:05", lastSolveStr)
+		if err != nil {
+			parsedTime = time.Now()
+		}
+		e.LastSolve = parsedTime
+		e.Rank = rank
+		rank++
+		entries = append(entries, e)
+	}
+	return entries, nil
+}
+
+// UpdateTeam updates team name and description
+func (db *DB) UpdateTeam(id, name, description string) error {
+	query := `UPDATE teams SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	_, err := db.Exec(query, name, description, id)
+	return err
+}
+
+// DeleteTeam deletes a team
+func (db *DB) DeleteTeam(id string) error {
+	_, err := db.Exec("DELETE FROM teams WHERE id = ?", id)
+	return err
+}
+
+// Hint queries
+
+// CreateHint creates a new hint for a question
+func (db *DB) CreateHint(questionID, content string, cost, order int) (*models.Hint, error) {
+	query := `INSERT INTO hints (question_id, content, cost, "order")
+	          VALUES (?, ?, ?, ?)
+	          RETURNING id, question_id, content, cost, "order", created_at`
+
+	var h models.Hint
+	err := db.QueryRow(query, questionID, content, cost, order).Scan(
+		&h.ID, &h.QuestionID, &h.Content, &h.Cost, &h.Order, &h.CreatedAt,
+	)
+	return &h, err
+}
+
+// GetHintsByQuestionID returns all hints for a question ordered by order field
+func (db *DB) GetHintsByQuestionID(questionID string) ([]models.Hint, error) {
+	query := `SELECT id, question_id, content, cost, "order", created_at
+	          FROM hints WHERE question_id = ? ORDER BY "order" ASC`
+
+	rows, err := db.Query(query, questionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var hints []models.Hint
+	for rows.Next() {
+		var h models.Hint
+		if err := rows.Scan(&h.ID, &h.QuestionID, &h.Content, &h.Cost, &h.Order, &h.CreatedAt); err != nil {
+			return nil, err
+		}
+		hints = append(hints, h)
+	}
+	return hints, nil
+}
+
+// UnlockHint creates a hint unlock record (idempotent)
+func (db *DB) UnlockHint(hintID, userID string) error {
+	query := `INSERT INTO hint_unlocks (hint_id, user_id) VALUES (?, ?)
+	          ON CONFLICT(hint_id, user_id) DO NOTHING`
+	_, err := db.Exec(query, hintID, userID)
+	return err
+}
+
+// IsHintUnlocked checks if user has unlocked a hint
+func (db *DB) IsHintUnlocked(hintID, userID string) (bool, error) {
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM hint_unlocks WHERE hint_id = ? AND user_id = ?", hintID, userID).Scan(&count)
+	return count > 0, err
+}
+
+// GetUserUnlockedHints returns all hint IDs unlocked by a user for a specific question
+func (db *DB) GetUserUnlockedHints(userID, questionID string) ([]string, error) {
+	query := `SELECT hu.hint_id FROM hint_unlocks hu
+	          JOIN hints h ON hu.hint_id = h.id
+	          WHERE hu.user_id = ? AND h.question_id = ?`
+
+	rows, err := db.Query(query, userID, questionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var hintIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		hintIDs = append(hintIDs, id)
+	}
+	return hintIDs, nil
+}
+
+// GetUserTotalHintCost calculates total points spent on hints by user
+func (db *DB) GetUserTotalHintCost(userID string) (int, error) {
+	query := `SELECT COALESCE(SUM(h.cost), 0) FROM hint_unlocks hu
+	          JOIN hints h ON hu.hint_id = h.id
+	          WHERE hu.user_id = ?`
+
+	var total int
+	err := db.QueryRow(query, userID).Scan(&total)
+	return total, err
+}
+
+// UpdateHint updates hint content, cost, and order
+func (db *DB) UpdateHint(id, content string, cost, order int) error {
+	query := `UPDATE hints SET content = ?, cost = ?, "order" = ? WHERE id = ?`
+	_, err := db.Exec(query, content, cost, order, id)
+	return err
+}
+
+// DeleteHint deletes a hint
+func (db *DB) DeleteHint(id string) error {
+	_, err := db.Exec("DELETE FROM hints WHERE id = ?", id)
+	return err
+}
+
+// GetHintByID fetches a single hint by ID
+func (db *DB) GetHintByID(id string) (*models.Hint, error) {
+	query := `SELECT id, question_id, content, cost, "order", created_at
+	          FROM hints WHERE id = ?`
+
+	var h models.Hint
+	err := db.QueryRow(query, id).Scan(
+		&h.ID, &h.QuestionID, &h.Content, &h.Cost, &h.Order, &h.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &h, nil
 }

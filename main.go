@@ -20,6 +20,7 @@ import (
 	"github.com/yourusername/hctf2/internal/auth"
 	"github.com/yourusername/hctf2/internal/database"
 	"github.com/yourusername/hctf2/internal/handlers"
+	"github.com/yourusername/hctf2/internal/models"
 )
 
 //go:embed internal/views/templates/*
@@ -45,6 +46,8 @@ type Server struct {
 	authH     *handlers.AuthHandler
 	challengeH *handlers.ChallengeHandler
 	scoreboardH *handlers.ScoreboardHandler
+	teamH     *handlers.TeamHandler
+	hintH     *handlers.HintHandler
 	sqlH      *handlers.SQLHandler
 }
 
@@ -102,6 +105,8 @@ func main() {
 		authH:       handlers.NewAuthHandler(db),
 		challengeH:  handlers.NewChallengeHandler(db),
 		scoreboardH: handlers.NewScoreboardHandler(db),
+		teamH:       handlers.NewTeamHandler(db),
+		hintH:       handlers.NewHintHandler(db),
 		sqlH:        handlers.NewSQLHandler(db),
 	}
 
@@ -156,6 +161,12 @@ func main() {
 	r.Get("/login", s.handleLoginPage)
 	r.Get("/register", s.handleRegisterPage)
 
+	// Protected team routes
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireAuth)
+		r.Get("/teams", s.handleTeams)
+	})
+
 	// Admin UI routes
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireAdmin)
@@ -186,6 +197,26 @@ func main() {
 		r.Post("/api/questions/{id}/submit", s.challengeH.SubmitFlag)
 	})
 
+	// API routes - Teams (public read, protected write)
+	r.Get("/api/teams", s.teamH.ListTeams)
+	r.Get("/api/teams/{id}", s.teamH.GetTeam)
+	r.Get("/api/teams/scoreboard", s.teamH.GetTeamScoreboard)
+
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireAuth)
+		r.Post("/api/teams", s.teamH.CreateTeam)
+		r.Post("/api/teams/{id}/join", s.teamH.JoinTeam)
+		r.Post("/api/teams/leave", s.teamH.LeaveTeam)
+	})
+
+	// API routes - Hints (public read, protected unlock)
+	r.Get("/api/questions/{questionId}/hints", s.hintH.GetHints)
+
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireAuth)
+		r.Post("/api/hints/{id}/unlock", s.hintH.UnlockHint)
+	})
+
 	// API routes - Admin (protected)
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireAdmin)
@@ -195,6 +226,9 @@ func main() {
 		r.Post("/api/admin/questions", s.challengeH.CreateQuestion)
 		r.Put("/api/admin/questions/{id}", s.challengeH.UpdateQuestion)
 		r.Delete("/api/admin/questions/{id}", s.challengeH.DeleteQuestion)
+		r.Post("/api/admin/hints", s.challengeH.CreateHint)
+		r.Put("/api/admin/hints/{id}", s.challengeH.UpdateHint)
+		r.Delete("/api/admin/hints/{id}", s.challengeH.DeleteHint)
 	})
 
 	// API routes - SQL
@@ -389,6 +423,47 @@ func (s *Server) handleScoreboard(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "base.html", data)
 }
 
+func (s *Server) handleTeams(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := s.db.GetUserByID(claims.UserID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	allTeams, err := s.db.GetAllTeams()
+	if err != nil {
+		allTeams = []models.Team{}
+	}
+
+	data := map[string]interface{}{
+		"Title":   "Teams",
+		"Page":    "teams",
+		"User":    user,
+		"AllTeams": allTeams,
+	}
+
+	// If user is in a team, add team details
+	if user.TeamID != nil {
+		team, err := s.db.GetTeamByID(*user.TeamID)
+		if err == nil {
+			data["Team"] = team
+
+			members, err := s.db.GetTeamMembers(*user.TeamID)
+			if err == nil {
+				data["Members"] = members
+			}
+		}
+	}
+
+	s.render(w, "base.html", data)
+}
+
 func (s *Server) handleSQL(w http.ResponseWriter, r *http.Request) {
 	data := map[string]interface{}{
 		"Title": "SQL Playground",
@@ -433,12 +508,22 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch all hints
+	var hints []models.Hint
+	for _, q := range questions {
+		qHints, err := s.db.GetHintsByQuestionID(q.ID)
+		if err == nil {
+			hints = append(hints, qHints...)
+		}
+	}
+
 	data := map[string]interface{}{
 		"Title":      "Admin Dashboard",
 		"Page":       "admin",
 		"User":       claims,
 		"Challenges": challenges,
 		"Questions":  questions,
+		"Hints":      hints,
 	}
 	s.render(w, "base.html", data)
 }

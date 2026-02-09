@@ -540,3 +540,172 @@ func (h *ChallengeHandler) DeleteQuestion(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(""))
 }
+
+// Hint handlers
+
+type CreateHintRequest struct {
+	QuestionID string `json:"question_id"`
+	Content    string `json:"content"`
+	Cost       int    `json:"cost"`
+	Order      int    `json:"order"`
+}
+
+func (h *ChallengeHandler) CreateHint(w http.ResponseWriter, r *http.Request) {
+	contentType := r.Header.Get("Content-Type")
+	var req CreateHintRequest
+
+	if strings.Contains(contentType, "application/json") {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+	} else {
+		// Form data from HTMX
+		if err := r.ParseForm(); err != nil {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<div class="text-red-400">Invalid request</div>`))
+			return
+		}
+		req.QuestionID = r.FormValue("question_id")
+		req.Content = r.FormValue("content")
+		if cost := r.FormValue("cost"); cost != "" {
+			fmt.Sscanf(cost, "%d", &req.Cost)
+		}
+		if order := r.FormValue("order"); order != "" {
+			fmt.Sscanf(order, "%d", &req.Order)
+		}
+	}
+
+	if req.QuestionID == "" || req.Content == "" {
+		if strings.Contains(contentType, "application/json") {
+			http.Error(w, "Missing required fields", http.StatusBadRequest)
+		} else {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<div class="text-red-400">Missing required fields</div>`))
+		}
+		return
+	}
+
+	hint, err := h.db.CreateHint(req.QuestionID, req.Content, req.Cost, req.Order)
+	if err != nil {
+		if strings.Contains(contentType, "application/json") {
+			http.Error(w, "Failed to create hint", http.StatusInternalServerError)
+		} else {
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`<div class="text-red-400">Failed to create hint</div>`))
+		}
+		return
+	}
+
+	if strings.Contains(contentType, "application/json") {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(hint)
+	} else {
+		// Return hint card for HTMX
+		w.Header().Set("Content-Type", "text/html")
+		html := fmt.Sprintf(`<div id="hint-%s" class="bg-dark-surface border border-dark-border rounded-lg p-4 mb-2">
+                <p class="text-gray-300 mb-2">%s</p>
+                <div class="flex justify-between items-center text-xs text-gray-400 mb-2">
+                    <span>Order: %d | Cost: %d points</span>
+                </div>
+                <div class="flex gap-2">
+                    <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition">Edit</button>
+                    <button @click="if(confirm('Delete?')) { htmx.trigger(this.nextElementSibling, 'click') }" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition">Delete</button>
+                    <button style="display:none" hx-delete="/api/admin/hints/%s" hx-target="this" hx-swap="outerHTML swap:1s"></button>
+                </div>
+            </div>`,
+			hint.ID,
+			hint.Content,
+			hint.Order,
+			hint.Cost,
+			hint.ID,
+		)
+		w.Write([]byte(html))
+	}
+}
+
+func (h *ChallengeHandler) UpdateHint(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	contentType := r.Header.Get("Content-Type")
+	var req CreateHintRequest
+
+	if strings.Contains(contentType, "application/json") {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request", http.StatusBadRequest)
+			return
+		}
+	} else {
+		// Form data from HTMX
+		if err := r.ParseForm(); err != nil {
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<div class="text-red-400">Invalid request</div>`))
+			return
+		}
+		req.Content = r.FormValue("content")
+		if cost := r.FormValue("cost"); cost != "" {
+			fmt.Sscanf(cost, "%d", &req.Cost)
+		}
+		if order := r.FormValue("order"); order != "" {
+			fmt.Sscanf(order, "%d", &req.Order)
+		}
+	}
+
+	if err := h.db.UpdateHint(id, req.Content, req.Cost, req.Order); err != nil {
+		if strings.Contains(contentType, "application/json") {
+			http.Error(w, "Failed to update hint", http.StatusInternalServerError)
+		} else {
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`<div class="text-red-400">Failed to update hint</div>`))
+		}
+		return
+	}
+
+	if strings.Contains(contentType, "application/json") {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Hint updated"))
+	} else {
+		// Return updated hint card for HTMX
+		w.Header().Set("Content-Type", "text/html")
+		hint, _ := h.db.GetHintByID(id)
+		html := fmt.Sprintf(`<div id="hint-%s" class="bg-dark-surface border border-dark-border rounded-lg p-4 mb-2">
+                <p class="text-gray-300 mb-2">%s</p>
+                <div class="flex justify-between items-center text-xs text-gray-400 mb-2">
+                    <span>Order: %d | Cost: %d points</span>
+                </div>
+                <div class="flex gap-2">
+                    <button class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition">Edit</button>
+                    <button @click="if(confirm('Delete?')) { htmx.trigger(this.nextElementSibling, 'click') }" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition">Delete</button>
+                    <button style="display:none" hx-delete="/api/admin/hints/%s" hx-target="this" hx-swap="outerHTML swap:1s"></button>
+                </div>
+            </div>`,
+			hint.ID,
+			hint.Content,
+			hint.Order,
+			hint.Cost,
+			hint.ID,
+		)
+		w.Write([]byte(html))
+	}
+}
+
+func (h *ChallengeHandler) DeleteHint(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	if err := h.db.DeleteHint(id); err != nil {
+		contentType := r.Header.Get("Content-Type")
+		if strings.Contains(contentType, "application/json") {
+			http.Error(w, "Failed to delete hint", http.StatusInternalServerError)
+		} else {
+			w.Header().Set("Content-Type", "text/html")
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`Failed to delete hint`))
+		}
+		return
+	}
+
+	// For HTMX, return empty response (element will be removed by hx-swap)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(""))
+}
