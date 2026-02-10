@@ -579,6 +579,13 @@ func (db *DB) UpdateTeam(id, name, description string) error {
 	return err
 }
 
+// TransferTeamOwnership updates the team owner
+func (db *DB) TransferTeamOwnership(teamID, newOwnerID string) error {
+	query := `UPDATE teams SET owner_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	_, err := db.Exec(query, newOwnerID, teamID)
+	return err
+}
+
 // DeleteTeam deletes a team
 func (db *DB) DeleteTeam(id string) error {
 	_, err := db.Exec("DELETE FROM teams WHERE id = ?", id)

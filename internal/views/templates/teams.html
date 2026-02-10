@@ -43,6 +43,28 @@
         </div>
         {{end}}
 
+        {{if eq .User.ID .Team.OwnerID}}
+        <div class="mb-6 p-4 bg-dark-bg rounded">
+            <h3 class="text-lg font-semibold text-white mb-3">Transfer Ownership:</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-gray-300 text-sm font-semibold mb-2">Select new owner:</label>
+                    <select id="new-owner-select" class="bg-dark-surface border border-dark-border text-white px-3 py-2 rounded w-full">
+                        <option value="">Choose a team member...</option>
+                        {{range .Members}}
+                            {{if ne .ID $.Team.OwnerID}}
+                            <option value="{{.ID}}">{{.Name}}</option>
+                            {{end}}
+                        {{end}}
+                    </select>
+                </div>
+                <button onclick="transferOwnership()" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded transition">
+                    Transfer Ownership
+                </button>
+            </div>
+        </div>
+        {{end}}
+
         <h3 class="text-lg font-semibold text-white mb-3">Members ({{len .Members}}):</h3>
         <ul class="space-y-2 mb-6 p-4 bg-dark-bg rounded">
             {{range .Members}}
@@ -55,19 +77,20 @@
             {{end}}
         </ul>
 
-        {{if ne .User.ID .Team.OwnerID}}
-        <button
-            onclick="if(confirm('Leave team?')) { fetch('/api/teams/leave', {method: 'POST'}).then(r => r.ok ? location.reload() : alert('Failed to leave team')) }"
-            class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition">
-            Leave Team
-        </button>
-        {{else}}
-        <button
-            onclick="if(confirm('Are you sure you want to disband this team? This will remove all members and cannot be undone.')) { fetch('/api/teams/disband', {method: 'POST'}).then(r => r.ok ? location.reload() : alert('Failed to disband team')) }"
-            class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition">
-            Disband Team
-        </button>
-        {{end}}
+        <div class="flex gap-2">
+            <button
+                onclick="if(confirm('{{if eq .User.ID .Team.OwnerID}}You must transfer ownership before leaving. Leave team?{{else}}Leave team?{{end}}')) { fetch('/api/teams/leave', {method: 'POST'}).then(r => { if(r.ok) { location.reload(); } else { r.text().then(msg => alert(msg)); } }) }"
+                class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition">
+                Leave Team
+            </button>
+            {{if eq .User.ID .Team.OwnerID}}
+            <button
+                onclick="if(confirm('Are you sure you want to disband this team? This will remove all members and cannot be undone.')) { fetch('/api/teams/disband', {method: 'POST'}).then(r => r.ok ? location.reload() : alert('Failed to disband team')) }"
+                class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition">
+                Disband Team
+            </button>
+            {{end}}
+        </div>
     </div>
     {{else}}
     <!-- No Team - Show Join/Create Options -->
@@ -201,6 +224,33 @@ function updateInvitePermission() {
             location.reload();
         } else {
             alert('Failed to update invite permission');
+        }
+    })
+    .catch(err => alert('Network error'));
+}
+
+function transferOwnership() {
+    const newOwnerID = document.getElementById('new-owner-select').value;
+
+    if (!newOwnerID) {
+        alert('Please select a new owner');
+        return;
+    }
+
+    if (!confirm('Transfer team ownership to the selected member? You will remain in the team but lose owner privileges.')) {
+        return;
+    }
+
+    fetch('/api/teams/transfer-ownership', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({new_owner_id: newOwnerID})
+    })
+    .then(r => {
+        if (r.ok) {
+            location.reload();
+        } else {
+            r.text().then(msg => alert('Failed to transfer ownership: ' + msg));
         }
     })
     .catch(err => alert('Network error'));

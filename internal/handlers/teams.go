@@ -160,6 +160,73 @@ func (h *TeamHandler) LeaveTeam(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"message":"Left team successfully"}`))
 }
 
+// TransferOwnership allows team owner to transfer ownership to another member
+func (h *TeamHandler) TransferOwnership(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.db.GetUserByID(claims.UserID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	if user.TeamID == nil {
+		http.Error(w, "Not in a team", http.StatusBadRequest)
+		return
+	}
+
+	// Check if user is team owner
+	team, err := h.db.GetTeamByID(*user.TeamID)
+	if err != nil {
+		http.Error(w, "Team not found", http.StatusNotFound)
+		return
+	}
+
+	if team.OwnerID != claims.UserID {
+		http.Error(w, "Only team owner can transfer ownership", http.StatusForbidden)
+		return
+	}
+
+	// Parse request body
+	var req map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	newOwnerID, ok := req["new_owner_id"]
+	if !ok || newOwnerID == "" {
+		http.Error(w, "New owner ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Verify new owner is a team member
+	newOwner, err := h.db.GetUserByID(newOwnerID)
+	if err != nil {
+		http.Error(w, "New owner not found", http.StatusNotFound)
+		return
+	}
+
+	if newOwner.TeamID == nil || *newOwner.TeamID != team.ID {
+		http.Error(w, "New owner must be a team member", http.StatusBadRequest)
+		return
+	}
+
+	// Transfer ownership
+	if err := h.db.TransferTeamOwnership(team.ID, newOwnerID); err != nil {
+		http.Error(w, "Failed to transfer ownership", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message":"Ownership transferred successfully"}`))
+}
+
 // DisbandTeam allows team owners to delete their team
 func (h *TeamHandler) DisbandTeam(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
