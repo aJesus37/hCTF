@@ -3,11 +3,11 @@ PRAGMA foreign_keys=OFF;
 
 -- Create new table with the correct schema
 CREATE TABLE teams_new (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     name TEXT UNIQUE NOT NULL,
     description TEXT,
     owner_id TEXT NOT NULL,
-    invite_id TEXT UNIQUE NOT NULL,
+    invite_id TEXT UNIQUE NOT NULL DEFAULT (hex(randomblob(16))),
     invite_permission TEXT NOT NULL DEFAULT 'owner_only',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,

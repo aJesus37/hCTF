@@ -4,7 +4,7 @@ PRAGMA foreign_keys=OFF;
 DROP INDEX IF EXISTS idx_teams_invite_id;
 
 CREATE TABLE teams_old (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     name TEXT UNIQUE NOT NULL,
     description TEXT,
     owner_id TEXT NOT NULL,
