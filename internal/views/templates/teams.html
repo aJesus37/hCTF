@@ -10,10 +10,38 @@
         <p class="text-gray-300 mb-4">{{.Team.Description}}</p>
         {{end}}
 
-        <div class="mb-4 p-4 bg-dark-bg rounded">
-            <h3 class="text-lg font-semibold text-white mb-2">Team ID (Share this to invite):</h3>
-            <code class="text-green-400 font-mono text-lg">{{.Team.ID}}</code>
+        <div class="mb-6 p-4 bg-dark-bg rounded">
+            <h3 class="text-lg font-semibold text-white mb-2">Invite Code:</h3>
+            {{if .CanSeeInviteCode}}
+                <code class="text-green-400 font-mono text-lg">{{.Team.InviteID}}</code>
+                <p class="text-xs text-gray-400 mt-2">Share this code to invite others</p>
+            {{else}}
+                <p class="text-gray-400 text-sm">Only the team owner can view the invite code.</p>
+            {{end}}
         </div>
+
+        {{if eq .User.ID .Team.OwnerID}}
+        <div class="mb-6 p-4 bg-dark-bg rounded">
+            <h3 class="text-lg font-semibold text-white mb-3">Invite Settings:</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-gray-300 text-sm font-semibold mb-2">Who can share invites:</label>
+                    <select id="invite-permission" class="bg-dark-surface border border-dark-border text-white px-3 py-2 rounded">
+                        <option value="owner_only" {{if eq .Team.InvitePermission "owner_only"}}selected{{end}}>Owner Only</option>
+                        <option value="all_members" {{if eq .Team.InvitePermission "all_members"}}selected{{end}}>All Members</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="updateInvitePermission()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition">
+                        Update Permission
+                    </button>
+                    <button onclick="regenerateInvite()" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition">
+                        Regenerate Invite Code
+                    </button>
+                </div>
+            </div>
+        </div>
+        {{end}}
 
         <h3 class="text-lg font-semibold text-white mb-3">Members ({{len .Members}}):</h3>
         <ul class="space-y-2 mb-6 p-4 bg-dark-bg rounded">
@@ -41,12 +69,12 @@
         <!-- Join Team -->
         <div class="bg-dark-surface border border-dark-border rounded-lg p-6">
             <h2 class="text-2xl font-bold text-white mb-4">Join a Team</h2>
-            <p class="text-gray-300 mb-4">Enter a team ID to join an existing team:</p>
+            <p class="text-gray-300 mb-4">Enter an invite code to join a team:</p>
             <form onsubmit="event.preventDefault(); joinTeam()" class="space-y-4">
                 <input
-                    id="team-id-input"
+                    id="invite-code-input"
                     type="text"
-                    placeholder="Paste team ID here"
+                    placeholder="Paste invite code here"
                     class="w-full px-4 py-2 bg-dark-bg border border-dark-border text-white rounded focus:outline-none focus:border-blue-500"
                     required
                 />
@@ -105,7 +133,7 @@
                         <p class="text-sm text-gray-400 mt-1">{{.Description}}</p>
                         {{end}}
                     </div>
-                    <code class="text-gray-400 text-xs font-mono bg-dark-surface px-2 py-1 rounded">{{.ID}}</code>
+                    <span class="text-gray-400 text-xs bg-dark-surface px-2 py-1 rounded">Team</span>
                 </div>
                 {{end}}
             {{else}}
@@ -118,10 +146,10 @@
 
 <script>
 function joinTeam() {
-    const teamId = document.getElementById('team-id-input').value.trim();
-    if (!teamId) return;
+    const inviteCode = document.getElementById('invite-code-input').value.trim();
+    if (!inviteCode) return;
 
-    fetch(`/api/teams/${teamId}/join`, {method: 'POST'})
+    fetch(`/api/teams/join/${inviteCode}`, {method: 'POST'})
         .then(r => {
             if (r.ok) {
                 location.reload();
@@ -134,6 +162,42 @@ function joinTeam() {
         .catch(err => {
             document.getElementById('join-message').innerHTML = `<div class="text-red-400">Network error</div>`;
         });
+}
+
+function regenerateInvite() {
+    if (!confirm('Regenerate invite code? The old code will stop working.')) return;
+
+    fetch('/api/teams/regenerate-invite', {method: 'POST'})
+        .then(r => {
+            if (r.ok) {
+                return r.json();
+            } else {
+                alert('Failed to regenerate invite code');
+                return null;
+            }
+        })
+        .then(data => {
+            if (data) location.reload();
+        })
+        .catch(err => alert('Network error'));
+}
+
+function updateInvitePermission() {
+    const permission = document.getElementById('invite-permission').value;
+
+    fetch('/api/teams/invite-permission', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({permission: permission})
+    })
+    .then(r => {
+        if (r.ok) {
+            location.reload();
+        } else {
+            alert('Failed to update invite permission');
+        }
+    })
+    .catch(err => alert('Network error'));
 }
 
 function createTeam() {

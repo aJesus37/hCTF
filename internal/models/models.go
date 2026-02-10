@@ -15,12 +15,14 @@ type User struct {
 }
 
 type Team struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Description *string   `json:"description,omitempty"`
-	OwnerID     string    `json:"owner_id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID                 string    `json:"id"`
+	Name               string    `json:"name"`
+	Description        *string   `json:"description,omitempty"`
+	OwnerID            string    `json:"owner_id"`
+	InviteID           string    `json:"invite_id"`
+	InvitePermission   string    `json:"invite_permission"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 type Challenge struct {

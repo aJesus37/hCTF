@@ -206,8 +206,10 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth)
 		r.Post("/api/teams", s.teamH.CreateTeam)
-		r.Post("/api/teams/{id}/join", s.teamH.JoinTeam)
+		r.Post("/api/teams/join/{invite_id}", s.teamH.JoinTeam)
 		r.Post("/api/teams/leave", s.teamH.LeaveTeam)
+		r.Post("/api/teams/regenerate-invite", s.teamH.RegenerateInviteCode)
+		r.Post("/api/teams/invite-permission", s.teamH.UpdateInvitePermission)
 	})
 
 	// API routes - Hints (public read, protected unlock)
@@ -466,6 +468,11 @@ func (s *Server) handleTeams(w http.ResponseWriter, r *http.Request) {
 		team, err := s.db.GetTeamByID(*user.TeamID)
 		if err == nil {
 			data["Team"] = team
+
+			// Determine if user can see the invite code
+			canSeeInvite := team.OwnerID == claims.UserID ||
+				(team.InvitePermission == "all_members")
+			data["CanSeeInviteCode"] = canSeeInvite
 
 			members, err := s.db.GetTeamMembers(*user.TeamID)
 			if err == nil {

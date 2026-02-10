@@ -1,12 +1,24 @@
 package database
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
+	"fmt"
 	"strings"
 	"time"
 
 	"github.com/yourusername/hctf2/internal/models"
 )
+
+// generateRandomCode creates a cryptographically secure random hex string
+func generateRandomCode() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
+}
 
 // User queries
 func (db *DB) CreateUser(email, passwordHash, name string, isAdmin bool) (*models.User, error) {
@@ -430,23 +442,23 @@ func (db *DB) GetCorrectSubmissionCount() (int, error) {
 func (db *DB) CreateTeam(name, description string, ownerID string) (*models.Team, error) {
 	query := `INSERT INTO teams (name, description, owner_id)
 	          VALUES (?, ?, ?)
-	          RETURNING id, name, description, owner_id, created_at, updated_at`
+	          RETURNING id, name, description, owner_id, invite_id, invite_permission, created_at, updated_at`
 
 	var t models.Team
 	err := db.QueryRow(query, name, description, ownerID).Scan(
-		&t.ID, &t.Name, &t.Description, &t.OwnerID, &t.CreatedAt, &t.UpdatedAt,
+		&t.ID, &t.Name, &t.Description, &t.OwnerID, &t.InviteID, &t.InvitePermission, &t.CreatedAt, &t.UpdatedAt,
 	)
 	return &t, err
 }
 
 // GetTeamByID fetches a team by ID
 func (db *DB) GetTeamByID(id string) (*models.Team, error) {
-	query := `SELECT id, name, description, owner_id, created_at, updated_at
+	query := `SELECT id, name, description, owner_id, invite_id, invite_permission, created_at, updated_at
 	          FROM teams WHERE id = ?`
 
 	var t models.Team
 	err := db.QueryRow(query, id).Scan(
-		&t.ID, &t.Name, &t.Description, &t.OwnerID, &t.CreatedAt, &t.UpdatedAt,
+		&t.ID, &t.Name, &t.Description, &t.OwnerID, &t.InviteID, &t.InvitePermission, &t.CreatedAt, &t.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -456,7 +468,7 @@ func (db *DB) GetTeamByID(id string) (*models.Team, error) {
 
 // GetAllTeams fetches all teams ordered by name
 func (db *DB) GetAllTeams() ([]models.Team, error) {
-	query := `SELECT id, name, description, owner_id, created_at, updated_at
+	query := `SELECT id, name, description, owner_id, invite_id, invite_permission, created_at, updated_at
 	          FROM teams ORDER BY name ASC`
 
 	rows, err := db.Query(query)
@@ -468,7 +480,7 @@ func (db *DB) GetAllTeams() ([]models.Team, error) {
 	var teams []models.Team
 	for rows.Next() {
 		var t models.Team
-		if err := rows.Scan(&t.ID, &t.Name, &t.Description, &t.OwnerID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.Name, &t.Description, &t.OwnerID, &t.InviteID, &t.InvitePermission, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
 		teams = append(teams, t)
@@ -570,6 +582,46 @@ func (db *DB) UpdateTeam(id, name, description string) error {
 // DeleteTeam deletes a team
 func (db *DB) DeleteTeam(id string) error {
 	_, err := db.Exec("DELETE FROM teams WHERE id = ?", id)
+	return err
+}
+
+// GetTeamByInviteID fetches a team using the secret invite code
+func (db *DB) GetTeamByInviteID(inviteID string) (*models.Team, error) {
+	query := `SELECT id, name, description, owner_id, invite_id, invite_permission, created_at, updated_at
+	          FROM teams WHERE invite_id = ?`
+
+	var t models.Team
+	err := db.QueryRow(query, inviteID).Scan(
+		&t.ID, &t.Name, &t.Description, &t.OwnerID, &t.InviteID, &t.InvitePermission, &t.CreatedAt, &t.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// RegenerateInviteID creates a new random invite code for a team
+func (db *DB) RegenerateInviteID(teamID string) (string, error) {
+	// Generate new random invite code
+	newInviteID := generateRandomCode()
+
+	query := `UPDATE teams SET invite_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	_, err := db.Exec(query, newInviteID, teamID)
+	if err != nil {
+		return "", err
+	}
+	return newInviteID, nil
+}
+
+// UpdateInvitePermission updates who can share team invites
+func (db *DB) UpdateInvitePermission(teamID, permission string) error {
+	// Validate permission value
+	if permission != "owner_only" && permission != "all_members" {
+		return fmt.Errorf("invalid permission value: %s", permission)
+	}
+
+	query := `UPDATE teams SET invite_permission = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+	_, err := db.Exec(query, permission, teamID)
 	return err
 }
 

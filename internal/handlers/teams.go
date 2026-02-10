@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/yourusername/hctf2/internal/auth"
 	"github.com/yourusername/hctf2/internal/database"
+	"github.com/yourusername/hctf2/internal/models"
 )
 
 type TeamHandler struct {
@@ -77,7 +78,7 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(team)
 }
 
-// JoinTeam handles joining a team by ID
+// JoinTeam handles joining a team using invite code
 func (h *TeamHandler) JoinTeam(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil {
@@ -85,7 +86,7 @@ func (h *TeamHandler) JoinTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	teamID := chi.URLParam(r, "id")
+	inviteID := chi.URLParam(r, "invite_id")
 
 	// Check if user already in a team
 	user, err := h.db.GetUserByID(claims.UserID)
@@ -99,15 +100,15 @@ func (h *TeamHandler) JoinTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check team exists
-	_, err = h.db.GetTeamByID(teamID)
+	// Look up team by invite code
+	team, err := h.db.GetTeamByInviteID(inviteID)
 	if err != nil {
-		http.Error(w, "Team not found", http.StatusNotFound)
+		http.Error(w, "Invalid invite code", http.StatusNotFound)
 		return
 	}
 
 	// Join team
-	if err := h.db.JoinTeam(claims.UserID, teamID); err != nil {
+	if err := h.db.JoinTeam(claims.UserID, team.ID); err != nil {
 		http.Error(w, "Failed to join team", http.StatusInternalServerError)
 		return
 	}
@@ -159,7 +160,7 @@ func (h *TeamHandler) LeaveTeam(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"message":"Left team successfully"}`))
 }
 
-// ListTeams returns all teams
+// ListTeams returns all teams with invite codes filtered for non-members
 func (h *TeamHandler) ListTeams(w http.ResponseWriter, r *http.Request) {
 	teams, err := h.db.GetAllTeams()
 	if err != nil {
@@ -167,8 +168,35 @@ func (h *TeamHandler) ListTeams(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get current user (optional)
+	claims := auth.GetUserFromContext(r.Context())
+
+	// Filter invite codes from response for non-members
+	var response []interface{}
+	for _, team := range teams {
+		teamData := map[string]interface{}{
+			"id":           team.ID,
+			"name":         team.Name,
+			"description":  team.Description,
+			"owner_id":     team.OwnerID,
+			"created_at":   team.CreatedAt,
+			"updated_at":   team.UpdatedAt,
+		}
+
+		// Only include invite_id and invite_permission if user is a team member
+		if claims != nil && claims.UserID != "" {
+			user, err := h.db.GetUserByID(claims.UserID)
+			if err == nil && user.TeamID != nil && *user.TeamID == team.ID {
+				teamData["invite_id"] = team.InviteID
+				teamData["invite_permission"] = team.InvitePermission
+			}
+		}
+
+		response = append(response, teamData)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(teams)
+	json.NewEncoder(w).Encode(response)
 }
 
 // GetTeam returns team details with members
@@ -257,4 +285,115 @@ func (h *TeamHandler) GetTeamScoreboard(w http.ResponseWriter, r *http.Request) 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(scoreboard)
 	}
+}
+
+// RegenerateInviteCode generates a new invite code for the team (owner only)
+func (h *TeamHandler) RegenerateInviteCode(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.db.GetUserByID(claims.UserID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	if user.TeamID == nil {
+		http.Error(w, "Not in a team", http.StatusBadRequest)
+		return
+	}
+
+	// Verify user is team owner
+	team, err := h.db.GetTeamByID(*user.TeamID)
+	if err != nil {
+		http.Error(w, "Team not found", http.StatusNotFound)
+		return
+	}
+
+	if team.OwnerID != claims.UserID {
+		http.Error(w, "Only team owner can regenerate invite code", http.StatusForbidden)
+		return
+	}
+
+	// Generate new invite code
+	newCode, err := h.db.RegenerateInviteID(team.ID)
+	if err != nil {
+		http.Error(w, "Failed to regenerate invite code", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"invite_id": newCode})
+}
+
+// UpdateInvitePermission updates who can share team invites (owner only)
+func (h *TeamHandler) UpdateInvitePermission(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.db.GetUserByID(claims.UserID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	if user.TeamID == nil {
+		http.Error(w, "Not in a team", http.StatusBadRequest)
+		return
+	}
+
+	// Verify user is team owner
+	team, err := h.db.GetTeamByID(*user.TeamID)
+	if err != nil {
+		http.Error(w, "Team not found", http.StatusNotFound)
+		return
+	}
+
+	if team.OwnerID != claims.UserID {
+		http.Error(w, "Only team owner can change invite permission", http.StatusForbidden)
+		return
+	}
+
+	var req map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	permission, ok := req["permission"]
+	if !ok || (permission != "owner_only" && permission != "all_members") {
+		http.Error(w, "Invalid permission value", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.db.UpdateInvitePermission(team.ID, permission); err != nil {
+		http.Error(w, "Failed to update permission", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message":"Permission updated successfully"}`))
+}
+
+// canUserSeeInviteCode checks if user should see the invite code
+func canUserSeeInviteCode(user *auth.Claims, team *models.Team, userTeamID *string) bool {
+	if user == nil {
+		return false
+	}
+	// Owner always sees it
+	if team.OwnerID == user.UserID {
+		return true
+	}
+	// Members see it if permission is all_members
+	if userTeamID != nil && *userTeamID == team.ID && team.InvitePermission == "all_members" {
+		return true
+	}
+	return false
 }
