@@ -87,3 +87,19 @@ type ScoreboardEntry struct {
 	SolveCount int       `json:"solve_count"`
 	LastSolve  time.Time `json:"last_solve"`
 }
+
+// QuestionWithChallenge is used in admin forms to display challenge name with question
+type QuestionWithChallenge struct {
+	ID            string    `json:"id"`
+	ChallengeID   string    `json:"challenge_id"`
+	ChallengeName string    `json:"challenge_name"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	Flag          string    `json:"-"`
+	FlagMask      *string   `json:"flag_mask,omitempty"`
+	CaseSensitive bool      `json:"case_sensitive"`
+	Points        int       `json:"points"`
+	FileURL       *string   `json:"file_url,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}

@@ -753,3 +753,33 @@ func (h *ChallengeHandler) GetChallengesDropdown(w http.ResponseWriter, r *http.
 		fmt.Fprintf(w, `<option value="%s">%s</option>`, c.ID, c.Name)
 	}
 }
+
+// GetQuestionsDropdown returns questions with challenge names as HTML options for dropdown
+func (h *ChallengeHandler) GetQuestionsDropdown(w http.ResponseWriter, r *http.Request) {
+	questions, err := h.db.GetAllQuestionsWithChallenge()
+	if err != nil {
+		http.Error(w, "Failed to fetch questions", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprint(w, `<option value="">Select a question...</option>`)
+
+	for _, q := range questions {
+		fmt.Fprintf(w, `<option value="%s">%s → %s (%d points)</option>`, q.ID, q.ChallengeName, q.Name, q.Points)
+	}
+}
+
+// GetNextHintOrder returns the next order number for a question's hints
+func (h *ChallengeHandler) GetNextHintOrder(w http.ResponseWriter, r *http.Request) {
+	questionID := chi.URLParam(r, "questionId")
+
+	nextOrder, err := h.db.GetNextHintOrder(questionID)
+	if err != nil {
+		http.Error(w, "Failed to get next order", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{"nextOrder": nextOrder})
+}

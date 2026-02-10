@@ -21,6 +21,7 @@ import (
 	"github.com/yourusername/hctf2/internal/database"
 	"github.com/yourusername/hctf2/internal/handlers"
 	"github.com/yourusername/hctf2/internal/models"
+	"github.com/yourusername/hctf2/internal/utils"
 )
 
 //go:embed internal/views/templates/*
@@ -49,6 +50,7 @@ type Server struct {
 	teamH     *handlers.TeamHandler
 	hintH     *handlers.HintHandler
 	sqlH      *handlers.SQLHandler
+	profileH  *handlers.ProfileHandler
 }
 
 // customFileHandler wraps the file server to set proper content types for WASM and workers
@@ -93,7 +95,12 @@ func main() {
 	}
 
 	// Parse templates
-	tmpl, err := template.ParseFS(templatesFS, "internal/views/templates/*.html")
+	tmpl, err := template.New("").Funcs(template.FuncMap{
+		"markdown":      utils.RenderMarkdown,
+		"stripMarkdown": utils.StripMarkdown,
+		"mul":           func(a, b int) int { return a * b },
+		"div":           func(a, b int) int { if b == 0 { return 0 }; return a / b },
+	}).ParseFS(templatesFS, "internal/views/templates/*.html")
 	if err != nil {
 		log.Fatalf("Failed to parse templates: %v", err)
 	}
@@ -108,6 +115,7 @@ func main() {
 		teamH:       handlers.NewTeamHandler(db),
 		hintH:       handlers.NewHintHandler(db),
 		sqlH:        handlers.NewSQLHandler(db),
+		profileH:    handlers.NewProfileHandler(db),
 	}
 
 	// Setup router
@@ -160,12 +168,18 @@ func main() {
 	r.Get("/sql", s.handleSQL)
 	r.Get("/login", s.handleLoginPage)
 	r.Get("/register", s.handleRegisterPage)
+	r.Get("/forgot-password", s.handleForgotPasswordPage)
+	r.Get("/reset-password", s.handleResetPasswordPage)
 
 	// Protected team routes
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth)
 		r.Get("/teams", s.handleTeams)
 	})
+
+	// Profile routes (public view, own profile requires auth)
+	r.Get("/profile", s.handleOwnProfile)
+	r.Get("/users/{id}", s.handleUserProfile)
 
 	// Admin UI routes
 	r.Group(func(r chi.Router) {
@@ -180,6 +194,8 @@ func main() {
 	// API routes - Auth
 	r.Post("/api/auth/register", s.authH.Register)
 	r.Post("/api/auth/login", s.authH.Login)
+	r.Post("/api/auth/forgot-password", s.authH.ForgotPassword)
+	r.Post("/api/auth/reset-password", s.authH.ResetPassword)
 
 	// Protected Auth routes
 	r.Group(func(r chi.Router) {
@@ -191,6 +207,8 @@ func main() {
 	r.Get("/api/challenges", s.challengeH.ListChallenges)
 	r.Get("/api/challenges/{id}", s.challengeH.GetChallenge)
 	r.Get("/api/challenges-dropdown", s.challengeH.GetChallengesDropdown)
+	r.Get("/api/questions-dropdown", s.challengeH.GetQuestionsDropdown)
+	r.Get("/api/questions/{questionId}/next-hint-order", s.challengeH.GetNextHintOrder)
 
 	// API routes - Submissions (protected)
 	r.Group(func(r chi.Router) {
@@ -511,6 +529,26 @@ func (s *Server) handleRegisterPage(w http.ResponseWriter, r *http.Request) {
 	s.render(w, "base.html", data)
 }
 
+func (s *Server) handleForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
+	data := map[string]interface{}{
+		"Title": "Forgot Password",
+		"Page":  "forgot-password",
+		"User":  auth.GetUserFromContext(r.Context()),
+	}
+	s.render(w, "base.html", data)
+}
+
+func (s *Server) handleResetPasswordPage(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	data := map[string]interface{}{
+		"Title":      "Reset Password",
+		"Page":       "reset-password",
+		"User":       auth.GetUserFromContext(r.Context()),
+		"ResetToken": token,
+	}
+	s.render(w, "base.html", data)
+}
+
 func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 
@@ -521,8 +559,8 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch all questions
-	questions, err := s.db.GetAllQuestions()
+	// Fetch all questions (including challenge names for admin forms)
+	questionsWithChallenge, err := s.db.GetAllQuestionsWithChallenge()
 	if err != nil {
 		http.Error(w, "Failed to fetch questions", http.StatusInternalServerError)
 		return
@@ -530,7 +568,7 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 
 	// Fetch all hints
 	var hints []models.Hint
-	for _, q := range questions {
+	for _, q := range questionsWithChallenge {
 		qHints, err := s.db.GetHintsByQuestionID(q.ID)
 		if err == nil {
 			hints = append(hints, qHints...)
@@ -542,7 +580,7 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		"Page":       "admin",
 		"User":       claims,
 		"Challenges": challenges,
-		"Questions":  questions,
+		"Questions":  questionsWithChallenge,
 		"Hints":      hints,
 	}
 	s.render(w, "base.html", data)
@@ -676,6 +714,60 @@ func (s *Server) handleViewChallenge(w http.ResponseWriter, r *http.Request) {
 		id, id, id)
 
 	w.Write([]byte(html))
+}
+
+// Profile handlers
+func (s *Server) handleOwnProfile(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	stats, err := s.db.GetUserStats(claims.UserID)
+	if err != nil {
+		http.Error(w, "Error loading profile", http.StatusInternalServerError)
+		return
+	}
+
+	submissions, _ := s.db.GetUserRecentSubmissions(claims.UserID, 20)
+	solved, _ := s.db.GetUserSolvedChallenges(claims.UserID)
+
+	data := map[string]interface{}{
+		"Title":             "My Profile",
+		"Page":              "profile",
+		"User":              claims,
+		"Stats":             stats,
+		"RecentSubmissions": submissions,
+		"SolvedChallenges":  solved,
+		"IsOwnProfile":      true,
+	}
+	s.render(w, "base.html", data)
+}
+
+func (s *Server) handleUserProfile(w http.ResponseWriter, r *http.Request) {
+	userID := chi.URLParam(r, "id")
+	claims := auth.GetUserFromContext(r.Context())
+
+	stats, err := s.db.GetUserStats(userID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	submissions, _ := s.db.GetUserRecentSubmissions(userID, 20)
+	solved, _ := s.db.GetUserSolvedChallenges(userID)
+
+	data := map[string]interface{}{
+		"Title":             "User Profile",
+		"Page":              "profile",
+		"User":              claims,
+		"Stats":             stats,
+		"RecentSubmissions": submissions,
+		"SolvedChallenges":  solved,
+		"IsOwnProfile":      false,
+	}
+	s.render(w, "base.html", data)
 }
 
 // handleEditQuestion returns an edit form for a question

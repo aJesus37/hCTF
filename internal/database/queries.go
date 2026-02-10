@@ -749,3 +749,259 @@ func (db *DB) GetHintByID(id string) (*models.Hint, error) {
 	}
 	return &h, nil
 }
+
+// GetAllQuestionsWithChallenge returns all questions with challenge names for admin dropdown
+func (db *DB) GetAllQuestionsWithChallenge() ([]models.QuestionWithChallenge, error) {
+	query := `
+		SELECT
+			q.id,
+			q.challenge_id,
+			c.name as challenge_name,
+			q.name,
+			q.description,
+			q.flag,
+			q.flag_mask,
+			q.case_sensitive,
+			q.points,
+			q.file_url,
+			q.created_at,
+			q.updated_at
+		FROM questions q
+		JOIN challenges c ON q.challenge_id = c.id
+		ORDER BY c.name, q.name
+	`
+
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var questions []models.QuestionWithChallenge
+	for rows.Next() {
+		var q models.QuestionWithChallenge
+		if err := rows.Scan(&q.ID, &q.ChallengeID, &q.ChallengeName, &q.Name, &q.Description,
+			&q.Flag, &q.FlagMask, &q.CaseSensitive, &q.Points, &q.FileURL, &q.CreatedAt, &q.UpdatedAt); err != nil {
+			return nil, err
+		}
+		questions = append(questions, q)
+	}
+	return questions, nil
+}
+
+// GetNextHintOrder returns the next order number for a question's hints
+func (db *DB) GetNextHintOrder(questionID string) (int, error) {
+	var maxOrder int
+	query := `SELECT COALESCE(MAX("order"), 0) + 1 FROM hints WHERE question_id = ?`
+	err := db.QueryRow(query, questionID).Scan(&maxOrder)
+	return maxOrder, err
+}
+
+// Profile queries
+type UserStats struct {
+	UserID          string
+	Name            string
+	Email           string
+	AvatarURL       *string
+	TeamID          *string
+	TeamName        *string
+	CreatedAt       time.Time
+	TotalPoints     int
+	SolvedCount     int
+	TotalSubmissions int
+	HintsCost       int
+	HintsUnlocked   int
+}
+
+func (db *DB) GetUserStats(userID string) (*UserStats, error) {
+	query := `
+		SELECT
+			u.id,
+			u.name,
+			u.email,
+			u.avatar_url,
+			u.team_id,
+			t.name as team_name,
+			u.created_at,
+			COALESCE(SUM(q.points), 0) - COALESCE(hint_costs.total_cost, 0) as total_points,
+			COUNT(DISTINCT CASE WHEN s.is_correct = 1 THEN s.question_id END) as solved_count,
+			COUNT(DISTINCT s.id) as total_submissions,
+			COALESCE(hint_costs.total_cost, 0) as hints_cost,
+			COALESCE(hint_costs.hint_count, 0) as hints_unlocked
+		FROM users u
+		LEFT JOIN teams t ON u.team_id = t.id
+		LEFT JOIN submissions s ON u.id = s.user_id
+		LEFT JOIN questions q ON s.question_id = q.id AND s.is_correct = 1
+		LEFT JOIN (
+			SELECT hu.user_id, SUM(h.cost) as total_cost, COUNT(*) as hint_count
+			FROM hint_unlocks hu
+			JOIN hints h ON hu.hint_id = h.id
+			GROUP BY hu.user_id
+		) hint_costs ON u.id = hint_costs.user_id
+		WHERE u.id = ?
+		GROUP BY u.id, u.name, u.email, u.avatar_url, u.team_id, t.name, u.created_at
+	`
+
+	var stats UserStats
+	var teamName sql.NullString
+	var teamID sql.NullString
+	var avatarURL sql.NullString
+
+	err := db.QueryRow(query, userID).Scan(
+		&stats.UserID, &stats.Name, &stats.Email, &avatarURL, &teamID, &teamName,
+		&stats.CreatedAt, &stats.TotalPoints, &stats.SolvedCount, &stats.TotalSubmissions,
+		&stats.HintsCost, &stats.HintsUnlocked,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if avatarURL.Valid {
+		stats.AvatarURL = &avatarURL.String
+	}
+	if teamID.Valid {
+		stats.TeamID = &teamID.String
+	}
+	if teamName.Valid {
+		stats.TeamName = &teamName.String
+	}
+
+	return &stats, nil
+}
+
+type SubmissionHistory struct {
+	ID           string
+	CreatedAt    time.Time
+	IsCorrect    bool
+	QuestionName string
+	Points       int
+	ChallengeName string
+	Category     string
+}
+
+func (db *DB) GetUserRecentSubmissions(userID string, limit int) ([]SubmissionHistory, error) {
+	query := `
+		SELECT
+			s.id,
+			s.created_at,
+			s.is_correct,
+			q.name as question_name,
+			q.points - COALESCE(hint_costs.cost, 0) as points,
+			c.name as challenge_name,
+			c.category
+		FROM submissions s
+		JOIN questions q ON s.question_id = q.id
+		JOIN challenges c ON q.challenge_id = c.id
+		LEFT JOIN (
+			SELECT hu.user_id, h.question_id, SUM(h.cost) as cost
+			FROM hint_unlocks hu
+			JOIN hints h ON hu.hint_id = h.id
+			GROUP BY hu.user_id, h.question_id
+		) hint_costs ON s.user_id = hint_costs.user_id AND q.id = hint_costs.question_id
+		WHERE s.user_id = ? AND s.is_correct = 1
+		ORDER BY s.created_at DESC
+		LIMIT ?
+	`
+
+	rows, err := db.Query(query, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var submissions []SubmissionHistory
+	for rows.Next() {
+		var sub SubmissionHistory
+		if err := rows.Scan(&sub.ID, &sub.CreatedAt, &sub.IsCorrect, &sub.QuestionName,
+			&sub.Points, &sub.ChallengeName, &sub.Category); err != nil {
+			return nil, err
+		}
+		submissions = append(submissions, sub)
+	}
+	return submissions, nil
+}
+
+type ChallengeSummary struct {
+	ID               string
+	Name             string
+	Category         string
+	Difficulty       string
+	SolvedQuestions  int
+	TotalQuestions   int
+}
+
+func (db *DB) GetUserSolvedChallenges(userID string) ([]ChallengeSummary, error) {
+	query := `
+		SELECT DISTINCT
+			c.id,
+			c.name,
+			c.category,
+			c.difficulty,
+			COUNT(DISTINCT s.question_id) as solved_questions,
+			(SELECT COUNT(*) FROM questions WHERE challenge_id = c.id) as total_questions
+		FROM challenges c
+		JOIN questions q ON c.id = q.challenge_id
+		JOIN submissions s ON q.id = s.question_id
+		WHERE s.user_id = ? AND s.is_correct = 1
+		GROUP BY c.id, c.name, c.category, c.difficulty
+		ORDER BY c.name
+	`
+
+	rows, err := db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var challenges []ChallengeSummary
+	for rows.Next() {
+		var ch ChallengeSummary
+		if err := rows.Scan(&ch.ID, &ch.Name, &ch.Category, &ch.Difficulty,
+			&ch.SolvedQuestions, &ch.TotalQuestions); err != nil {
+			return nil, err
+		}
+		challenges = append(challenges, ch)
+	}
+	return challenges, nil
+}
+
+// Password reset queries
+func (db *DB) CreatePasswordResetToken(userID, token string, expires time.Time) error {
+	query := `UPDATE users
+	          SET password_reset_token = ?, password_reset_expires = ?, updated_at = CURRENT_TIMESTAMP
+	          WHERE id = ?`
+	_, err := db.Exec(query, token, expires, userID)
+	return err
+}
+
+func (db *DB) GetUserByResetToken(token string) (*models.User, error) {
+	query := `SELECT id, email, password_hash, name, avatar_url, team_id, is_admin, created_at, updated_at
+	          FROM users
+	          WHERE password_reset_token = ? AND password_reset_expires > CURRENT_TIMESTAMP`
+
+	var user models.User
+	err := db.QueryRow(query, token).Scan(
+		&user.ID, &user.Email, &user.PasswordHash, &user.Name,
+		&user.AvatarURL, &user.TeamID, &user.IsAdmin, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (db *DB) ClearPasswordResetToken(userID string) error {
+	query := `UPDATE users
+	          SET password_reset_token = NULL, password_reset_expires = NULL, updated_at = CURRENT_TIMESTAMP
+	          WHERE id = ?`
+	_, err := db.Exec(query, userID)
+	return err
+}
+
+func (db *DB) UpdatePassword(userID, passwordHash string) error {
+	query := `UPDATE users
+	          SET password_hash = ?, updated_at = CURRENT_TIMESTAMP
+	          WHERE id = ?`
+	_, err := db.Exec(query, passwordHash, userID)
+	return err
+}

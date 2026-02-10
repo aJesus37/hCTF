@@ -29,6 +29,27 @@ func (h *HintHandler) UnlockHint(w http.ResponseWriter, r *http.Request) {
 
 	hintID := chi.URLParam(r, "id")
 
+	// Get hint to find question_id
+	hint, err := h.db.GetHintByID(hintID)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"Hint not found"}`))
+		return
+	}
+
+	// Check if user already solved this question
+	solved, err := h.db.HasUserSolved(hint.QuestionID, claims.UserID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"Error checking solve status"}`))
+		return
+	}
+	if solved {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":"Cannot unlock hints for already solved questions"}`))
+		return
+	}
+
 	// Check if already unlocked
 	unlocked, err := h.db.IsHintUnlocked(hintID, claims.UserID)
 	if err != nil {
@@ -75,6 +96,12 @@ func (h *HintHandler) GetHints(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if question is already solved
+	var questionSolved bool
+	if claims != nil {
+		questionSolved, _ = h.db.HasUserSolved(questionID, claims.UserID)
+	}
+
 	// If authenticated, get unlock status
 	var unlockedIDs []string
 	if claims != nil {
@@ -99,14 +126,26 @@ func (h *HintHandler) GetHints(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Show locked hint with unlock button
 			if claims != nil {
-				fmt.Fprintf(w, `<div class="p-3 bg-gray-700 border border-gray-600 rounded text-gray-200 text-sm flex justify-between items-center">
-                    <span><strong>Hint %d</strong> (Cost: %d points)</span>
-                    <button hx-post="/api/hints/%s/unlock"
-                        hx-swap="none"
-                        class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition">
-                        Unlock
-                    </button>
-                </div>`, hint.Order, hint.Cost, hint.ID)
+				if questionSolved {
+					// Question already solved - disable unlock button
+					fmt.Fprintf(w, `<div class="p-3 bg-gray-700 border border-gray-600 rounded text-gray-200 text-sm flex justify-between items-center opacity-60">
+                        <span><strong>Hint %d</strong> (Cost: %d points)</span>
+                        <button disabled
+                            class="px-3 py-1 bg-gray-600 text-gray-400 text-xs rounded cursor-not-allowed">
+                            Hint disabled
+                        </button>
+                    </div>`, hint.Order, hint.Cost)
+				} else {
+					// Question not solved - show unlock button
+					fmt.Fprintf(w, `<div class="p-3 bg-gray-700 border border-gray-600 rounded text-gray-200 text-sm flex justify-between items-center">
+                        <span><strong>Hint %d</strong> (Cost: %d points)</span>
+                        <button hx-post="/api/hints/%s/unlock"
+                            hx-swap="none"
+                            class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition">
+                            Unlock
+                        </button>
+                    </div>`, hint.Order, hint.Cost, hint.ID)
+				}
 			} else {
 				// Show locked hint without unlock button (not authenticated)
 				fmt.Fprintf(w, `<div class="p-3 bg-gray-700 border border-gray-600 rounded text-gray-200 text-sm">
