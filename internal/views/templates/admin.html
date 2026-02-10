@@ -742,7 +742,8 @@
                 .then(data => {
                     headHTML = data.head_html || '';
                     bodyEndHTML = data.body_end_html || '';
-                    pages = JSON.parse(data.pages_json || '[\"all\"]');
+                    const pagesStr = data.pages_json || '[]';
+                    pages = pagesStr ? JSON.parse(pagesStr) : ['all'];
                 });
         ">
             <h2 class="text-2xl font-bold text-white mb-4">Custom Code Injection</h2>
