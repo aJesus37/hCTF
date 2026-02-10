@@ -257,6 +257,7 @@ func main() {
 		r.Post("/api/teams", s.teamH.CreateTeam)
 		r.Post("/api/teams/join/{invite_id}", s.teamH.JoinTeam)
 		r.Post("/api/teams/leave", s.teamH.LeaveTeam)
+		r.Post("/api/teams/disband", s.teamH.DisbandTeam)
 		r.Post("/api/teams/regenerate-invite", s.teamH.RegenerateInviteCode)
 		r.Post("/api/teams/invite-permission", s.teamH.UpdateInvitePermission)
 	})

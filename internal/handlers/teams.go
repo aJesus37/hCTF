@@ -160,6 +160,48 @@ func (h *TeamHandler) LeaveTeam(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"message":"Left team successfully"}`))
 }
 
+// DisbandTeam allows team owners to delete their team
+func (h *TeamHandler) DisbandTeam(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := h.db.GetUserByID(claims.UserID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	if user.TeamID == nil {
+		http.Error(w, "Not in a team", http.StatusBadRequest)
+		return
+	}
+
+	// Check if user is team owner
+	team, err := h.db.GetTeamByID(*user.TeamID)
+	if err != nil {
+		http.Error(w, "Team not found", http.StatusNotFound)
+		return
+	}
+
+	if team.OwnerID != claims.UserID {
+		http.Error(w, "Only team owner can disband the team", http.StatusForbidden)
+		return
+	}
+
+	// Delete the team (CASCADE will handle removing team members)
+	if err := h.db.DeleteTeam(*user.TeamID); err != nil {
+		http.Error(w, "Failed to disband team", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"message":"Team disbanded successfully"}`))
+}
+
 // ListTeams returns all teams with invite codes filtered for non-members
 func (h *TeamHandler) ListTeams(w http.ResponseWriter, r *http.Request) {
 	teams, err := h.db.GetAllTeams()

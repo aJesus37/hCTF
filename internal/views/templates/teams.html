@@ -61,6 +61,12 @@
             class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition">
             Leave Team
         </button>
+        {{else}}
+        <button
+            onclick="if(confirm('Are you sure you want to disband this team? This will remove all members and cannot be undone.')) { fetch('/api/teams/disband', {method: 'POST'}).then(r => r.ok ? location.reload() : alert('Failed to disband team')) }"
+            class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition">
+            Disband Team
+        </button>
         {{end}}
     </div>
     {{else}}
