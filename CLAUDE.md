@@ -56,9 +56,42 @@ hctf2/
 ### Making Changes
 
 1. **Read Before Editing**: Always read existing code before modifying
-2. **Test Locally**: Changes should be testable with `task run`
-3. **Update Docs**: If changing APIs or behavior, update relevant .md files
-4. **Commit Properly**: Use conventional commits (see below)
+2. **Force Rebuild**: Before running server, use `task rebuild` to ensure binary is fresh (task build uses caching)
+3. **Test Locally**: Changes should be testable with `task run`
+4. **Validate with agent-browser**: For UI changes, validate using agent-browser in headed mode (see Validation section)
+5. **Update Docs**: If changing APIs or behavior, update relevant .md files
+6. **Commit Properly**: Use conventional commits (see below)
+
+### Validation with agent-browser
+
+For browser-based projects like hCTF2, always validate UI changes:
+
+```bash
+# 1. Force rebuild to ensure latest changes
+task rebuild
+
+# 2. Start server
+./hctf2 --port 8090
+
+# 3. In another terminal, open in headed mode
+npx agent-browser --headed --session hctf2 open http://localhost:8090
+
+# 4. Take screenshots for documentation
+npx agent-browser --session hctf2 screenshot --full result.png
+```
+
+**What to validate:**
+- Both light and dark themes (toggle with ☀️/🌙 button)
+- Responsive layouts at different screen sizes
+- Interactive elements (forms, buttons, modals)
+- HTMX dynamic content updates
+- Browser console for JavaScript errors
+
+**Common issues to catch:**
+- Missing `dark:` prefixes for dark mode support
+- Cached binary not reflecting code changes (always use `task rebuild`)
+- HTMX responses with hardcoded dark theme classes
+- Poor contrast in light mode
 
 ### Adding New Features
 
@@ -164,15 +197,21 @@ w.Write([]byte(`<div class="text-green-400">Correct!</div>`))
 
 Common tasks:
 ```bash
-task build        # Build binary
+task build        # Build binary (incremental, cached)
+task rebuild      # Force rebuild (deletes binary first) - USE THIS when testing changes
 task run          # Run with admin setup
 task run-dev      # Run without admin setup
-task clean        # Clean build artifacts
+task clean        # Clean build artifacts (preserves database)
+task clean-all    # Clean build artifacts AND database (destructive)
 task test         # Run tests
 task fmt          # Format code
 task build-prod   # Production build
 task deps         # Install dependencies
 ```
+
+**Critical**: `task build` uses caching based on source file timestamps. If your changes don't appear:
+1. Use `task rebuild` to force a fresh build
+2. Or run `rm hctf2 && task build`
 
 When documenting or writing scripts, **always use `task`**, never `make`.
 

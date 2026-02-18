@@ -12,7 +12,7 @@ tasks:
       - task --list
 
   build:
-    desc: Build the application
+    desc: Build the application (incremental, uses cache if sources unchanged)
     cmds:
       - CGO_ENABLED=0 go build {{.BUILD_FLAGS}} -o {{.BINARY_NAME}} {{.MAIN_PATH}}
     sources:
@@ -33,9 +33,20 @@ tasks:
       - go run {{.MAIN_PATH}} --port 8090
 
   clean:
-    desc: Clean build artifacts
+    desc: Clean build artifacts (preserves database)
+    cmds:
+      - rm -f {{.BINARY_NAME}} {{.BINARY_NAME}}-*
+
+  clean-all:
+    desc: Clean build artifacts AND database (destructive)
     cmds:
       - rm -f {{.BINARY_NAME}} {{.BINARY_NAME}}-* *.db *.db-shm *.db-wal
+
+  rebuild:
+    desc: Force rebuild by removing binary first (ensures fresh build)
+    cmds:
+      - rm -f {{.BINARY_NAME}}
+      - task: build
 
   test:
     desc: Run all tests with verbose output
