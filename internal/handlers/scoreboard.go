@@ -28,27 +28,27 @@ func (h *ScoreboardHandler) GetScoreboard(w http.ResponseWriter, r *http.Request
 		w.Header().Set("Content-Type", "text/html")
 		// Return table body rows for HTMX to insert
 		fmt.Fprint(w, `<table class="w-full">
-        <thead class="bg-dark-bg border-b border-dark-border">
+        <thead class="bg-gray-100 dark:bg-dark-bg border-b border-gray-200 dark:border-dark-border">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Rank</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">User</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Team</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Points</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Solves</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Last Solve</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Rank</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">User</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Team</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Points</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Solves</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Last Solve</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-dark-border">`)
+        <tbody class="divide-y divide-gray-200 dark:divide-dark-border">`)
 
 		for _, e := range entries {
-			rankColor := "text-gray-400"
+			rankColor := "text-gray-500 dark:text-gray-400"
 			switch e.Rank {
 			case 1:
-				rankColor = "text-yellow-400"
+				rankColor = "text-yellow-600 dark:text-yellow-400"
 			case 2:
-				rankColor = "text-gray-300"
+				rankColor = "text-gray-600 dark:text-gray-300"
 			case 3:
-				rankColor = "text-orange-400"
+				rankColor = "text-orange-600 dark:text-orange-400"
 			}
 
 			teamName := "-"
@@ -56,13 +56,13 @@ func (h *ScoreboardHandler) GetScoreboard(w http.ResponseWriter, r *http.Request
 				teamName = *e.TeamName
 			}
 
-			fmt.Fprintf(w, `<tr class="hover:bg-dark-bg transition">
+			fmt.Fprintf(w, `<tr class="hover:bg-gray-100 dark:hover:bg-dark-bg transition">
                 <td class="px-6 py-4 whitespace-nowrap"><span class="text-sm font-bold %s">#%d</span></td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-white">%s</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">%s</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-400">%d</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">%d</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">%s</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">%s</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">%s</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600 dark:text-green-400">%d</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">%d</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">%s</td>
             </tr>`,
 				rankColor, e.Rank, e.UserName, teamName, e.Points, e.SolveCount,
 				e.LastSolve.Format("Jan 02, 15:04"))
@@ -89,26 +89,26 @@ func (h *ScoreboardHandler) GetTeamScoreboard(w http.ResponseWriter, r *http.Req
 		w.Header().Set("Content-Type", "text/html")
 		// Return table body rows for HTMX to insert
 		fmt.Fprint(w, `<table class="w-full">
-        <thead class="bg-dark-bg border-b border-dark-border">
+        <thead class="bg-gray-100 dark:bg-dark-bg border-b border-gray-200 dark:border-dark-border">
             <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Rank</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Team</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Points</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Solves</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Last Solve</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Rank</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Team</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Points</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Solves</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Last Solve</th>
             </tr>
         </thead>
-        <tbody class="divide-y divide-dark-border">`)
+        <tbody class="divide-y divide-gray-200 dark:divide-dark-border">`)
 
 		for _, e := range entries {
-			rankColor := "text-gray-400"
+			rankColor := "text-gray-500 dark:text-gray-400"
 			switch e.Rank {
 			case 1:
-				rankColor = "text-yellow-400"
+				rankColor = "text-yellow-600 dark:text-yellow-400"
 			case 2:
-				rankColor = "text-gray-300"
+				rankColor = "text-gray-600 dark:text-gray-300"
 			case 3:
-				rankColor = "text-orange-400"
+				rankColor = "text-orange-600 dark:text-orange-400"
 			}
 
 			var teamName string
@@ -120,12 +120,12 @@ func (h *ScoreboardHandler) GetTeamScoreboard(w http.ResponseWriter, r *http.Req
 				teamName = "-"
 			}
 
-			fmt.Fprintf(w, `<tr class="hover:bg-dark-bg transition">
+			fmt.Fprintf(w, `<tr class="hover:bg-gray-100 dark:hover:bg-dark-bg transition">
                 <td class="px-6 py-4 whitespace-nowrap"><span class="text-sm font-bold %s">#%d</span></td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-white">%s</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-400">%d</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-300">%d</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">%s</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">%s</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600 dark:text-green-400">%d</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">%d</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">%s</td>
             </tr>`,
 				rankColor, e.Rank, teamName, e.Points, e.SolveCount,
 				e.LastSolve.Format("Jan 02, 15:04"))
