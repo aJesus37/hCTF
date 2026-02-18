@@ -412,6 +412,29 @@ func (db *DB) GetSQLSnapshot() (map[string]interface{}, error) {
 	}
 	snapshot["users"] = users
 
+	// Public teams (no invite info)
+	var teams []map[string]interface{}
+	rows4, err := db.Query(`SELECT id, name, COALESCE(description, '') as description, owner_id, created_at FROM teams`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows4.Close()
+
+	for rows4.Next() {
+		var id, name, description, ownerID, createdAt string
+		if err := rows4.Scan(&id, &name, &description, &ownerID, &createdAt); err != nil {
+			return nil, err
+		}
+		teams = append(teams, map[string]interface{}{
+			"id":          id,
+			"name":        name,
+			"description": description,
+			"owner_id":    ownerID,
+			"created_at":  createdAt,
+		})
+	}
+	snapshot["teams"] = teams
+
 	return snapshot, nil
 }
 
@@ -524,23 +547,40 @@ func (db *DB) GetTeamMembers(teamID string) ([]models.User, error) {
 	return users, nil
 }
 
-// GetTeamScoreboard returns team rankings with aggregated points
+// GetTeamScoreboard returns team rankings with aggregated points.
+// Only submissions made while the user was in the team (s.team_id = t.id) count.
+// Each unique question is counted once per team regardless of how many members solved it.
 func (db *DB) GetTeamScoreboard(limit int) ([]models.ScoreboardEntry, error) {
 	query := `
 		SELECT
 			t.id as team_id,
 			t.name as team_name,
-			COALESCE(SUM(DISTINCT CASE WHEN s.id IS NOT NULL THEN q.points ELSE 0 END), 0) -
-			COALESCE((SELECT SUM(h.cost) FROM hint_unlocks hu2
-					  JOIN hints h ON hu2.hint_id = h.id
-					  WHERE hu2.user_id IN (SELECT u2.id FROM users u2 WHERE u2.team_id = t.id)), 0) as points,
-			COUNT(DISTINCT s.question_id) as solve_count,
-			COALESCE(MAX(s.created_at), t.created_at) as last_solve
+			COALESCE(team_pts.points, 0) - COALESCE(hint_costs.total_cost, 0) as points,
+			COALESCE(team_pts.solve_count, 0) as solve_count,
+			COALESCE(team_pts.last_solve, t.created_at) as last_solve
 		FROM teams t
-		LEFT JOIN users u ON u.team_id = t.id
-		LEFT JOIN submissions s ON u.id = s.user_id AND s.is_correct = 1
-		LEFT JOIN questions q ON s.question_id = q.id
-		GROUP BY t.id, t.name
+		LEFT JOIN (
+			SELECT
+				s.team_id,
+				SUM(q.points) as points,
+				COUNT(*) as solve_count,
+				MAX(s.created_at) as last_solve
+			FROM (
+				SELECT team_id, question_id, MIN(created_at) as created_at
+				FROM submissions
+				WHERE is_correct = 1 AND team_id IS NOT NULL
+				GROUP BY team_id, question_id
+			) s
+			JOIN questions q ON q.id = s.question_id
+			GROUP BY s.team_id
+		) team_pts ON team_pts.team_id = t.id
+		LEFT JOIN (
+			SELECT hu.team_id, SUM(h.cost) as total_cost
+			FROM hint_unlocks hu
+			JOIN hints h ON hu.hint_id = h.id
+			WHERE hu.team_id IS NOT NULL
+			GROUP BY hu.team_id
+		) hint_costs ON hint_costs.team_id = t.id
 		ORDER BY points DESC, last_solve ASC
 		LIMIT ?
 	`
@@ -669,11 +709,11 @@ func (db *DB) GetHintsByQuestionID(questionID string) ([]models.Hint, error) {
 	return hints, nil
 }
 
-// UnlockHint creates a hint unlock record (idempotent)
-func (db *DB) UnlockHint(hintID, userID string) error {
-	query := `INSERT INTO hint_unlocks (hint_id, user_id) VALUES (?, ?)
+// UnlockHint creates a hint unlock record (idempotent), recording the team the user was in at the time
+func (db *DB) UnlockHint(hintID, userID string, teamID *string) error {
+	query := `INSERT INTO hint_unlocks (hint_id, user_id, team_id) VALUES (?, ?, ?)
 	          ON CONFLICT(hint_id, user_id) DO NOTHING`
-	_, err := db.Exec(query, hintID, userID)
+	_, err := db.Exec(query, hintID, userID, teamID)
 	return err
 }
 

@@ -5,7 +5,7 @@
         <p class="text-gray-300">Solve challenges to earn points and climb the scoreboard</p>
     </div>
 
-    <div class="mb-6 flex gap-4 flex-wrap">
+    <div class="mb-6 flex gap-4 flex-wrap items-center">
         <div>
             <label class="text-sm text-gray-400">Category:</label>
             <select x-model="category" class="ml-2 bg-dark-surface border border-dark-border text-white rounded px-3 py-1">
@@ -24,17 +24,17 @@
                 {{end}}
             </select>
         </div>
-        <div>
-            <label class="text-sm text-gray-400">Search:</label>
+        <div class="xl:flex-1 flex items-center">
+            <label class="text-sm text-gray-400 shrink-0">Search:</label>
             <input
                 type="text"
                 x-model="searchQuery"
                 placeholder="Search challenges..."
-                class="ml-2 bg-dark-surface border border-dark-border text-white rounded px-3 py-1 w-64 focus:outline-none focus:border-blue-500">
+                class="ml-2 bg-dark-surface border border-dark-border text-white rounded px-3 py-1 w-64 xl:w-full focus:outline-none focus:border-blue-500">
         </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
     {{range .Challenges}}
     <div class="bg-dark-surface border border-dark-border rounded-lg p-6 hover:border-blue-500 transition"
          data-search-name="{{.Name}}"

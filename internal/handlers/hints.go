@@ -64,8 +64,16 @@ func (h *HintHandler) UnlockHint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user's current team to record it with the hint unlock
+	user, err := h.db.GetUserByID(claims.UserID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"Failed to get user"}`))
+		return
+	}
+
 	// Unlock hint
-	if err := h.db.UnlockHint(hintID, claims.UserID); err != nil {
+	if err := h.db.UnlockHint(hintID, claims.UserID, user.TeamID); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`{"error":"Failed to unlock hint"}`))
 		return

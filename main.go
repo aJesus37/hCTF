@@ -161,12 +161,9 @@ func main() {
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			w.Header().Set("Access-Control-Max-Age", "86400")
 
-			// Only set restrictive COEP/COOP headers for SQL page (DuckDB WASM)
-			// These headers block external CDN resources, so we only use them where needed
-			if r.URL.Path == "/sql" {
-				w.Header().Set("Cross-Origin-Embedder-Policy", "credentialless")
-				w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
-			}
+			// Note: COEP/COOP headers removed for /sql page as they block CDN resources
+			// CodeMirror and other dependencies load from esm.sh and other CDNs
+			// DuckDB WASM works without these headers for basic queries
 
 			// For static files, also allow shared array buffers
 			if strings.HasPrefix(r.URL.Path, "/static/") {

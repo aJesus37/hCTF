@@ -33,17 +33,21 @@ This file provides guidance for Claude (or other AI assistants) when working on 
 
 ```
 hctf2/
-├── cmd/server/           # Application entry point
-│   └── main.go          # Router setup, middleware, handlers
+├── main.go              # Application entry point (router, middleware, handlers)
 ├── internal/            # Private application code
 │   ├── auth/           # Authentication & middleware
 │   ├── database/       # Database layer with embedded migrations
-│   ├── handlers/       # HTTP handlers
+│   │   └── migrations/ # SQL migrations (001-006)
+│   ├── handlers/       # HTTP handlers (auth, challenges, teams, hints, etc.)
 │   ├── models/         # Data structures
+│   ├── utils/          # Utility functions (markdown rendering)
 │   └── views/          # Templates & static files (embedded)
-├── migrations/         # SQL migrations (legacy, prefer internal/database/migrations)
+│       ├── templates/  # HTML templates
+│       └── static/     # CSS, JS, images, DuckDB WASM files
+├── migrations/         # SQL migrations (legacy, kept for reference)
 ├── Taskfile.yml        # Build automation (NOT Makefile)
 ├── go.mod              # Go dependencies
+├── handlers_test.go    # HTTP handler tests
 └── *.md                # Documentation
 ```
 
@@ -64,7 +68,7 @@ Follow this order:
 2. **Migration** - Create SQL migration in `internal/database/migrations/`
 3. **Database** - Add queries to `internal/database/queries.go`
 4. **Handler** - Create handler in `internal/handlers/`
-5. **Route** - Register route in `cmd/server/main.go`
+5. **Route** - Register route in `main.go`
 6. **Template** - Add HTML template in `internal/views/templates/`
 7. **Documentation** - Update relevant .md files
 
@@ -109,7 +113,7 @@ func (db *DB) GetUserByEmail(email string) (*models.User, error) {
 
 **HTTP Handler**:
 ```go
-func (h *Handler) GetChallenge(w http.ResponseWriter, r *http.Request) {
+func (h *ChallengeHandler) GetChallenge(w http.ResponseWriter, r *http.Request) {
     id := chi.URLParam(r, "id")
 
     challenge, err := h.db.GetChallengeByID(id)
@@ -126,7 +130,13 @@ func (h *Handler) GetChallenge(w http.ResponseWriter, r *http.Request) {
 **HTMX Response**:
 ```go
 // Return HTML fragment for HTMX to swap in
-w.Write([]byte(`<div class="text-green-400">✅ Correct!</div>`))
+w.Write([]byte(`<div class="text-green-400">Correct!</div>`))
+```
+
+**Markdown in Templates**:
+```html
+<!-- Use markdown function in templates -->
+<div class="prose prose-invert">{{markdown .Description}}</div>
 ```
 
 ## Security Requirements
@@ -225,7 +235,7 @@ Follow Semantic Versioning: `MAJOR.MINOR.PATCH`
 - **MINOR**: New features (backwards compatible)
 - **PATCH**: Bug fixes (backwards compatible)
 
-Current version: **v0.1.0** (initial release)
+Current version: **v0.2.1** (bug fixes for Teams, SQL Playground, and Challenge layout)
 
 ### When to Bump
 
@@ -236,9 +246,16 @@ Current version: **v0.1.0** (initial release)
 ## Testing
 
 ### Current State
-- ⏳ Unit tests not yet implemented
+- ✅ Unit tests implemented in `handlers_test.go`
 - ⏳ Integration tests not yet implemented
 - ✅ Manual testing via browser
+
+### Running Tests
+
+```bash
+task test         # Run all tests
+go test ./... -v  # Run with verbose output
+```
 
 ### When Adding Tests
 
@@ -284,7 +301,7 @@ func TestHashPassword(t *testing.T) {
 ### Adding a New API Endpoint
 
 1. Create handler function in `internal/handlers/`
-2. Register route in `cmd/server/main.go`
+2. Register route in `main.go`
 3. Add authentication middleware if needed
 4. Document in `API.md`
 5. Update relevant templates if UI changes
@@ -303,8 +320,8 @@ func TestHashPassword(t *testing.T) {
 
 1. Create template in `internal/views/templates/pagename.html`
 2. Define "content" block (see existing templates)
-3. Add route handler in `cmd/server/main.go`
-4. Render with `s.render(w, "base.html", data)` + `s.templates.ExecuteTemplate(w, "pagename.html", data)`
+3. Add route handler in `main.go`
+4. Render with `s.render(w, "base.html", data)`
 
 ## What NOT to Do
 
@@ -325,6 +342,10 @@ func TestHashPassword(t *testing.T) {
 - ✅ Use `go-chi/chi` (lightweight)
 - ❌ Don't add frontend frameworks (React, Vue)
 - ✅ Use HTMX + Alpine.js + Tailwind
+- ✅ Use `github.com/yuin/goldmark` for Markdown (pure Go)
+- ✅ Use `golang.org/x/crypto` for bcrypt
+- ✅ Use `github.com/golang-jwt/jwt` for authentication
+- ✅ Use `github.com/golang-migrate/migrate` for database migrations
 
 ### Documentation
 
@@ -340,15 +361,24 @@ func TestHashPassword(t *testing.T) {
 - ❌ Don't skip semver tags for releases
 - ✅ Keep commits atomic and focused
 
-## Phase 2 Features (Planned)
+## Implemented Features (Formerly Phase 2)
 
-When implementing these, follow the patterns above:
+The following features have been implemented:
 
-1. **Admin Web UI** - Currently API-only, needs CRUD forms
-2. **Team Management** - Schema exists, needs UI
-3. **Hints System** - Schema exists, needs unlock UI
-4. **File Uploads** - Add local storage or S3 integration
-5. **Markdown Support** - Add markdown renderer for descriptions
+1. ✅ **Admin Web UI** - Full CRUD forms for challenges, questions, hints, categories, difficulties
+2. ✅ **Team Management** - Complete UI with team creation, join via invite code, ownership transfer, disband
+3. ✅ **Hints System** - Full unlock UI with point cost display
+4. ✅ **Markdown Support** - Goldmark-based renderer in `internal/utils/markdown.go`
+5. ✅ **Search Functionality** - Client-side challenge search with Alpine.js
+6. ✅ **User Profiles** - `/profile` (own) and `/users/{id}` (public) with stats and activity
+7. ✅ **Password Reset** - Secure token-based reset flow
+8. ✅ **Site Settings** - Custom categories, difficulties, and HTML/JS code injection
+
+### Planned Features
+
+1. **File Uploads** - Add local storage or S3 integration for challenge files
+2. **Real-time Notifications** - WebSocket-based solve notifications
+3. **Challenge Docker Integration** - Per-challenge container spawning
 
 ## Questions to Ask
 
@@ -360,25 +390,47 @@ Before implementing something, consider:
 4. **Is this documented?** (API.md, README.md, etc.)
 5. **Does this use Task, not Make?** (build commands)
 
+## Handler Organization
+
+Handlers are organized by domain in `internal/handlers/`:
+
+| Handler | File | Purpose |
+|---------|------|---------|
+| AuthHandler | `auth.go` | Login, register, logout, password reset |
+| ChallengeHandler | `challenges.go` | Challenges, questions, submissions, hints CRUD |
+| TeamHandler | `teams.go` | Team creation, joining, management |
+| HintHandler | `hints.go` | Hint viewing and unlocking |
+| ScoreboardHandler | `scoreboard.go` | Scoreboard data and rankings |
+| ProfileHandler | `profile.go` | User profile pages and stats |
+| SettingsHandler | `settings.go` | Admin site settings, categories, difficulties |
+| SQLHandler | `sql.go` | SQL Playground snapshot API |
+
+Page handlers (in `main.go`) route to templates; API handlers return JSON or HTMX fragments.
+
 ## Useful References
 
 - **Project Docs**: README.md, INSTALL.md, QUICKSTART.md
 - **Architecture**: ARCHITECTURE.md
 - **API**: API.md
-- **Status**: IMPLEMENTATION_STATUS.md
+- **Features**: FEATURES_IMPLEMENTATION.md
+- **SQL Playground**: SQL_PLAYGROUND.md
+- **Testing**: TESTING.md
 - **Go Style**: https://go.dev/doc/effective_go
 - **Chi Router**: https://go-chi.io/
 - **HTMX**: https://htmx.org/
+- **Alpine.js**: https://alpinejs.dev/
 - **Taskfile**: https://taskfile.dev/
 
 ## Emergency Fixes
 
 If something breaks:
 
-1. **Database corruption**: `task db-reset` (WARNING: deletes data)
+1. **Database corruption**: `task db-reset` (WARNING: deletes all data)
 2. **Build errors**: `task clean && task deps && task build`
-3. **Port conflicts**: Change port: `./hctf2 --port 3000`
-4. **Template errors**: Check embed paths, rebuild binary
+3. **Port conflicts**: Change port: `./hctf2 --port 3000` or `task run-dev -- --port 3000`
+4. **Template errors**: Check embed paths, rebuild binary: `task clean && task build`
+5. **DuckDB WASM not loading**: Run `task setup-sql` to download WASM files
+6. **Migration failures**: Check `internal/database/migrations/` for syntax errors
 
 ## Summary
 
@@ -387,9 +439,9 @@ If something breaks:
 - Follow **conventional commits**
 - Use **SemVer** for releases
 - **No CGO**, **no heavy frameworks**
-- **Server-side rendering** with HTMX
+- **Server-side rendering** with HTMX + Alpine.js
 - Read code before changing
 - Document changes
-- Test locally
+- Test locally (`task test`)
 
-Happy coding! 🚀
+Happy coding!

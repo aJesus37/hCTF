@@ -6,65 +6,101 @@
 
 <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
     <!-- Schema sidebar -->
-    <div class="lg:col-span-1 bg-dark-surface border border-dark-border rounded-lg p-4">
-        <h3 class="text-lg font-bold text-white mb-4">Schema</h3>
-        <div class="space-y-4 text-sm">
+    <div class="lg:col-span-1 bg-dark-surface border border-dark-border rounded-lg p-4 flex flex-col">
+        <h3 class="text-lg font-bold text-white mb-3 shrink-0">Schema</h3>
+        <div class="overflow-y-auto flex-1 space-y-4 text-xs pr-1" style="max-height: 520px;">
+
             <div>
-                <h4 class="font-bold text-blue-400 mb-2">challenges</h4>
-                <ul class="text-gray-400 space-y-1 ml-4">
-                    <li>id, name, category</li>
-                    <li>difficulty, visible</li>
-                </ul>
+                <h4 class="font-bold text-blue-400 mb-1 uppercase tracking-wide">challenges</h4>
+                <table class="w-full text-gray-400">
+                    <tbody>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">id</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">name</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">category</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">difficulty</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">visible</td><td class="text-gray-500">INTEGER</td></tr>
+                    </tbody>
+                </table>
             </div>
+
             <div>
-                <h4 class="font-bold text-blue-400 mb-2">questions</h4>
-                <ul class="text-gray-400 space-y-1 ml-4">
-                    <li>id, challenge_id</li>
-                    <li>name, points</li>
-                </ul>
+                <h4 class="font-bold text-blue-400 mb-1 uppercase tracking-wide">questions</h4>
+                <table class="w-full text-gray-400">
+                    <tbody>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">id</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">challenge_id</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">name</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">description</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">flag_mask</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">points</td><td class="text-gray-500">INTEGER</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">created_at</td><td class="text-gray-500">TEXT</td></tr>
+                    </tbody>
+                </table>
             </div>
+
             <div>
-                <h4 class="font-bold text-blue-400 mb-2">submissions</h4>
-                <ul class="text-gray-400 space-y-1 ml-4">
-                    <li>id, question_id</li>
-                    <li>user_id, is_correct</li>
-                </ul>
+                <h4 class="font-bold text-blue-400 mb-1 uppercase tracking-wide">submissions <span class="text-gray-500 normal-case font-normal">(correct only)</span></h4>
+                <table class="w-full text-gray-400">
+                    <tbody>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">id</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">question_id</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">user_id</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">team_id</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">user_name</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">is_correct</td><td class="text-gray-500">INTEGER</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">created_at</td><td class="text-gray-500">TEXT</td></tr>
+                    </tbody>
+                </table>
             </div>
+
             <div>
-                <h4 class="font-bold text-blue-400 mb-2">users</h4>
-                <ul class="text-gray-400 space-y-1 ml-4">
-                    <li>id, name, team_id</li>
-                </ul>
+                <h4 class="font-bold text-blue-400 mb-1 uppercase tracking-wide">users</h4>
+                <table class="w-full text-gray-400">
+                    <tbody>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">id</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">name</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">team_id</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">created_at</td><td class="text-gray-500">TEXT</td></tr>
+                    </tbody>
+                </table>
             </div>
+
+            <div>
+                <h4 class="font-bold text-blue-400 mb-1 uppercase tracking-wide">teams</h4>
+                <table class="w-full text-gray-400">
+                    <tbody>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">id</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">name</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">description</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">owner_id</td><td class="text-gray-500">TEXT</td></tr>
+                        <tr><td class="font-mono pr-2 py-0.5 text-gray-300">created_at</td><td class="text-gray-500">TEXT</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
         </div>
 
-        <div class="mt-6">
-            <h4 class="font-bold text-white mb-2">Examples</h4>
-            <button onclick="window.setQuery(window.exampleQueries[0])" class="text-left w-full text-sm text-blue-400 hover:text-blue-300 mb-2">
-                Top 10 users
+        <div class="mt-4 pt-4 border-t border-dark-border shrink-0">
+            <h4 class="font-bold text-white mb-2 text-sm">Examples</h4>
+            <button onclick="window.setQuery(window.exampleQueries[0])" class="text-left w-full text-xs text-blue-400 hover:text-blue-300 mb-2 leading-tight">
+                Top 10 users by score
             </button>
-            <button onclick="window.setQuery(window.exampleQueries[1])" class="text-left w-full text-sm text-blue-400 hover:text-blue-300 mb-2">
+            <button onclick="window.setQuery(window.exampleQueries[1])" class="text-left w-full text-xs text-blue-400 hover:text-blue-300 mb-2 leading-tight">
                 Hardest challenges
             </button>
-            <button onclick="window.setQuery(window.exampleQueries[2])" class="text-left w-full text-sm text-blue-400 hover:text-blue-300">
+            <button onclick="window.setQuery(window.exampleQueries[2])" class="text-left w-full text-xs text-blue-400 hover:text-blue-300 mb-2 leading-tight">
                 Category stats
+            </button>
+            <button onclick="window.setQuery(window.exampleQueries[3])" class="text-left w-full text-xs text-blue-400 hover:text-blue-300 leading-tight">
+                Team leaderboard
             </button>
         </div>
     </div>
 
     <!-- Query editor and results -->
     <div class="lg:col-span-3 space-y-4">
-        <div>
-            <textarea id="query-editor"
-                      class="w-full h-48 px-4 py-3 bg-dark-bg border border-dark-border text-white font-mono text-sm rounded focus:outline-none focus:border-blue-500"
-                      placeholder="SELECT * FROM challenges LIMIT 10;">SELECT c.name, c.category, c.difficulty, COUNT(s.id) as solves
-FROM challenges c
-LEFT JOIN questions q ON c.id = q.challenge_id
-LEFT JOIN submissions s ON q.id = s.question_id AND s.is_correct = 1
-WHERE c.visible = 1
-GROUP BY c.id, c.name, c.category, c.difficulty
-ORDER BY solves DESC;</textarea>
-        </div>
+        <!-- CodeMirror editor container -->
+        <div id="editor-container" class="rounded border border-dark-border overflow-hidden" style="min-height: 12rem;" tabindex="0"></div>
 
         <div class="flex gap-2">
             <button onclick="window.executeQuery()"
@@ -97,9 +133,56 @@ ORDER BY solves DESC;</textarea>
     import * as duckdb from 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/dist/duckdb-browser.mjs';
     import * as arrow from 'apache-arrow';
 
+    // Import CodeMirror 6 with SQL support
+    import {EditorView, basicSetup} from 'https://esm.sh/codemirror';
+    import {sql} from 'https://esm.sh/@codemirror/lang-sql';
+    import {oneDark} from 'https://esm.sh/@codemirror/theme-one-dark';
+
     let db, conn;
     let duckdbReady = false;
 
+    // --- CodeMirror Editor Setup ---
+    const startDoc = `SELECT c.name, c.category, c.difficulty, COUNT(s.id) as solves
+FROM challenges c
+LEFT JOIN questions q ON c.id = q.challenge_id
+LEFT JOIN submissions s ON q.id = s.question_id AND s.is_correct = 1
+WHERE c.visible = 1
+GROUP BY c.id, c.name, c.category, c.difficulty
+ORDER BY solves DESC;`;
+
+    const editorTheme = EditorView.theme({
+        '&': {
+            backgroundColor: '#0f172a',
+            fontSize: '0.875rem',
+            height: '12rem',
+        },
+        '.cm-scroller': {
+            overflow: 'auto',
+            fontFamily: "'Courier New', Courier, monospace",
+        },
+        '.cm-content': { caretColor: '#60a5fa' },
+        '.cm-cursor': { borderLeftColor: '#60a5fa' },
+        '.cm-gutters': { backgroundColor: '#1e293b', color: '#475569', border: 'none', borderRight: '1px solid #334155' },
+        '.cm-activeLineGutter': { backgroundColor: '#1e3a5f' },
+        '.cm-activeLine': { backgroundColor: '#1e3a5f' },
+        '.cm-selectionBackground': { backgroundColor: '#2d4a7a !important' },
+        '&.cm-focused .cm-selectionBackground': { backgroundColor: '#2d4a7a' },
+        '&.cm-focused': { outline: 'none' },
+    });
+
+    const editor = new EditorView({
+        doc: startDoc,
+        extensions: [
+            basicSetup,
+            sql(),
+            oneDark,
+            editorTheme,
+            EditorView.lineWrapping,
+        ],
+        parent: document.getElementById('editor-container'),
+    });
+
+    // --- Example Queries ---
     const exampleQueries = [
         `-- Top 10 users by points
 SELECT u.name, SUM(q.points) as total_points, COUNT(*) as solves
@@ -129,23 +212,38 @@ FROM (
     LEFT JOIN submissions s ON q.id = s.question_id AND s.is_correct = 1
     GROUP BY c.category, c.id
 )
-GROUP BY category;`
+GROUP BY category;`,
+
+        `-- Team leaderboard
+SELECT t.name as team, COUNT(DISTINCT s.question_id) as solves, SUM(q.points) as total_points
+FROM teams t
+JOIN users u ON u.team_id = t.id
+JOIN submissions s ON s.user_id = u.id AND s.is_correct = 1
+JOIN questions q ON q.id = s.question_id
+GROUP BY t.id, t.name
+ORDER BY total_points DESC;`,
     ];
 
     // Expose to global scope for onclick handlers
     window.exampleQueries = exampleQueries;
 
     window.setQuery = function(query) {
-        document.getElementById('query-editor').value = query;
+        editor.dispatch({
+            changes: { from: 0, to: editor.state.doc.length, insert: query }
+        });
+        editor.focus();
     };
 
     window.clearQuery = function() {
-        document.getElementById('query-editor').value = '';
+        editor.dispatch({
+            changes: { from: 0, to: editor.state.doc.length, insert: '' }
+        });
         document.getElementById('query-results').innerHTML = '<p class="text-gray-400">Results will appear here...</p>';
+        editor.focus();
     };
 
     window.executeQuery = async function() {
-        const query = document.getElementById('query-editor').value.trim();
+        const query = editor.state.doc.toString().trim();
         if (!query) return;
 
         const resultsDiv = document.getElementById('query-results');
@@ -177,7 +275,7 @@ GROUP BY category;`
             rows.forEach(row => {
                 html += '<tr class="hover:bg-dark-bg">';
                 columns.forEach(col => {
-                    const value = row[col] === null ? '-' : row[col];
+                    const value = row[col] === null ? '<span class="text-gray-600">NULL</span>' : row[col];
                     html += `<td class="px-4 py-2 text-gray-300">${value}</td>`;
                 });
                 html += '</tr>';
@@ -196,10 +294,7 @@ GROUP BY category;`
         resultsDiv.innerHTML = '<p class="text-gray-400">Loading DuckDB WASM...</p>';
 
         try {
-            // Select appropriate bundle based on browser capabilities
             const DUCKDB_CONFIG = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
-
-            // Initialize DuckDB with worker
             const logger = new duckdb.ConsoleLogger();
             const worker = await duckdb.createWorker(DUCKDB_CONFIG.mainWorker);
             db = new duckdb.AsyncDuckDB(logger, worker);
@@ -207,61 +302,64 @@ GROUP BY category;`
             await db.instantiate(DUCKDB_CONFIG.mainModule, DUCKDB_CONFIG.pthreadWorker);
             conn = await db.connect();
 
-            // Load snapshot data from server
             const snapshot = await fetch('/api/sql/snapshot').then(r => r.json());
 
-            // Create tables and populate data using Arrow
             if (snapshot.challenges && snapshot.challenges.length > 0) {
-                const challengeRecords = snapshot.challenges.map(c => ({
+                const records = snapshot.challenges.map(c => ({
                     id: c.id,
                     name: c.name,
                     category: c.category,
                     difficulty: c.difficulty,
-                    visible: c.visible ? 1 : 0
+                    visible: c.visible ? 1 : 0,
                 }));
-                await conn.insertArrowTable(
-                    arrow.tableFromJSON(challengeRecords),
-                    { name: 'challenges' }
-                );
+                await conn.insertArrowTable(arrow.tableFromJSON(records), { name: 'challenges' });
             }
 
             if (snapshot.questions && snapshot.questions.length > 0) {
-                const questionRecords = snapshot.questions.map(q => ({
+                const records = snapshot.questions.map(q => ({
                     id: q.id,
                     challenge_id: q.challenge_id,
                     name: q.name,
-                    points: q.points
+                    description: q.description || '',
+                    flag_mask: q.flag_mask || '',
+                    points: q.points,
+                    created_at: q.created_at || '',
                 }));
-                await conn.insertArrowTable(
-                    arrow.tableFromJSON(questionRecords),
-                    { name: 'questions' }
-                );
+                await conn.insertArrowTable(arrow.tableFromJSON(records), { name: 'questions' });
             }
 
             if (snapshot.submissions && snapshot.submissions.length > 0) {
-                const submissionRecords = snapshot.submissions.map(s => ({
+                const records = snapshot.submissions.map(s => ({
                     id: s.id,
                     question_id: s.question_id,
                     user_id: s.user_id,
+                    team_id: s.team_id || null,
+                    user_name: s.user_name || '',
                     is_correct: s.is_correct ? 1 : 0,
-                    created_at: s.created_at
+                    created_at: s.created_at || '',
                 }));
-                await conn.insertArrowTable(
-                    arrow.tableFromJSON(submissionRecords),
-                    { name: 'submissions' }
-                );
+                await conn.insertArrowTable(arrow.tableFromJSON(records), { name: 'submissions' });
             }
 
             if (snapshot.users && snapshot.users.length > 0) {
-                const userRecords = snapshot.users.map(u => ({
+                const records = snapshot.users.map(u => ({
                     id: u.id,
                     name: u.name,
-                    team_id: u.team_id || null
+                    team_id: u.team_id || null,
+                    created_at: u.created_at || '',
                 }));
-                await conn.insertArrowTable(
-                    arrow.tableFromJSON(userRecords),
-                    { name: 'users' }
-                );
+                await conn.insertArrowTable(arrow.tableFromJSON(records), { name: 'users' });
+            }
+
+            if (snapshot.teams && snapshot.teams.length > 0) {
+                const records = snapshot.teams.map(t => ({
+                    id: t.id,
+                    name: t.name,
+                    description: t.description || '',
+                    owner_id: t.owner_id,
+                    created_at: t.created_at || '',
+                }));
+                await conn.insertArrowTable(arrow.tableFromJSON(records), { name: 'teams' });
             }
 
             duckdbReady = true;
@@ -269,11 +367,10 @@ GROUP BY category;`
         } catch (error) {
             duckdbReady = false;
             console.error('DuckDB initialization error:', error);
-            resultsDiv.innerHTML = `<p class="text-red-400">Failed to initialize DuckDB</p><p class="text-gray-400 text-sm mt-2">Error: ${error.message}</p><p class="text-gray-400 text-sm mt-1">Check browser console for details.</p>`;
+            resultsDiv.innerHTML = `<p class="text-red-400">Failed to initialize DuckDB</p><p class="text-gray-400 text-sm mt-2">Error: ${error.message}</p>`;
         }
     }
 
-    // Auto-init when page loads
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initDB);
     } else {

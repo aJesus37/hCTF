@@ -1,4 +1,26 @@
 {{define "teams-content"}}
+
+<!-- In-app modal (replaces browser alert/confirm) -->
+<div x-data x-show="$store.modal.open"
+     class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
+     @keydown.escape.window="$store.modal.cancel()"
+     style="display:none;">
+    <div class="bg-dark-surface border border-dark-border rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl">
+        <p x-text="$store.modal.message" class="text-gray-200 text-sm leading-relaxed mb-6"></p>
+        <div class="flex justify-end gap-3">
+            <button x-show="$store.modal.isConfirm"
+                    @click="$store.modal.cancel()"
+                    class="px-4 py-2 text-sm bg-dark-bg border border-dark-border text-gray-300 hover:text-white rounded transition">
+                Cancel
+            </button>
+            <button @click="$store.modal.ok()"
+                    class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition">
+                OK
+            </button>
+        </div>
+    </div>
+</div>
+
 <div>
     <h1 class="text-4xl font-bold text-blue-400 mb-2">Teams</h1>
     <p class="text-gray-300 mb-8">Collaborate with teammates and compete together</p>
@@ -11,11 +33,24 @@
         <p class="text-gray-300 mb-4">{{.Team.Description}}</p>
         {{end}}
 
-        <div class="mb-6 p-4 bg-dark-bg rounded">
-            <h3 class="text-lg font-semibold text-white mb-2">Invite Code:</h3>
+        <!-- Invite Code with show/hide toggle -->
+        <div class="mb-6 p-4 bg-dark-bg rounded" x-data="{ showCode: false }">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-lg font-semibold text-white">Invite Code</h3>
+                {{if .CanSeeInviteCode}}
+                <button @click="showCode = !showCode"
+                        class="text-xs px-3 py-1 bg-dark-surface border border-dark-border text-gray-400 hover:text-white hover:border-gray-400 rounded transition"
+                        x-text="showCode ? 'Hide' : 'Show'">
+                    Show
+                </button>
+                {{end}}
+            </div>
             {{if .CanSeeInviteCode}}
-                <code class="text-green-400 font-mono text-lg">{{.Team.InviteID}}</code>
-                <p class="text-xs text-gray-400 mt-2">Share this code to invite others</p>
+                <div x-show="showCode" style="display: none;">
+                    <code class="text-green-400 font-mono text-lg break-all">{{.Team.InviteID}}</code>
+                    <p class="text-xs text-gray-400 mt-2">Share this code to invite others</p>
+                </div>
+                <p x-show="!showCode" class="text-gray-500 text-sm">Click "Show" to reveal the invite code</p>
             {{else}}
                 <p class="text-gray-400 text-sm">Only the team owner can view the invite code.</p>
             {{end}}
@@ -79,14 +114,12 @@
         </ul>
 
         <div class="flex gap-2">
-            <button
-                onclick="if(confirm('{{if eq .User.ID .Team.OwnerID}}You must transfer ownership before leaving. Leave team?{{else}}Leave team?{{end}}')) { fetch('/api/teams/leave', {method: 'POST'}).then(r => { if(r.ok) { location.reload(); } else { r.text().then(msg => alert(msg)); } }) }"
+            <button onclick="leaveTeam()"
                 class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition">
                 Leave Team
             </button>
             {{if eq .User.ID .Team.OwnerID}}
-            <button
-                onclick="if(confirm('Are you sure you want to disband this team? This will remove all members and cannot be undone.')) { fetch('/api/teams/disband', {method: 'POST'}).then(r => r.ok ? location.reload() : alert('Failed to disband team')) }"
+            <button onclick="disbandTeam()"
                 class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition">
                 Disband Team
             </button>
@@ -175,112 +208,146 @@
 </div>
 
 <script>
-function joinTeam() {
-    const inviteCode = document.getElementById('invite-code-input').value.trim();
-    if (!inviteCode) return;
+// Register Alpine store for in-app modal before Alpine initializes
+document.addEventListener('alpine:init', () => {
+    Alpine.store('modal', {
+        open: false,
+        isConfirm: false,
+        message: '',
+        _cb: null,
+        showAlert(msg) {
+            this.message = msg;
+            this.isConfirm = false;
+            this.open = true;
+            this._cb = null;
+        },
+        showConfirm(msg, cb) {
+            this.message = msg;
+            this.isConfirm = true;
+            this.open = true;
+            this._cb = cb;
+        },
+        ok() {
+            this.open = false;
+            const cb = this._cb;
+            this._cb = null;
+            if (cb) cb();
+        },
+        cancel() {
+            this.open = false;
+            this._cb = null;
+        }
+    });
+});
 
-    fetch(`/api/teams/join/${inviteCode}`, {method: 'POST'})
-        .then(r => {
-            if (r.ok) {
-                location.reload();
-            } else {
-                r.text().then(msg => {
-                    document.getElementById('join-message').innerHTML = `<div class="text-red-400">Error: ${msg}</div>`;
-                });
-            }
-        })
-        .catch(err => {
-            document.getElementById('join-message').innerHTML = `<div class="text-red-400">Network error</div>`;
-        });
+window.showAlert   = (msg)     => Alpine.store('modal').showAlert(msg);
+window.showConfirm = (msg, cb) => Alpine.store('modal').showConfirm(msg, cb);
+
+function leaveTeam() {
+    {{if .Team}}
+    const msg = {{if eq .User.ID .Team.OwnerID}}'You must transfer ownership before leaving. Leave team?'{{else}}'Leave team?'{{end}};
+    {{else}}
+    const msg = 'Leave team?';
+    {{end}}
+    showConfirm(msg, () => {
+        fetch('/api/teams/leave', { method: 'POST' })
+            .then(r => {
+                if (r.ok) location.reload();
+                else r.text().then(t => showAlert(t));
+            })
+            .catch(() => showAlert('Network error'));
+    });
+}
+
+function disbandTeam() {
+    showConfirm('Are you sure you want to disband this team? This will remove all members and cannot be undone.', () => {
+        fetch('/api/teams/disband', { method: 'POST' })
+            .then(r => r.ok ? location.reload() : showAlert('Failed to disband team'))
+            .catch(() => showAlert('Network error'));
+    });
 }
 
 function regenerateInvite() {
-    if (!confirm('Regenerate invite code? The old code will stop working.')) return;
-
-    fetch('/api/teams/regenerate-invite', {method: 'POST'})
-        .then(r => {
-            if (r.ok) {
-                return r.json();
-            } else {
-                alert('Failed to regenerate invite code');
+    showConfirm('Regenerate invite code? The old code will stop working.', () => {
+        fetch('/api/teams/regenerate-invite', { method: 'POST' })
+            .then(r => {
+                if (r.ok) return r.json();
+                showAlert('Failed to regenerate invite code');
                 return null;
-            }
-        })
-        .then(data => {
-            if (data) location.reload();
-        })
-        .catch(err => alert('Network error'));
+            })
+            .then(data => { if (data) location.reload(); })
+            .catch(() => showAlert('Network error'));
+    });
 }
 
 function updateInvitePermission() {
     const permission = document.getElementById('invite-permission').value;
-
     fetch('/api/teams/invite-permission', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({permission: permission})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permission })
     })
     .then(r => {
-        if (r.ok) {
-            location.reload();
-        } else {
-            alert('Failed to update invite permission');
-        }
+        if (r.ok) location.reload();
+        else showAlert('Failed to update invite permission');
     })
-    .catch(err => alert('Network error'));
+    .catch(() => showAlert('Network error'));
 }
 
 function transferOwnership() {
     const newOwnerID = document.getElementById('new-owner-select').value;
-
     if (!newOwnerID) {
-        alert('Please select a new owner');
+        showAlert('Please select a new owner');
         return;
     }
+    showConfirm('Transfer team ownership to the selected member? You will remain in the team but lose owner privileges.', () => {
+        fetch('/api/teams/transfer-ownership', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ new_owner_id: newOwnerID })
+        })
+        .then(r => {
+            if (r.ok) location.reload();
+            else r.text().then(t => showAlert('Failed to transfer ownership: ' + t));
+        })
+        .catch(() => showAlert('Network error'));
+    });
+}
 
-    if (!confirm('Transfer team ownership to the selected member? You will remain in the team but lose owner privileges.')) {
-        return;
-    }
-
-    fetch('/api/teams/transfer-ownership', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({new_owner_id: newOwnerID})
-    })
-    .then(r => {
-        if (r.ok) {
-            location.reload();
-        } else {
-            r.text().then(msg => alert('Failed to transfer ownership: ' + msg));
-        }
-    })
-    .catch(err => alert('Network error'));
+function joinTeam() {
+    const inviteCode = document.getElementById('invite-code-input').value.trim();
+    if (!inviteCode) return;
+    fetch(`/api/teams/join/${inviteCode}`, { method: 'POST' })
+        .then(r => {
+            if (r.ok) location.reload();
+            else r.text().then(msg => {
+                document.getElementById('join-message').innerHTML = `<div class="text-red-400">Error: ${msg}</div>`;
+            });
+        })
+        .catch(() => {
+            document.getElementById('join-message').innerHTML = `<div class="text-red-400">Network error</div>`;
+        });
 }
 
 function createTeam() {
     const name = document.getElementById('team-name').value.trim();
     const description = document.getElementById('team-description').value.trim();
-
     if (!name) {
         document.getElementById('create-message').innerHTML = `<div class="text-red-400">Team name required</div>`;
         return;
     }
-
     fetch('/api/teams', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({name, description})
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description })
     })
     .then(r => {
-        if (r.ok) {
-            location.reload();
-        } else {
-            r.text().then(msg => {
-                document.getElementById('create-message').innerHTML = `<div class="text-red-400">Error: ${msg}</div>`;
-            });
-        }
+        if (r.ok) location.reload();
+        else r.text().then(msg => {
+            document.getElementById('create-message').innerHTML = `<div class="text-red-400">Error: ${msg}</div>`;
+        });
     })
-    .catch(err => {
+    .catch(() => {
         document.getElementById('create-message').innerHTML = `<div class="text-red-400">Network error</div>`;
     });
 }
