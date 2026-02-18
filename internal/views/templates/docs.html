@@ -13,6 +13,63 @@
 <!-- Use Swagger UI instead of ReDoc for better compatibility -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
 <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<style>
+    /* Dark mode styles for Swagger UI */
+    .dark .swagger-ui {
+        filter: invert(1) hue-rotate(180deg);
+    }
+    .dark .swagger-ui .highlight-code {
+        filter: invert(1) hue-rotate(180deg);
+    }
+    .dark .swagger-ui .scheme-container {
+        filter: invert(1) hue-rotate(180deg);
+    }
+    /* Keep buttons and colored elements readable */
+    .dark .swagger-ui .btn {
+        filter: invert(1) hue-rotate(180deg);
+    }
+    .dark .swagger-ui .opblock-tag {
+        color: #1b1b1b;
+    }
+    .dark .swagger-ui .opblock .opblock-summary-operation-id,
+    .dark .swagger-ui .opblock .opblock-summary-path,
+    .dark .swagger-ui .opblock .opblock-summary-description {
+        color: #3b4151;
+    }
+    .dark .swagger-ui .opblock-description-wrapper p,
+    .dark .swagger-ui .opblock-external-docs-wrapper p,
+    .dark .swagger-ui .opblock-title_normal p {
+        color: #3b4151;
+    }
+    .dark .swagger-ui .parameter__name {
+        color: #3b4151;
+    }
+    .dark .swagger-ui .parameter__type {
+        color: #3b4151;
+    }
+    .dark .swagger-ui table thead tr td,
+    .dark .swagger-ui table thead tr th {
+        color: #3b4151;
+    }
+    .dark .swagger-ui .response-col_status {
+        color: #3b4151;
+    }
+    .dark .swagger-ui .response-col_description {
+        color: #3b4151;
+    }
+    .dark .swagger-ui .model-title {
+        color: #3b4151;
+    }
+    .dark .swagger-ui .model .property.primitive {
+        color: #3b4151;
+    }
+    .dark .swagger-ui .prop-type {
+        color: #3b4151;
+    }
+    .dark .swagger-ui .prop-format {
+        color: #3b4151;
+    }
+</style>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         SwaggerUIBundle({
