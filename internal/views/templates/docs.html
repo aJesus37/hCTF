@@ -1,0 +1,52 @@
+{{define "docs-content"}}
+<div class="min-h-screen bg-white dark:bg-dark-surface">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-4">API Documentation</h1>
+        <p class="text-gray-600 dark:text-gray-300 mb-8">
+            The hCTF2 REST API provides programmatic access to challenges, teams, submissions, and scoreboard data.
+            Use this interactive documentation to explore available endpoints, request/response formats, and authentication requirements.
+        </p>
+        <div id="redoc-container" class="rounded-lg border border-gray-200 dark:border-dark-border overflow-hidden"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/redoc@2.1.3/bundles/redoc.standalone.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        fetch('/api/openapi.yaml')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to load OpenAPI specification');
+                }
+                return response.text();
+            })
+            .then(spec => {
+                Redoc.init(spec, {
+                    theme: {
+                        colors: {
+                            primary: {
+                                main: '#3b82f6'
+                            }
+                        },
+                        typography: {
+                            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+                        }
+                    },
+                    hideDownloadButton: false,
+                    expandResponses: '200,201',
+                    jsonSampleExpandLevel: 2
+                }, document.getElementById('redoc-container'));
+            })
+            .catch(error => {
+                console.error('Error loading ReDoc:', error);
+                const container = document.getElementById('redoc-container');
+                container.innerHTML = 
+                    '<div class="p-8 text-center text-red-600 dark:text-red-400">' +
+                    '<p class="text-lg font-semibold">Failed to load API documentation</p>' +
+                    '<p class="text-sm mt-2 error-message"></p>' +
+                    '</div>';
+                container.querySelector('.error-message').textContent = error.message;
+            });
+    });
+</script>
+{{end}}

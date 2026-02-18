@@ -141,6 +141,8 @@
             {{template "team-profile-content" .}}
         {{else if eq .Page "error"}}
             {{template "error-content" .}}
+        {{else if eq .Page "docs"}}
+            {{template "docs-content" .}}
         {{else}}
             {{template "index-content" .}}
         {{end}}
