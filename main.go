@@ -320,6 +320,9 @@ func main() {
 	// OpenAPI Spec
 	r.Get("/api/openapi.yaml", s.handleOpenAPISpec)
 
+	// OpenAPI Docs UI
+	r.Get("/docs", s.handleDocsPage)
+
 	// API routes - Scoreboard
 	r.Get("/api/scoreboard", s.scoreboardH.GetScoreboard)
 
@@ -604,6 +607,21 @@ func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Write(data)
+}
+
+// handleDocsPage serves the OpenAPI documentation UI
+func (s *Server) handleDocsPage(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+	customCode, _ := s.db.GetCustomCode("docs")
+
+	data := map[string]interface{}{
+		"Title":      "API Documentation",
+		"User":       claims,
+		"Page":       "docs",
+		"CustomCode": customCode,
+	}
+
+	s.render(w, "base.html", data)
 }
 
 func (s *Server) handleSQL(w http.ResponseWriter, r *http.Request) {
