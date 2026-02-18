@@ -85,7 +85,7 @@ func TestPageContent(t *testing.T) {
 			path:   "/scoreboard",
 			contentMust: []string{
 				"Scoreboard",
-				"Top players ranked",
+				"Top ranked by points",
 				"Rank",
 				"User",
 				"Points",
@@ -321,7 +321,7 @@ func TestNoPageCollision(t *testing.T) {
 			page: "/login",
 			mustNot: []string{
 				"Solve challenges to earn points",  // From challenges page content
-				"Top players ranked by points",    // From scoreboard page content
+				"Top ranked by points",    // From scoreboard page content
 				"Already have an account?",        // From register page content
 			},
 		},
@@ -329,7 +329,7 @@ func TestNoPageCollision(t *testing.T) {
 			page: "/register",
 			mustNot: []string{
 				"Solve challenges to earn points", // From challenges page content
-				"Top players ranked by points",   // From scoreboard page content
+				"Top ranked by points",   // From scoreboard page content
 				"Don't have an account?",         // From login page content
 			},
 		},
@@ -337,7 +337,7 @@ func TestNoPageCollision(t *testing.T) {
 			page: "/challenges",
 			mustNot: []string{
 				"Query CTF data using SQL", // From SQL page content
-				"Top players ranked",       // From scoreboard page content
+				"Top ranked by points",       // From scoreboard page content
 			},
 		},
 	}
@@ -380,9 +380,28 @@ func newTestServer(db *database.DB) *Server {
 	return s
 }
 
-// Helper: Create templates from filesystem
+// Helper: Create templates from filesystem with all required template functions
 func createTemplates() (*template.Template, error) {
-	return template.ParseFS(templatesFS, "internal/views/templates/*.html")
+	return template.New("").Funcs(template.FuncMap{
+		"markdown":        func(s string) template.HTML { return template.HTML(s) },
+		"stripMarkdown":   func(s string) string { return s },
+		"safeHTML":        func(s string) template.HTML { return template.HTML(s) },
+		"mul":             func(a, b int) int { return a * b },
+		"div":             func(a, b int) int { if b == 0 { return 0 }; return a / b },
+		"difficultyColor": func(name string) string { return "text-gray-400" },
+		"difficultyBadge": func(name string) string { return "bg-gray-600 text-gray-100" },
+		"splitCategories": func(csv string) []string {
+			parts := strings.Split(csv, ",")
+			var result []string
+			for _, p := range parts {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					result = append(result, p)
+				}
+			}
+			return result
+		},
+	}).ParseFS(templatesFS, "internal/views/templates/*.html")
 }
 
 // Helper: Create test router with all routes
