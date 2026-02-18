@@ -83,13 +83,15 @@
         color: #fff;
     }
     
-    /* Tab headers */
-    .dark .swagger-ui .tab li a {
-        color: #94a3b8;
+    /* Tab headers - tablinks are BUTTON elements, not A */
+    .dark .swagger-ui .tab li button.tablinks,
+    .dark .swagger-ui button.tablinks {
+        color: #cbd5e1 !important;
     }
-    .dark .swagger-ui .tab li.active a {
-        color: #60a5fa;
-        border-color: #60a5fa;
+    .dark .swagger-ui .tab li.active button.tablinks,
+    .dark .swagger-ui button.tablinks.active,
+    .dark .swagger-ui button.tablinks:hover {
+        color: #60a5fa !important;
     }
     
     /* Parameters */
@@ -146,15 +148,6 @@
     .dark .swagger-ui .opblock-external-docs-wrapper p,
     .dark .swagger-ui .opblock-title_normal p {
         color: #94a3b8 !important;
-    }
-    
-    /* Tab links (Example Value | Schema) */
-    .dark .swagger-ui .tablinks {
-        color: #94a3b8;
-    }
-    .dark .swagger-ui .tablinks.active,
-    .dark .swagger-ui .tablinks:hover {
-        color: #60a5fa;
     }
     
     /* Response tabs */
