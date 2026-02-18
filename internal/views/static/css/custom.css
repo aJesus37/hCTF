@@ -1,1 +1,12 @@
-/* Custom CSS for hCTF2 - Reserved for future use */
+/* Custom CSS for hCTF2 */
+
+/* Text selection colors — browser defaults blend into dark background */
+::selection {
+    background-color: #7c3aed; /* purple-600 — matches UI accent */
+    color: #ffffff;
+}
+
+.dark ::selection {
+    background-color: #a855f7; /* purple-500 — slightly lighter for dark bg */
+    color: #ffffff;
+}
