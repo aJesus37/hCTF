@@ -703,6 +703,21 @@ func (s *Server) handleEditChallenge(w http.ResponseWriter, r *http.Request) {
 		visibleChecked = "checked"
 	}
 
+	sqlEnabledChecked := ""
+	if challenge.SQLEnabled {
+		sqlEnabledChecked = "checked"
+	}
+
+	sqlDatasetURL := ""
+	if challenge.SQLDatasetURL != nil {
+		sqlDatasetURL = *challenge.SQLDatasetURL
+	}
+
+	sqlSchemaHint := ""
+	if challenge.SQLSchemaHint != nil {
+		sqlSchemaHint = *challenge.SQLSchemaHint
+	}
+
 	// Get dynamic categories and difficulties
 	categories, _ := s.db.GetAllCategories()
 	difficulties, _ := s.db.GetAllDifficulties()
@@ -758,6 +773,23 @@ func (s *Server) handleEditChallenge(w http.ResponseWriter, r *http.Request) {
 			<label class="flex items-center text-sm text-gray-300 cursor-pointer">
 				<input type="checkbox" name="visible" value="on" %s class="w-4 h-4 rounded border-dark-border bg-dark-bg cursor-pointer mr-2"> Visible to users
 			</label>
+			<!-- SQL Playground Section -->
+			<div class="border-t border-dark-border pt-3 mt-3">
+				<p class="text-xs font-medium text-purple-400 mb-2">SQL Playground</p>
+				<label class="flex items-center text-sm text-gray-300 cursor-pointer mb-2">
+					<input type="checkbox" name="sql_enabled" value="on" %s class="w-4 h-4 rounded border-dark-border bg-dark-bg cursor-pointer mr-2"> Enable SQL Playground
+				</label>
+				<div class="pl-6 space-y-2">
+					<div>
+						<label class="block text-xs font-medium text-gray-300 mb-1">Dataset URL (optional)</label>
+						<input type="url" name="sql_dataset_url" value="%s" placeholder="https://example.com/dataset.csv" class="w-full px-3 py-2 bg-dark-bg border border-dark-border text-white rounded text-sm focus:outline-none focus:border-purple-500">
+					</div>
+					<div>
+						<label class="block text-xs font-medium text-gray-300 mb-1">Schema Hint</label>
+						<textarea name="sql_schema_hint" placeholder="-- Tables available..." rows="3" class="w-full px-3 py-2 bg-dark-bg border border-dark-border text-white rounded text-sm focus:outline-none focus:border-purple-500 font-mono">%s</textarea>
+					</div>
+				</div>
+			</div>
 			<div class="flex gap-2">
 				<button type="submit" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm font-medium transition">Save</button>
 				<button type="button" hx-get="/admin/challenges/%s/view" hx-target="closest #challenge-%s" hx-swap="outerHTML" class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm font-medium transition">Cancel</button>
@@ -770,6 +802,9 @@ func (s *Server) handleEditChallenge(w http.ResponseWriter, r *http.Request) {
 		categoryCheckboxes,
 		difficultyOptions,
 		visibleChecked,
+		sqlEnabledChecked,
+		sqlDatasetURL,
+		sqlSchemaHint,
 		id, id)
 
 	w.Write([]byte(html))

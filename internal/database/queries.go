@@ -64,20 +64,20 @@ func (db *DB) GetUserByID(id string) (*models.User, error) {
 }
 
 // Challenge queries
-func (db *DB) CreateChallenge(name, description, category, difficulty string, tags *string, visible bool) (*models.Challenge, error) {
-	query := `INSERT INTO challenges (name, description, category, difficulty, tags, visible)
-	          VALUES (?, ?, ?, ?, ?, ?)
-	          RETURNING id, name, description, category, difficulty, tags, visible, created_at, updated_at`
+func (db *DB) CreateChallenge(name, description, category, difficulty string, tags *string, visible bool, sqlEnabled bool, sqlDatasetURL, sqlSchemaHint *string) (*models.Challenge, error) {
+	query := `INSERT INTO challenges (name, description, category, difficulty, tags, visible, sql_enabled, sql_dataset_url, sql_schema_hint)
+	          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	          RETURNING id, name, description, category, difficulty, tags, visible, sql_enabled, sql_dataset_url, sql_schema_hint, created_at, updated_at`
 
 	var c models.Challenge
-	err := db.QueryRow(query, name, description, category, difficulty, tags, visible).Scan(
-		&c.ID, &c.Name, &c.Description, &c.Category, &c.Difficulty, &c.Tags, &c.Visible, &c.CreatedAt, &c.UpdatedAt,
+	err := db.QueryRow(query, name, description, category, difficulty, tags, visible, sqlEnabled, sqlDatasetURL, sqlSchemaHint).Scan(
+		&c.ID, &c.Name, &c.Description, &c.Category, &c.Difficulty, &c.Tags, &c.Visible, &c.SQLEnabled, &c.SQLDatasetURL, &c.SQLSchemaHint, &c.CreatedAt, &c.UpdatedAt,
 	)
 	return &c, err
 }
 
 func (db *DB) GetChallenges(visibleOnly bool) ([]models.Challenge, error) {
-	query := `SELECT id, name, description, category, difficulty, tags, visible, created_at, updated_at
+	query := `SELECT id, name, description, category, difficulty, tags, visible, sql_enabled, sql_dataset_url, sql_schema_hint, created_at, updated_at
 	          FROM challenges`
 	if visibleOnly {
 		query += " WHERE visible = 1"
@@ -93,7 +93,7 @@ func (db *DB) GetChallenges(visibleOnly bool) ([]models.Challenge, error) {
 	var challenges []models.Challenge
 	for rows.Next() {
 		var c models.Challenge
-		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.Category, &c.Difficulty, &c.Tags, &c.Visible, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Description, &c.Category, &c.Difficulty, &c.Tags, &c.Visible, &c.SQLEnabled, &c.SQLDatasetURL, &c.SQLSchemaHint, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
 		}
 		challenges = append(challenges, c)
@@ -102,12 +102,12 @@ func (db *DB) GetChallenges(visibleOnly bool) ([]models.Challenge, error) {
 }
 
 func (db *DB) GetChallengeByID(id string) (*models.Challenge, error) {
-	query := `SELECT id, name, description, category, difficulty, tags, visible, created_at, updated_at
+	query := `SELECT id, name, description, category, difficulty, tags, visible, sql_enabled, sql_dataset_url, sql_schema_hint, created_at, updated_at
 	          FROM challenges WHERE id = ?`
 
 	var c models.Challenge
 	err := db.QueryRow(query, id).Scan(
-		&c.ID, &c.Name, &c.Description, &c.Category, &c.Difficulty, &c.Tags, &c.Visible, &c.CreatedAt, &c.UpdatedAt,
+		&c.ID, &c.Name, &c.Description, &c.Category, &c.Difficulty, &c.Tags, &c.Visible, &c.SQLEnabled, &c.SQLDatasetURL, &c.SQLSchemaHint, &c.CreatedAt, &c.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -115,11 +115,11 @@ func (db *DB) GetChallengeByID(id string) (*models.Challenge, error) {
 	return &c, nil
 }
 
-func (db *DB) UpdateChallenge(id, name, description, category, difficulty string, tags *string, visible bool) error {
+func (db *DB) UpdateChallenge(id, name, description, category, difficulty string, tags *string, visible bool, sqlEnabled bool, sqlDatasetURL, sqlSchemaHint *string) error {
 	query := `UPDATE challenges
-	          SET name = ?, description = ?, category = ?, difficulty = ?, tags = ?, visible = ?, updated_at = CURRENT_TIMESTAMP
+	          SET name = ?, description = ?, category = ?, difficulty = ?, tags = ?, visible = ?, sql_enabled = ?, sql_dataset_url = ?, sql_schema_hint = ?, updated_at = CURRENT_TIMESTAMP
 	          WHERE id = ?`
-	_, err := db.Exec(query, name, description, category, difficulty, tags, visible, id)
+	_, err := db.Exec(query, name, description, category, difficulty, tags, visible, sqlEnabled, sqlDatasetURL, sqlSchemaHint, id)
 	return err
 }
 

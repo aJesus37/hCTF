@@ -149,6 +149,46 @@
                     <label for="visible-create" class="ml-2 text-sm text-gray-300 cursor-pointer">Visible to users</label>
                 </div>
 
+                <!-- SQL Playground Section -->
+                <div class="border-t border-dark-border pt-4 mt-4" x-data="{ sqlEnabled: false }">
+                    <h4 class="text-sm font-medium text-purple-400 mb-3">SQL Playground</h4>
+                    
+                    <div class="flex items-center mb-3">
+                        <input
+                            type="checkbox"
+                            id="sql-enabled-create"
+                            name="sql_enabled"
+                            value="on"
+                            x-model="sqlEnabled"
+                            class="w-4 h-4 rounded border-dark-border bg-dark-bg cursor-pointer">
+                        <label for="sql-enabled-create" class="ml-2 text-sm text-gray-300 cursor-pointer">Enable SQL Playground for this challenge</label>
+                    </div>
+
+                    <div x-show="sqlEnabled" x-transition class="space-y-3 pl-6">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-300 mb-1">Dataset URL (optional)</label>
+                            <input
+                                type="url"
+                                name="sql_dataset_url"
+                                placeholder="https://example.com/dataset.csv"
+                                class="w-full px-3 py-2 bg-dark-bg border border-dark-border text-white rounded text-sm focus:outline-none focus:border-purple-500">
+                            <p class="text-xs text-gray-500 mt-1">URL to a CSV/Parquet file for the SQL playground dataset</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-gray-300 mb-1">Schema Hint</label>
+                            <textarea
+                                name="sql_schema_hint"
+                                placeholder="-- Tables available:
+-- users (id, username, email, password_hash)
+-- posts (id, user_id, title, content, created_at)"
+                                rows="4"
+                                class="w-full px-3 py-2 bg-dark-bg border border-dark-border text-white rounded text-sm focus:outline-none focus:border-purple-500 font-mono"></textarea>
+                            <p class="text-xs text-gray-500 mt-1">Shown to users to help them understand the available tables/columns</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex gap-3 pt-2">
                     <button
                         type="submit"

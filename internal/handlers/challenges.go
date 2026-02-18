@@ -154,12 +154,15 @@ func (h *ChallengeHandler) SubmitFlag(w http.ResponseWriter, r *http.Request) {
 }
 
 type CreateChallengeRequest struct {
-	Name        string  `json:"name"`
-	Description string  `json:"description"`
-	Category    string  `json:"category"`
-	Difficulty  string  `json:"difficulty"`
-	Tags        *string `json:"tags,omitempty"`
-	Visible     bool    `json:"visible"`
+	Name          string  `json:"name"`
+	Description   string  `json:"description"`
+	Category      string  `json:"category"`
+	Difficulty    string  `json:"difficulty"`
+	Tags          *string `json:"tags,omitempty"`
+	Visible       bool    `json:"visible"`
+	SQLEnabled    bool    `json:"sql_enabled"`
+	SQLDatasetURL *string `json:"sql_dataset_url,omitempty"`
+	SQLSchemaHint *string `json:"sql_schema_hint,omitempty"`
 }
 
 func (h *ChallengeHandler) CreateChallenge(w http.ResponseWriter, r *http.Request) {
@@ -187,9 +190,18 @@ func (h *ChallengeHandler) CreateChallenge(w http.ResponseWriter, r *http.Reques
 		req.Category = strings.Join(categories, ",")
 		req.Difficulty = r.FormValue("difficulty")
 		req.Visible = r.FormValue("visible") == "on"
+		req.SQLEnabled = r.FormValue("sql_enabled") == "on"
+		datasetURL := r.FormValue("sql_dataset_url")
+		if datasetURL != "" {
+			req.SQLDatasetURL = &datasetURL
+		}
+		schemaHint := r.FormValue("sql_schema_hint")
+		if schemaHint != "" {
+			req.SQLSchemaHint = &schemaHint
+		}
 	}
 
-	challenge, err := h.db.CreateChallenge(req.Name, req.Description, req.Category, req.Difficulty, req.Tags, req.Visible)
+	challenge, err := h.db.CreateChallenge(req.Name, req.Description, req.Category, req.Difficulty, req.Tags, req.Visible, req.SQLEnabled, req.SQLDatasetURL, req.SQLSchemaHint)
 	if err != nil {
 		if strings.Contains(contentType, "application/json") {
 			http.Error(w, "Failed to create challenge", http.StatusInternalServerError)
@@ -281,9 +293,18 @@ func (h *ChallengeHandler) UpdateChallenge(w http.ResponseWriter, r *http.Reques
 		req.Category = strings.Join(categories, ",")
 		req.Difficulty = r.FormValue("difficulty")
 		req.Visible = r.FormValue("visible") == "on"
+		req.SQLEnabled = r.FormValue("sql_enabled") == "on"
+		datasetURL := r.FormValue("sql_dataset_url")
+		if datasetURL != "" {
+			req.SQLDatasetURL = &datasetURL
+		}
+		schemaHint := r.FormValue("sql_schema_hint")
+		if schemaHint != "" {
+			req.SQLSchemaHint = &schemaHint
+		}
 	}
 
-	if err := h.db.UpdateChallenge(id, req.Name, req.Description, req.Category, req.Difficulty, req.Tags, req.Visible); err != nil {
+	if err := h.db.UpdateChallenge(id, req.Name, req.Description, req.Category, req.Difficulty, req.Tags, req.Visible, req.SQLEnabled, req.SQLDatasetURL, req.SQLSchemaHint); err != nil {
 		if strings.Contains(contentType, "application/json") {
 			http.Error(w, "Failed to update challenge", http.StatusInternalServerError)
 		} else {
