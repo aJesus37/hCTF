@@ -10,64 +10,209 @@
     </div>
 </div>
 
-<!-- Use Swagger UI instead of ReDoc for better compatibility -->
+<!-- Use Swagger UI with custom dark theme -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
 <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
 <style>
-    /* Dark mode styles for Swagger UI */
+    /* Swagger UI Dark Theme - Native dark mode support */
     .dark .swagger-ui {
-        filter: invert(1) hue-rotate(180deg);
+        background: #1e293b;
     }
-    .dark .swagger-ui .highlight-code {
-        filter: invert(1) hue-rotate(180deg);
+    
+    /* Top bar / Info section */
+    .dark .swagger-ui .topbar,
+    .dark .swagger-ui .info {
+        background: #1e293b !important;
     }
+    .dark .swagger-ui .info .title,
+    .dark .swagger-ui .info p,
+    .dark .swagger-ui .info li,
+    .dark .swagger-ui .info .base-url {
+        color: #e2e8f0 !important;
+    }
+    .dark .swagger-ui .info a {
+        color: #60a5fa !important;
+    }
+    
+    /* Scheme container (servers section) */
     .dark .swagger-ui .scheme-container {
-        filter: invert(1) hue-rotate(180deg);
+        background: #0f172a !important;
+        box-shadow: none;
     }
-    /* Keep buttons and colored elements readable */
-    .dark .swagger-ui .btn {
-        filter: invert(1) hue-rotate(180deg);
+    .dark .swagger-ui .scheme-container .schemes > label {
+        color: #e2e8f0 !important;
     }
-    .dark .swagger-ui .opblock-tag {
-        color: #1b1b1b;
+    
+    /* Operation blocks */
+    .dark .swagger-ui .opblock {
+        background: #1e293b;
+        border-color: #334155;
     }
-    .dark .swagger-ui .opblock .opblock-summary-operation-id,
+    .dark .swagger-ui .opblock .opblock-summary {
+        border-color: #334155;
+    }
+    .dark .swagger-ui .opblock .opblock-summary-method {
+        color: #fff;
+    }
     .dark .swagger-ui .opblock .opblock-summary-path,
     .dark .swagger-ui .opblock .opblock-summary-description {
-        color: #3b4151;
+        color: #e2e8f0;
     }
-    .dark .swagger-ui .opblock-description-wrapper p,
-    .dark .swagger-ui .opblock-external-docs-wrapper p,
-    .dark .swagger-ui .opblock-title_normal p {
-        color: #3b4151;
+    .dark .swagger-ui .opblock-tag {
+        color: #e2e8f0;
+        border-color: #334155;
     }
+    .dark .swagger-ui .opblock-tag:hover {
+        background: rgba(255,255,255,0.05);
+    }
+    
+    /* Section headers */
+    .dark .swagger-ui .opblock-section-header {
+        background: #0f172a;
+        border-color: #334155;
+    }
+    .dark .swagger-ui .opblock-section-header h4 {
+        color: #e2e8f0;
+    }
+    .dark .swagger-ui .opblock-section-header label {
+        color: #94a3b8;
+    }
+    .dark .swagger-ui .opblock-section-header .btn {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: #fff;
+    }
+    
+    /* Tab headers */
+    .dark .swagger-ui .tab li a {
+        color: #94a3b8;
+    }
+    .dark .swagger-ui .tab li.active a {
+        color: #60a5fa;
+        border-color: #60a5fa;
+    }
+    
+    /* Parameters */
     .dark .swagger-ui .parameter__name {
-        color: #3b4151;
+        color: #e2e8f0;
     }
     .dark .swagger-ui .parameter__type {
-        color: #3b4151;
+        color: #94a3b8;
     }
-    .dark .swagger-ui table thead tr td,
-    .dark .swagger-ui table thead tr th {
-        color: #3b4151;
+    .dark .swagger-ui .parameter__in {
+        color: #64748b;
+    }
+    .dark .swagger-ui .parameter__deprecated,
+    .dark .swagger-ui .parameter__empty_value_toggle {
+        color: #94a3b8;
+    }
+    
+    /* Response section */
+    .dark .swagger-ui .responses-inner h4,
+    .dark .swagger-ui .responses-inner h5 {
+        color: #e2e8f0;
     }
     .dark .swagger-ui .response-col_status {
-        color: #3b4151;
+        color: #e2e8f0;
     }
     .dark .swagger-ui .response-col_description {
-        color: #3b4151;
+        color: #cbd5e1;
     }
+    
+    /* Tables */
+    .dark .swagger-ui table thead tr th,
+    .dark .swagger-ui table thead tr td {
+        color: #e2e8f0;
+        border-color: #334155;
+    }
+    .dark .swagger-ui table tbody tr td {
+        color: #cbd5e1;
+        border-color: #334155;
+    }
+    .dark .swagger-ui table tbody tr:nth-child(odd) {
+        background: rgba(255,255,255,0.02);
+    }
+    
+    /* Code samples */
+    .dark .swagger-ui .highlight-code {
+        background: #0f172a;
+    }
+    .dark .swagger-ui .highlight-code .microlight {
+        color: #e2e8f0;
+    }
+    
+    /* Models / Schemas */
     .dark .swagger-ui .model-title {
-        color: #3b4151;
+        color: #e2e8f0;
+    }
+    .dark .swagger-ui .model-box {
+        background: #0f172a;
+        border-color: #334155;
     }
     .dark .swagger-ui .model .property.primitive {
-        color: #3b4151;
+        color: #94a3b8;
     }
     .dark .swagger-ui .prop-type {
-        color: #3b4151;
+        color: #60a5fa;
     }
     .dark .swagger-ui .prop-format {
-        color: #3b4151;
+        color: #64748b;
+    }
+    .dark .swagger-ui .model-hint {
+        color: #64748b;
+    }
+    
+    /* Buttons */
+    .dark .swagger-ui .btn {
+        background: #334155;
+        border-color: #475569;
+        color: #e2e8f0;
+    }
+    .dark .swagger-ui .btn:hover {
+        background: #475569;
+    }
+    .dark .swagger-ui .btn.execute {
+        background: #22c55e;
+        border-color: #22c55e;
+        color: #fff;
+    }
+    .dark .swagger-ui .btn.authorize {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: #fff;
+    }
+    
+    /* Select dropdowns */
+    .dark .swagger-ui select {
+        background: #0f172a;
+        border-color: #334155;
+        color: #e2e8f0;
+    }
+    
+    /* Input fields */
+    .dark .swagger-ui input[type="text"],
+    .dark .swagger-ui textarea {
+        background: #0f172a;
+        border-color: #334155;
+        color: #e2e8f0;
+    }
+    
+    /* Curl command */
+    .dark .swagger-ui .curl {
+        background: #0f172a;
+        border-color: #334155;
+    }
+    .dark .swagger-ui .curl-command {
+        color: #e2e8f0;
+    }
+    
+    /* Errors */
+    .dark .swagger-ui .errors-wrapper {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: #ef4444;
+    }
+    .dark .swagger-ui .errors .message th {
+        color: #ef4444;
     }
 </style>
 <script>
