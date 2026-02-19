@@ -194,10 +194,10 @@ hCTF2 uses **OpenTelemetry** for instrumentation. The telemetry package (`intern
 |--------|------|-------------|
 | `http_requests_total` | Counter | Total HTTP requests, labelled by method, path, status |
 | `http_request_duration_seconds` | Histogram | Request duration in seconds, labelled by method and path |
-| `active_users` | UpDownCounter | Active user count |
+| `active_users` | UpDownCounter | Active user count (defined but not yet incremented) |
 | `database_queries_total` | Counter | Total database queries |
 
-These metrics are recorded automatically via the `telemetry.Middleware` applied to every route.
+`http_requests_total` and `http_request_duration_seconds` are recorded automatically via `telemetry.Middleware`. `active_users` and `database_queries_total` are defined but not yet incremented in the current implementation.
 
 #### Enabling Trace Output
 

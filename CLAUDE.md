@@ -482,9 +482,8 @@ Page handlers (in `main.go`) route to templates; API handlers return JSON or HTM
 
 ## Useful References
 
-- **Project Docs**: README.md, INSTALL.md, QUICKSTART.md
+- **Project Docs**: README.md
 - **Architecture**: ARCHITECTURE.md
-- **Features**: FEATURES_IMPLEMENTATION.md
 - **SQL Playground**: SQL_PLAYGROUND.md
 - **Testing**: TESTING.md
 - **Go Style**: https://go.dev/doc/effective_go

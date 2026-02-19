@@ -61,7 +61,7 @@ telemetry:
   # Service version reported in telemetry.
   # Hardcoded in main.go; not runtime-configurable.
   # Default: 1.0.0
-  service_version: "1.0.0"
+  service_version: "0.5.0"
 
   # Deployment environment tag (e.g. production, staging, development).
   # Env: ENVIRONMENT | Default: (none)

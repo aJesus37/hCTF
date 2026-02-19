@@ -119,7 +119,7 @@ func main() {
 	// Initialize telemetry
 	cleanupTelemetry, err := telemetry.Init(telemetry.Config{
 		ServiceName:          "hctf2",
-		ServiceVersion:       "1.0.0",
+		ServiceVersion:       "0.5.0",
 		Environment:          os.Getenv("ENVIRONMENT"),
 		EnableStdoutExporter: os.Getenv("OTEL_EXPORTER_STDOUT") == "true",
 	})
