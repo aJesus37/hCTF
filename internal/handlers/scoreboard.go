@@ -16,6 +16,14 @@ func NewScoreboardHandler(db *database.DB) *ScoreboardHandler {
 	return &ScoreboardHandler{db: db}
 }
 
+// GetScoreboard godoc
+// @Summary Get individual user scoreboard rankings
+// @Description Returns HTML table when called from HTMX (HX-Request header), otherwise returns JSON. Top 100 users.
+// @Tags Scoreboard
+// @Produce json
+// @Success 200 {array} models.ScoreboardEntry
+// @Failure 500 {object} object{error=string}
+// @Router /scoreboard [get]
 func (h *ScoreboardHandler) GetScoreboard(w http.ResponseWriter, r *http.Request) {
 	entries, err := h.db.GetScoreboard(100) // Top 100
 	if err != nil {

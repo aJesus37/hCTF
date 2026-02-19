@@ -1,4 +1,166 @@
 basePath: /api
+definitions:
+  handlers.CreateChallengeRequest:
+    properties:
+      category:
+        type: string
+      description:
+        type: string
+      difficulty:
+        type: string
+      name:
+        type: string
+      sql_dataset_url:
+        type: string
+      sql_enabled:
+        type: boolean
+      sql_schema_hint:
+        type: string
+      tags:
+        type: string
+      visible:
+        type: boolean
+    type: object
+  handlers.CreateHintRequest:
+    properties:
+      content:
+        type: string
+      cost:
+        type: integer
+      order:
+        type: integer
+      question_id:
+        type: string
+    type: object
+  handlers.CreateQuestionRequest:
+    properties:
+      case_sensitive:
+        type: boolean
+      challenge_id:
+        type: string
+      description:
+        type: string
+      file_url:
+        type: string
+      flag:
+        type: string
+      flag_mask:
+        type: string
+      name:
+        type: string
+      points:
+        type: integer
+    type: object
+  handlers.CreateTeamRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    type: object
+  models.Challenge:
+    properties:
+      category:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      difficulty:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      sql_dataset_url:
+        type: string
+      sql_enabled:
+        type: boolean
+      sql_schema_hint:
+        type: string
+      tags:
+        type: string
+      updated_at:
+        type: string
+      visible:
+        type: boolean
+    type: object
+  models.Hint:
+    properties:
+      content:
+        type: string
+      cost:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: string
+      order:
+        type: integer
+      question_id:
+        type: string
+    type: object
+  models.Question:
+    properties:
+      case_sensitive:
+        type: boolean
+      challenge_id:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      file_url:
+        type: string
+      flag_mask:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      points:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  models.ScoreboardEntry:
+    properties:
+      last_solve:
+        type: string
+      points:
+        type: integer
+      rank:
+        type: integer
+      solve_count:
+        type: integer
+      team_id:
+        type: string
+      team_name:
+        type: string
+      user_id:
+        type: string
+      user_name:
+        type: string
+    type: object
+  models.Team:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      invite_id:
+        type: string
+      invite_permission:
+        type: string
+      name:
+        type: string
+      owner_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
 host: localhost:8090
 info:
   contact: {}
@@ -6,7 +168,1632 @@ info:
     via JWT cookie (auth_token).
   title: hCTF2 API
   version: 1.0.0
-paths: {}
+paths:
+  /admin/categories:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      parameters:
+      - description: Category name
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: Sort order (default 0)
+        in: formData
+        name: sort_order
+        type: integer
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML fragment of the new category row
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Create a new challenge category (admin only)
+      tags:
+      - Admin
+  /admin/categories/{id}:
+    delete:
+      parameters:
+      - description: Category ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Empty response on success
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Delete a challenge category (admin only)
+      tags:
+      - Admin
+    put:
+      consumes:
+      - application/x-www-form-urlencoded
+      parameters:
+      - description: Category ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Category name
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: Sort order
+        in: formData
+        name: sort_order
+        type: integer
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML fragment of the updated category row
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Update a challenge category (admin only)
+      tags:
+      - Admin
+  /admin/challenges:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Challenge data
+        in: body
+        name: challenge
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateChallengeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Challenge'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Create a new challenge (admin only)
+      tags:
+      - Admin
+  /admin/challenges/{id}:
+    delete:
+      parameters:
+      - description: Challenge ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Empty response on success
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Delete a challenge (admin only)
+      tags:
+      - Admin
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Challenge ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated challenge data
+        in: body
+        name: challenge
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateChallengeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Challenge updated
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Update an existing challenge (admin only)
+      tags:
+      - Admin
+  /admin/custom-code:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              body_end_html:
+                type: string
+              head_html:
+                type: string
+              motd:
+                type: string
+              pages_json:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Get current custom HTML/JS injection settings (admin only)
+      tags:
+      - Admin
+    put:
+      consumes:
+      - application/x-www-form-urlencoded
+      parameters:
+      - description: HTML to inject in <head>
+        in: formData
+        name: head_html
+        type: string
+      - description: HTML to inject before </body>
+        in: formData
+        name: body_end_html
+        type: string
+      - description: JSON config for per-page injection
+        in: formData
+        name: pages_json
+        type: string
+      - description: Message of the day
+        in: formData
+        name: motd
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Settings updated successfully
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Update custom HTML/JS injection settings (admin only)
+      tags:
+      - Admin
+  /admin/difficulties:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      parameters:
+      - description: Difficulty name
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: Badge color Tailwind classes
+        in: formData
+        name: color
+        type: string
+      - description: Text color Tailwind class
+        in: formData
+        name: text_color
+        type: string
+      - description: Sort order (default 0)
+        in: formData
+        name: sort_order
+        type: integer
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML fragment of the new difficulty row
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Create a new difficulty level (admin only)
+      tags:
+      - Admin
+  /admin/difficulties/{id}:
+    delete:
+      parameters:
+      - description: Difficulty ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Empty response on success
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Delete a difficulty level (admin only)
+      tags:
+      - Admin
+    put:
+      consumes:
+      - application/x-www-form-urlencoded
+      parameters:
+      - description: Difficulty ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Difficulty name
+        in: formData
+        name: name
+        required: true
+        type: string
+      - description: Badge color Tailwind classes
+        in: formData
+        name: color
+        type: string
+      - description: Text color Tailwind class
+        in: formData
+        name: text_color
+        type: string
+      - description: Sort order
+        in: formData
+        name: sort_order
+        type: integer
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML fragment of the updated difficulty row
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Update a difficulty level (admin only)
+      tags:
+      - Admin
+  /admin/hints:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Hint data
+        in: body
+        name: hint
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateHintRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Hint'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Create a new hint for a question (admin only)
+      tags:
+      - Admin
+  /admin/hints/{id}:
+    delete:
+      parameters:
+      - description: Hint ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Empty response on success
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Delete a hint (admin only)
+      tags:
+      - Admin
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Hint ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated hint data
+        in: body
+        name: hint
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateHintRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Hint updated
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Update an existing hint (admin only)
+      tags:
+      - Admin
+  /admin/questions:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Question data
+        in: body
+        name: question
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateQuestionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Question'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Create a new question for a challenge (admin only)
+      tags:
+      - Admin
+  /admin/questions/{id}:
+    delete:
+      parameters:
+      - description: Question ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Empty response on success
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Delete a question (admin only)
+      tags:
+      - Admin
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Question ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated question data
+        in: body
+        name: question
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateQuestionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Question updated
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Update an existing question (admin only)
+      tags:
+      - Admin
+  /admin/users:
+    get:
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML fragments with user rows
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: List all users (admin only)
+      tags:
+      - Admin
+  /admin/users/{id}:
+    delete:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Empty response on success
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Delete a user account (admin only)
+      tags:
+      - Admin
+  /admin/users/{id}/admin:
+    put:
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML fragment of the updated user row
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Toggle admin status for a user (admin only)
+      tags:
+      - Admin
+  /auth/forgot-password:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Generates a reset token. Email delivery is not yet implemented;
+        token must be obtained via server logs.
+      parameters:
+      - description: User email
+        in: formData
+        name: email
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: If that email exists, a reset link has been sent.
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Request a password reset token
+      tags:
+      - Auth
+  /auth/login:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      parameters:
+      - description: User email
+        in: formData
+        name: email
+        required: true
+        type: string
+      - description: User password
+        in: formData
+        name: password
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              token:
+                type: string
+              user:
+                type: object
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Authenticate a user and set session cookie
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Logged out
+          schema:
+            type: string
+      security:
+      - CookieAuth: []
+      summary: Clear authentication cookie and end session
+      tags:
+      - Auth
+  /auth/register:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      parameters:
+      - description: User email
+        in: formData
+        name: email
+        required: true
+        type: string
+      - description: User password
+        in: formData
+        name: password
+        required: true
+        type: string
+      - description: Display name
+        in: formData
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              token:
+                type: string
+              user:
+                type: object
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Register a new user account
+      tags:
+      - Auth
+  /auth/reset-password:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      parameters:
+      - description: Reset token
+        in: formData
+        name: token
+        required: true
+        type: string
+      - description: New password
+        in: formData
+        name: password
+        required: true
+        type: string
+      - description: Confirm new password
+        in: formData
+        name: confirm_password
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: Password reset successful. You can now login.
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Reset password using a valid reset token
+      tags:
+      - Auth
+  /challenges:
+    get:
+      description: Returns all visible challenges. Admins also see hidden challenges.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Challenge'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: List all challenges
+      tags:
+      - Challenges
+  /challenges-dropdown:
+    get:
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML option elements
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get challenges as HTML option elements for admin dropdowns
+      tags:
+      - Challenges
+  /challenges/{id}:
+    get:
+      description: Returns challenge details and associated questions. Flags are hidden
+        from non-admin users.
+      parameters:
+      - description: Challenge ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              challenge:
+                $ref: '#/definitions/models.Challenge'
+              questions:
+                items:
+                  $ref: '#/definitions/models.Question'
+                type: array
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get a single challenge with its questions
+      tags:
+      - Challenges
+  /hints/{id}/unlock:
+    post:
+      parameters:
+      - description: Hint ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: 'Empty response; triggers HX-Trigger: refreshHints'
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Unlock a hint for a question (costs points)
+      tags:
+      - Hints
+  /questions-dropdown:
+    get:
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML option elements
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get questions with challenge names as HTML option elements for admin
+        dropdowns
+      tags:
+      - Challenges
+  /questions/{id}/submit:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      parameters:
+      - description: Question ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Flag to submit
+        in: formData
+        name: flag
+        required: true
+        type: string
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML fragment indicating correct or incorrect
+          schema:
+            type: string
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Submit a flag for a question
+      tags:
+      - Challenges
+  /questions/{questionId}/hints:
+    get:
+      description: Returns hints with unlock status. Unlocked hint content is visible.
+        Locked hints show cost and unlock button.
+      parameters:
+      - description: Question ID
+        in: path
+        name: questionId
+        required: true
+        type: string
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML fragments with hint cards
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get hints for a question as HTML fragments (for HTMX)
+      tags:
+      - Hints
+  /questions/{questionId}/next-hint-order:
+    get:
+      parameters:
+      - description: Question ID
+        in: path
+        name: questionId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              nextOrder:
+                type: integer
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get the next available hint order number for a question
+      tags:
+      - Challenges
+  /scoreboard:
+    get:
+      description: Returns HTML table when called from HTMX (HX-Request header), otherwise
+        returns JSON. Top 100 users.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ScoreboardEntry'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get individual user scoreboard rankings
+      tags:
+      - Scoreboard
+  /sql/snapshot:
+    get:
+      description: Returns the current state of the SQL playground database for use
+        with DuckDB WASM.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Get a snapshot of the SQL playground database
+      tags:
+      - SQL
+  /teams:
+    get:
+      description: Invite codes are only visible to team members.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: object
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: List all teams
+      tags:
+      - Teams
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Team data
+        in: body
+        name: team
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateTeamRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Team'
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Create a new team
+      tags:
+      - Teams
+  /teams/{id}:
+    get:
+      parameters:
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              members:
+                items:
+                  type: object
+                type: array
+              team:
+                $ref: '#/definitions/models.Team'
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get a team with its members
+      tags:
+      - Teams
+  /teams/disband:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Disband the team (owner only)
+      tags:
+      - Teams
+  /teams/invite-permission:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 'Permission value: ''owner_only'' or ''all_members'''
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            permission:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Update who can see the team invite code (owner only)
+      tags:
+      - Teams
+  /teams/join/{invite_id}:
+    post:
+      parameters:
+      - description: Team invite code
+        in: path
+        name: invite_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Join a team using an invite code
+      tags:
+      - Teams
+  /teams/leave:
+    post:
+      description: Team owners must transfer ownership or disband before leaving.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Leave the current team
+      tags:
+      - Teams
+  /teams/regenerate-invite:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              invite_id:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Regenerate the team invite code (owner only)
+      tags:
+      - Teams
+  /teams/scoreboard:
+    get:
+      description: Returns HTML table when called from HTMX (HX-Request header), otherwise
+        returns JSON.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ScoreboardEntry'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      summary: Get team scoreboard rankings
+      tags:
+      - Teams
+  /teams/transfer-ownership:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: New owner user ID
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            new_owner_id:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                type: string
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Transfer team ownership to another member (owner only)
+      tags:
+      - Teams
 securityDefinitions:
   CookieAuth:
     in: cookie

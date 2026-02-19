@@ -19,6 +19,14 @@ func NewChallengeHandler(db *database.DB) *ChallengeHandler {
 	return &ChallengeHandler{db: db}
 }
 
+// ListChallenges godoc
+// @Summary List all challenges
+// @Description Returns all visible challenges. Admins also see hidden challenges.
+// @Tags Challenges
+// @Produce json
+// @Success 200 {array} models.Challenge
+// @Failure 500 {object} object{error=string}
+// @Router /challenges [get]
 func (h *ChallengeHandler) ListChallenges(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	visibleOnly := claims == nil || !claims.IsAdmin
@@ -33,6 +41,16 @@ func (h *ChallengeHandler) ListChallenges(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(challenges)
 }
 
+// GetChallenge godoc
+// @Summary Get a single challenge with its questions
+// @Description Returns challenge details and associated questions. Flags are hidden from non-admin users.
+// @Tags Challenges
+// @Produce json
+// @Param id path string true "Challenge ID"
+// @Success 200 {object} object{challenge=models.Challenge,questions=[]models.Question}
+// @Failure 404 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /challenges/{id} [get]
 func (h *ChallengeHandler) GetChallenge(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -67,6 +85,17 @@ type SubmitFlagRequest struct {
 	Flag string `json:"flag"`
 }
 
+// SubmitFlag godoc
+// @Summary Submit a flag for a question
+// @Tags Challenges
+// @Accept application/x-www-form-urlencoded
+// @Produce html
+// @Security CookieAuth
+// @Param id path string true "Question ID"
+// @Param flag formData string true "Flag to submit"
+// @Success 200 {string} string "HTML fragment indicating correct or incorrect"
+// @Failure 404 {object} object{error=string}
+// @Router /questions/{id}/submit [post]
 func (h *ChallengeHandler) SubmitFlag(w http.ResponseWriter, r *http.Request) {
 	questionID := chi.URLParam(r, "id")
 	claims := auth.GetUserFromContext(r.Context())
@@ -165,6 +194,17 @@ type CreateChallengeRequest struct {
 	SQLSchemaHint *string `json:"sql_schema_hint,omitempty"`
 }
 
+// CreateChallenge godoc
+// @Summary Create a new challenge (admin only)
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security CookieAuth
+// @Param challenge body CreateChallengeRequest true "Challenge data"
+// @Success 200 {object} models.Challenge
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/challenges [post]
 func (h *ChallengeHandler) CreateChallenge(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 	var req CreateChallengeRequest
@@ -268,6 +308,18 @@ func (h *ChallengeHandler) getDifficultyColor(name string) string {
 	return d.TextColor
 }
 
+// UpdateChallenge godoc
+// @Summary Update an existing challenge (admin only)
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security CookieAuth
+// @Param id path string true "Challenge ID"
+// @Param challenge body CreateChallengeRequest true "Updated challenge data"
+// @Success 200 {string} string "Challenge updated"
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/challenges/{id} [put]
 func (h *ChallengeHandler) UpdateChallenge(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	contentType := r.Header.Get("Content-Type")
@@ -358,6 +410,15 @@ func (h *ChallengeHandler) UpdateChallenge(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// DeleteChallenge godoc
+// @Summary Delete a challenge (admin only)
+// @Tags Admin
+// @Produce plain
+// @Security CookieAuth
+// @Param id path string true "Challenge ID"
+// @Success 200 {string} string "Empty response on success"
+// @Failure 500 {object} object{error=string}
+// @Router /admin/challenges/{id} [delete]
 func (h *ChallengeHandler) DeleteChallenge(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -388,6 +449,17 @@ type CreateQuestionRequest struct {
 	FileURL       *string `json:"file_url,omitempty"`
 }
 
+// CreateQuestion godoc
+// @Summary Create a new question for a challenge (admin only)
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security CookieAuth
+// @Param question body CreateQuestionRequest true "Question data"
+// @Success 200 {object} models.Question
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/questions [post]
 func (h *ChallengeHandler) CreateQuestion(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 	var req CreateQuestionRequest
@@ -480,6 +552,18 @@ func (h *ChallengeHandler) CreateQuestion(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// UpdateQuestion godoc
+// @Summary Update an existing question (admin only)
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security CookieAuth
+// @Param id path string true "Question ID"
+// @Param question body CreateQuestionRequest true "Updated question data"
+// @Success 200 {string} string "Question updated"
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/questions/{id} [put]
 func (h *ChallengeHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	contentType := r.Header.Get("Content-Type")
@@ -568,6 +652,15 @@ func (h *ChallengeHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// DeleteQuestion godoc
+// @Summary Delete a question (admin only)
+// @Tags Admin
+// @Produce plain
+// @Security CookieAuth
+// @Param id path string true "Question ID"
+// @Success 200 {string} string "Empty response on success"
+// @Failure 500 {object} object{error=string}
+// @Router /admin/questions/{id} [delete]
 func (h *ChallengeHandler) DeleteQuestion(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -597,6 +690,18 @@ type CreateHintRequest struct {
 	Order      int    `json:"order"`
 }
 
+// CreateHint godoc
+// @Summary Create a new hint for a question (admin only)
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security CookieAuth
+// @Param hint body CreateHintRequest true "Hint data"
+// @Success 200 {object} models.Hint
+// @Failure 400 {object} object{error=string}
+// @Failure 409 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/hints [post]
 func (h *ChallengeHandler) CreateHint(w http.ResponseWriter, r *http.Request) {
 	contentType := r.Header.Get("Content-Type")
 	var req CreateHintRequest
@@ -681,6 +786,18 @@ func (h *ChallengeHandler) CreateHint(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// UpdateHint godoc
+// @Summary Update an existing hint (admin only)
+// @Tags Admin
+// @Accept json
+// @Produce json
+// @Security CookieAuth
+// @Param id path string true "Hint ID"
+// @Param hint body CreateHintRequest true "Updated hint data"
+// @Success 200 {string} string "Hint updated"
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/hints/{id} [put]
 func (h *ChallengeHandler) UpdateHint(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	contentType := r.Header.Get("Content-Type")
@@ -745,6 +862,15 @@ func (h *ChallengeHandler) UpdateHint(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteHint godoc
+// @Summary Delete a hint (admin only)
+// @Tags Admin
+// @Produce plain
+// @Security CookieAuth
+// @Param id path string true "Hint ID"
+// @Success 200 {string} string "Empty response on success"
+// @Failure 500 {object} object{error=string}
+// @Router /admin/hints/{id} [delete]
 func (h *ChallengeHandler) DeleteHint(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -765,7 +891,13 @@ func (h *ChallengeHandler) DeleteHint(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(""))
 }
 
-// GetChallengesDropdown returns challenges as HTML options for dropdown
+// GetChallengesDropdown godoc
+// @Summary Get challenges as HTML option elements for admin dropdowns
+// @Tags Challenges
+// @Produce html
+// @Success 200 {string} string "HTML option elements"
+// @Failure 500 {object} object{error=string}
+// @Router /challenges-dropdown [get]
 func (h *ChallengeHandler) GetChallengesDropdown(w http.ResponseWriter, r *http.Request) {
 	challenges, err := h.db.GetChallenges(false) // false to include hidden challenges in admin
 	if err != nil {
@@ -781,7 +913,13 @@ func (h *ChallengeHandler) GetChallengesDropdown(w http.ResponseWriter, r *http.
 	}
 }
 
-// GetQuestionsDropdown returns questions with challenge names as HTML options for dropdown
+// GetQuestionsDropdown godoc
+// @Summary Get questions with challenge names as HTML option elements for admin dropdowns
+// @Tags Challenges
+// @Produce html
+// @Success 200 {string} string "HTML option elements"
+// @Failure 500 {object} object{error=string}
+// @Router /questions-dropdown [get]
 func (h *ChallengeHandler) GetQuestionsDropdown(w http.ResponseWriter, r *http.Request) {
 	questions, err := h.db.GetAllQuestionsWithChallenge()
 	if err != nil {
@@ -797,7 +935,14 @@ func (h *ChallengeHandler) GetQuestionsDropdown(w http.ResponseWriter, r *http.R
 	}
 }
 
-// GetNextHintOrder returns the next order number for a question's hints
+// GetNextHintOrder godoc
+// @Summary Get the next available hint order number for a question
+// @Tags Challenges
+// @Produce json
+// @Param questionId path string true "Question ID"
+// @Success 200 {object} object{nextOrder=integer}
+// @Failure 500 {object} object{error=string}
+// @Router /questions/{questionId}/next-hint-order [get]
 func (h *ChallengeHandler) GetNextHintOrder(w http.ResponseWriter, r *http.Request) {
 	questionID := chi.URLParam(r, "questionId")
 

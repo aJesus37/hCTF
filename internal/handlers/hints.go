@@ -18,7 +18,18 @@ func NewHintHandler(db *database.DB) *HintHandler {
 	return &HintHandler{db: db}
 }
 
-// UnlockHint handles hint unlock requests
+// UnlockHint godoc
+// @Summary Unlock a hint for a question (costs points)
+// @Tags Hints
+// @Produce html
+// @Security CookieAuth
+// @Param id path string true "Hint ID"
+// @Success 200 {string} string "Empty response; triggers HX-Trigger: refreshHints"
+// @Failure 400 {object} object{error=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 404 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /hints/{id}/unlock [post]
 func (h *HintHandler) UnlockHint(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil {
@@ -86,7 +97,15 @@ func (h *HintHandler) UnlockHint(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(""))
 }
 
-// GetHints returns hints for a question (with unlock status) as HTML for HTMX
+// GetHints godoc
+// @Summary Get hints for a question as HTML fragments (for HTMX)
+// @Description Returns hints with unlock status. Unlocked hint content is visible. Locked hints show cost and unlock button.
+// @Tags Hints
+// @Produce html
+// @Param questionId path string true "Question ID"
+// @Success 200 {string} string "HTML fragments with hint cards"
+// @Failure 500 {object} object{error=string}
+// @Router /questions/{questionId}/hints [get]
 func (h *HintHandler) GetHints(w http.ResponseWriter, r *http.Request) {
 	questionID := chi.URLParam(r, "questionId")
 	claims := auth.GetUserFromContext(r.Context())

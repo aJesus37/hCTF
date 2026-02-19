@@ -31,6 +31,18 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+// Register godoc
+// @Summary Register a new user account
+// @Tags Auth
+// @Accept application/x-www-form-urlencoded
+// @Produce json
+// @Param email formData string true "User email"
+// @Param password formData string true "User password"
+// @Param name formData string true "Display name"
+// @Success 200 {object} object{user=object,token=string}
+// @Failure 400 {object} object{error=string}
+// @Failure 409 {object} object{error=string}
+// @Router /auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	// Parse form data
 	if err := r.ParseForm(); err != nil {
@@ -88,6 +100,16 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Login godoc
+// @Summary Authenticate a user and set session cookie
+// @Tags Auth
+// @Accept application/x-www-form-urlencoded
+// @Produce json
+// @Param email formData string true "User email"
+// @Param password formData string true "User password"
+// @Success 200 {object} object{user=object,token=string}
+// @Failure 401 {object} object{error=string}
+// @Router /auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// Parse form data
 	if err := r.ParseForm(); err != nil {
@@ -167,6 +189,13 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Logout godoc
+// @Summary Clear authentication cookie and end session
+// @Tags Auth
+// @Produce plain
+// @Security CookieAuth
+// @Success 200 {string} string "Logged out"
+// @Router /auth/logout [post]
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
@@ -181,7 +210,16 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Logged out"))
 }
 
-// ForgotPassword generates reset token and sends email (placeholder without SMTP)
+// ForgotPassword godoc
+// @Summary Request a password reset token
+// @Description Generates a reset token. Email delivery is not yet implemented; token must be obtained via server logs.
+// @Tags Auth
+// @Accept application/x-www-form-urlencoded
+// @Produce plain
+// @Param email formData string true "User email"
+// @Success 200 {string} string "If that email exists, a reset link has been sent."
+// @Failure 400 {object} object{error=string}
+// @Router /auth/forgot-password [post]
 func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -225,7 +263,17 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("If that email exists, a reset link has been sent."))
 }
 
-// ResetPassword validates token and updates password
+// ResetPassword godoc
+// @Summary Reset password using a valid reset token
+// @Tags Auth
+// @Accept application/x-www-form-urlencoded
+// @Produce plain
+// @Param token formData string true "Reset token"
+// @Param password formData string true "New password"
+// @Param confirm_password formData string true "Confirm new password"
+// @Success 200 {string} string "Password reset successful. You can now login."
+// @Failure 400 {object} object{error=string}
+// @Router /auth/reset-password [post]
 func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)

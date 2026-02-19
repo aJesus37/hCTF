@@ -25,7 +25,19 @@ type CreateTeamRequest struct {
 	Description string `json:"description"`
 }
 
-// CreateTeam handles team creation
+// CreateTeam godoc
+// @Summary Create a new team
+// @Tags Teams
+// @Accept json
+// @Produce json
+// @Security CookieAuth
+// @Param team body CreateTeamRequest true "Team data"
+// @Success 200 {object} models.Team
+// @Failure 400 {object} object{error=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 409 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /teams [post]
 func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil {
@@ -78,7 +90,18 @@ func (h *TeamHandler) CreateTeam(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(team)
 }
 
-// JoinTeam handles joining a team using invite code
+// JoinTeam godoc
+// @Summary Join a team using an invite code
+// @Tags Teams
+// @Produce json
+// @Security CookieAuth
+// @Param invite_id path string true "Team invite code"
+// @Success 200 {object} object{message=string}
+// @Failure 400 {object} object{error=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 404 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /teams/join/{invite_id} [post]
 func (h *TeamHandler) JoinTeam(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil {
@@ -118,7 +141,18 @@ func (h *TeamHandler) JoinTeam(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"message":"Joined team successfully"}`))
 }
 
-// LeaveTeam handles leaving current team
+// LeaveTeam godoc
+// @Summary Leave the current team
+// @Description Team owners must transfer ownership or disband before leaving.
+// @Tags Teams
+// @Produce json
+// @Security CookieAuth
+// @Success 200 {object} object{message=string}
+// @Failure 400 {object} object{error=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 403 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /teams/leave [post]
 func (h *TeamHandler) LeaveTeam(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil {
@@ -160,7 +194,20 @@ func (h *TeamHandler) LeaveTeam(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"message":"Left team successfully"}`))
 }
 
-// TransferOwnership allows team owner to transfer ownership to another member
+// TransferOwnership godoc
+// @Summary Transfer team ownership to another member (owner only)
+// @Tags Teams
+// @Accept json
+// @Produce json
+// @Security CookieAuth
+// @Param body body object{new_owner_id=string} true "New owner user ID"
+// @Success 200 {object} object{message=string}
+// @Failure 400 {object} object{error=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 403 {object} object{error=string}
+// @Failure 404 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /teams/transfer-ownership [post]
 func (h *TeamHandler) TransferOwnership(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil {
@@ -227,7 +274,17 @@ func (h *TeamHandler) TransferOwnership(w http.ResponseWriter, r *http.Request) 
 	w.Write([]byte(`{"message":"Ownership transferred successfully"}`))
 }
 
-// DisbandTeam allows team owners to delete their team
+// DisbandTeam godoc
+// @Summary Disband the team (owner only)
+// @Tags Teams
+// @Produce json
+// @Security CookieAuth
+// @Success 200 {object} object{message=string}
+// @Failure 400 {object} object{error=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 403 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /teams/disband [post]
 func (h *TeamHandler) DisbandTeam(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil {
@@ -269,7 +326,14 @@ func (h *TeamHandler) DisbandTeam(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"message":"Team disbanded successfully"}`))
 }
 
-// ListTeams returns all teams with invite codes filtered for non-members
+// ListTeams godoc
+// @Summary List all teams
+// @Description Invite codes are only visible to team members.
+// @Tags Teams
+// @Produce json
+// @Success 200 {array} object
+// @Failure 500 {object} object{error=string}
+// @Router /teams [get]
 func (h *TeamHandler) ListTeams(w http.ResponseWriter, r *http.Request) {
 	teams, err := h.db.GetAllTeams()
 	if err != nil {
@@ -308,7 +372,15 @@ func (h *TeamHandler) ListTeams(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// GetTeam returns team details with members
+// GetTeam godoc
+// @Summary Get a team with its members
+// @Tags Teams
+// @Produce json
+// @Param id path string true "Team ID"
+// @Success 200 {object} object{team=models.Team,members=[]object}
+// @Failure 404 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /teams/{id} [get]
 func (h *TeamHandler) GetTeam(w http.ResponseWriter, r *http.Request) {
 	teamID := chi.URLParam(r, "id")
 
@@ -333,7 +405,14 @@ func (h *TeamHandler) GetTeam(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// GetTeamScoreboard returns team rankings as HTML for HTMX or JSON for API
+// GetTeamScoreboard godoc
+// @Summary Get team scoreboard rankings
+// @Description Returns HTML table when called from HTMX (HX-Request header), otherwise returns JSON.
+// @Tags Teams
+// @Produce json
+// @Success 200 {array} models.ScoreboardEntry
+// @Failure 500 {object} object{error=string}
+// @Router /teams/scoreboard [get]
 func (h *TeamHandler) GetTeamScoreboard(w http.ResponseWriter, r *http.Request) {
 	scoreboard, err := h.db.GetTeamScoreboard(50)
 	if err != nil {
@@ -400,7 +479,17 @@ func (h *TeamHandler) GetTeamScoreboard(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// RegenerateInviteCode generates a new invite code for the team (owner only)
+// RegenerateInviteCode godoc
+// @Summary Regenerate the team invite code (owner only)
+// @Tags Teams
+// @Produce json
+// @Security CookieAuth
+// @Success 200 {object} object{invite_id=string}
+// @Failure 400 {object} object{error=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 403 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /teams/regenerate-invite [post]
 func (h *TeamHandler) RegenerateInviteCode(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil {
@@ -442,7 +531,19 @@ func (h *TeamHandler) RegenerateInviteCode(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(map[string]string{"invite_id": newCode})
 }
 
-// UpdateInvitePermission updates who can share team invites (owner only)
+// UpdateInvitePermission godoc
+// @Summary Update who can see the team invite code (owner only)
+// @Tags Teams
+// @Accept json
+// @Produce json
+// @Security CookieAuth
+// @Param body body object{permission=string} true "Permission value: 'owner_only' or 'all_members'"
+// @Success 200 {object} object{message=string}
+// @Failure 400 {object} object{error=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 403 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /teams/invite-permission [post]
 func (h *TeamHandler) UpdateInvitePermission(w http.ResponseWriter, r *http.Request) {
 	claims := auth.GetUserFromContext(r.Context())
 	if claims == nil {

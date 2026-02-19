@@ -102,6 +102,18 @@ func renderDifficultyHTML(diff *models.DifficultyOption) string {
 </div>`, diff.ID, eTextColor, eName, diff.SortOrder, eColor, diff.ID, diff.ID, eName, diff.ID, diff.ID, eName, diff.SortOrder, eColor, eTextColor)
 }
 
+// CreateCategory godoc
+// @Summary Create a new challenge category (admin only)
+// @Tags Admin
+// @Accept application/x-www-form-urlencoded
+// @Produce html
+// @Security CookieAuth
+// @Param name formData string true "Category name"
+// @Param sort_order formData integer false "Sort order (default 0)"
+// @Success 200 {string} string "HTML fragment of the new category row"
+// @Failure 400 {object} object{error=string}
+// @Failure 409 {object} object{error=string}
+// @Router /admin/categories [post]
 func (h *SettingsHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -129,6 +141,19 @@ func (h *SettingsHandler) CreateCategory(w http.ResponseWriter, r *http.Request)
 	w.Write([]byte(renderCategoryHTML(cat)))
 }
 
+// UpdateCategory godoc
+// @Summary Update a challenge category (admin only)
+// @Tags Admin
+// @Accept application/x-www-form-urlencoded
+// @Produce html
+// @Security CookieAuth
+// @Param id path string true "Category ID"
+// @Param name formData string true "Category name"
+// @Param sort_order formData integer false "Sort order"
+// @Success 200 {string} string "HTML fragment of the updated category row"
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/categories/{id} [put]
 func (h *SettingsHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := r.ParseForm(); err != nil {
@@ -157,6 +182,15 @@ func (h *SettingsHandler) UpdateCategory(w http.ResponseWriter, r *http.Request)
 	w.Write([]byte(renderCategoryHTML(cat)))
 }
 
+// DeleteCategory godoc
+// @Summary Delete a challenge category (admin only)
+// @Tags Admin
+// @Produce plain
+// @Security CookieAuth
+// @Param id path string true "Category ID"
+// @Success 200 {string} string "Empty response on success"
+// @Failure 500 {object} object{error=string}
+// @Router /admin/categories/{id} [delete]
 func (h *SettingsHandler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.db.DeleteCategory(id); err != nil {
@@ -167,6 +201,20 @@ func (h *SettingsHandler) DeleteCategory(w http.ResponseWriter, r *http.Request)
 	w.Write([]byte(""))
 }
 
+// CreateDifficulty godoc
+// @Summary Create a new difficulty level (admin only)
+// @Tags Admin
+// @Accept application/x-www-form-urlencoded
+// @Produce html
+// @Security CookieAuth
+// @Param name formData string true "Difficulty name"
+// @Param color formData string false "Badge color Tailwind classes"
+// @Param text_color formData string false "Text color Tailwind class"
+// @Param sort_order formData integer false "Sort order (default 0)"
+// @Success 200 {string} string "HTML fragment of the new difficulty row"
+// @Failure 400 {object} object{error=string}
+// @Failure 409 {object} object{error=string}
+// @Router /admin/difficulties [post]
 func (h *SettingsHandler) CreateDifficulty(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -204,6 +252,21 @@ func (h *SettingsHandler) CreateDifficulty(w http.ResponseWriter, r *http.Reques
 	w.Write([]byte(renderDifficultyHTML(diff)))
 }
 
+// UpdateDifficulty godoc
+// @Summary Update a difficulty level (admin only)
+// @Tags Admin
+// @Accept application/x-www-form-urlencoded
+// @Produce html
+// @Security CookieAuth
+// @Param id path string true "Difficulty ID"
+// @Param name formData string true "Difficulty name"
+// @Param color formData string false "Badge color Tailwind classes"
+// @Param text_color formData string false "Text color Tailwind class"
+// @Param sort_order formData integer false "Sort order"
+// @Success 200 {string} string "HTML fragment of the updated difficulty row"
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/difficulties/{id} [put]
 func (h *SettingsHandler) UpdateDifficulty(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := r.ParseForm(); err != nil {
@@ -242,6 +305,15 @@ func (h *SettingsHandler) UpdateDifficulty(w http.ResponseWriter, r *http.Reques
 	w.Write([]byte(renderDifficultyHTML(diff)))
 }
 
+// DeleteDifficulty godoc
+// @Summary Delete a difficulty level (admin only)
+// @Tags Admin
+// @Produce plain
+// @Security CookieAuth
+// @Param id path string true "Difficulty ID"
+// @Success 200 {string} string "Empty response on success"
+// @Failure 500 {object} object{error=string}
+// @Router /admin/difficulties/{id} [delete]
 func (h *SettingsHandler) DeleteDifficulty(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.db.DeleteDifficulty(id); err != nil {
@@ -254,6 +326,14 @@ func (h *SettingsHandler) DeleteDifficulty(w http.ResponseWriter, r *http.Reques
 
 // Custom code injection handlers
 
+// GetCustomCode godoc
+// @Summary Get current custom HTML/JS injection settings (admin only)
+// @Tags Admin
+// @Produce json
+// @Security CookieAuth
+// @Success 200 {object} object{head_html=string,body_end_html=string,pages_json=string,motd=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/custom-code [get]
 func (h *SettingsHandler) GetCustomCode(w http.ResponseWriter, r *http.Request) {
 	headHTML, _ := h.db.GetSetting("custom_head_html")
 	bodyEndHTML, _ := h.db.GetSetting("custom_body_end_html")
@@ -272,6 +352,20 @@ func (h *SettingsHandler) GetCustomCode(w http.ResponseWriter, r *http.Request) 
 		data["head_html"], data["body_end_html"], data["pages_json"], data["motd"])
 }
 
+// UpdateCustomCode godoc
+// @Summary Update custom HTML/JS injection settings (admin only)
+// @Tags Admin
+// @Accept application/x-www-form-urlencoded
+// @Produce plain
+// @Security CookieAuth
+// @Param head_html formData string false "HTML to inject in <head>"
+// @Param body_end_html formData string false "HTML to inject before </body>"
+// @Param pages_json formData string false "JSON config for per-page injection"
+// @Param motd formData string false "Message of the day"
+// @Success 200 {string} string "Settings updated successfully"
+// @Failure 400 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/custom-code [put]
 func (h *SettingsHandler) UpdateCustomCode(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -315,7 +409,14 @@ func (h *SettingsHandler) UpdateCustomCode(w http.ResponseWriter, r *http.Reques
 	w.Write([]byte("Settings updated successfully"))
 }
 
-// ListUsers returns all users (admin only)
+// ListUsers godoc
+// @Summary List all users (admin only)
+// @Tags Admin
+// @Produce html
+// @Security CookieAuth
+// @Success 200 {string} string "HTML fragments with user rows"
+// @Failure 500 {object} object{error=string}
+// @Router /admin/users [get]
 func (h *SettingsHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.db.GetAllUsers()
 	if err != nil {
@@ -367,7 +468,17 @@ func (h *SettingsHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// UpdateUserAdmin toggles admin status
+// UpdateUserAdmin godoc
+// @Summary Toggle admin status for a user (admin only)
+// @Tags Admin
+// @Produce html
+// @Security CookieAuth
+// @Param id path string true "User ID"
+// @Success 200 {string} string "HTML fragment of the updated user row"
+// @Failure 403 {object} object{error=string}
+// @Failure 404 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/users/{id}/admin [put]
 func (h *SettingsHandler) UpdateUserAdmin(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 	claims := auth.GetUserFromContext(r.Context())
@@ -431,7 +542,16 @@ func (h *SettingsHandler) UpdateUserAdmin(w http.ResponseWriter, r *http.Request
 		btnClass, btnText, user.ID, user.ID, html.EscapeString(user.Name))
 }
 
-// DeleteUser deletes a user
+// DeleteUser godoc
+// @Summary Delete a user account (admin only)
+// @Tags Admin
+// @Produce plain
+// @Security CookieAuth
+// @Param id path string true "User ID"
+// @Success 200 {string} string "Empty response on success"
+// @Failure 403 {object} object{error=string}
+// @Failure 500 {object} object{error=string}
+// @Router /admin/users/{id} [delete]
 func (h *SettingsHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "id")
 	claims := auth.GetUserFromContext(r.Context())
