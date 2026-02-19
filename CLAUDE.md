@@ -343,25 +343,36 @@ func TestHashPassword(t *testing.T) {
 2. Register route in `main.go`
 3. Add authentication middleware if needed
 4. Document in `API.md`
-5. **CRITICAL**: Update the OpenAPI specification in `docs/openapi.yaml` - this is the authoritative API documentation
+5. **CRITICAL**: Add swag annotations to the handler, then run `task generate-openapi` to update `docs/openapi.yaml`
 6. Update relevant templates if UI changes
 
 ### OpenAPI Specification
 
-**Location**: `docs/openapi.yaml`
+**Location**: `docs/openapi.yaml` (auto-generated — do NOT edit by hand)
 
-**CRITICAL**: This project maintains an OpenAPI 3.0 specification that must be kept in sync with all API changes.
+**Generation**: Run `task generate-openapi` after any API change.
 
-- **Access**: The spec is served at `/api/openapi.yaml`
-- **Updates**: Any changes to API endpoints, request/response schemas, or authentication must be reflected in the OpenAPI spec
-- **Coverage**: The spec documents all endpoints including auth, challenges, teams, admin, and SQL playground
+**How it works**: swaggo/swag reads `// @Summary`, `// @Router`, and related annotations from handler function comments and generates `docs/openapi.yaml`.
 
-**When modifying the API:**
-1. Add/update the endpoint in `docs/openapi.yaml`
-2. Update request/response schemas in the `components/schemas` section
-3. Tag endpoints appropriately (e.g., `[Challenges]`, `[Admin]`)
-4. Include security requirements for protected endpoints
-5. Test the spec loads correctly at `/api/openapi.yaml`
+**CRITICAL**: After adding or modifying any HTTP handler:
+1. Add/update swag annotations in the handler file
+2. Run `task generate-openapi`
+3. Commit the updated `docs/openapi.yaml`
+
+**Access**: Served at `/api/openapi.yaml` and browsable at `/api/openapi`
+
+**Annotation format:**
+```go
+// FunctionName godoc
+// @Summary One-line description
+// @Tags TagName
+// @Security CookieAuth
+// @Param paramName path/query/body type required "description"
+// @Success 200 {object} ResponseType
+// @Failure 400 {object} object{error=string}
+// @Router /path [method]
+func (h *Handler) FunctionName(w http.ResponseWriter, r *http.Request) {
+```
 
 ### Changing Database Schema
 
