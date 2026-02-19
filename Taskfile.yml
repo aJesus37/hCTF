@@ -142,6 +142,9 @@ tasks:
       - swag init -g main.go -o docs/ --outputTypes yaml
       - mv docs/swagger.yaml docs/openapi.yaml
       - echo "OpenAPI spec generated at docs/openapi.yaml"
+    preconditions:
+      - sh: command -v swag
+        msg: "swag not installed. Run: go install github.com/swaggo/swag/cmd/swag@v1.16.4"
 
   help:
     desc: Show help information

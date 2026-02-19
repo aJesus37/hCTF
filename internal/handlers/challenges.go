@@ -197,7 +197,7 @@ type CreateChallengeRequest struct {
 // CreateChallenge godoc
 // @Summary Create a new challenge (admin only)
 // @Tags Admin
-// @Accept json
+// @Accept json,application/x-www-form-urlencoded
 // @Produce json
 // @Security CookieAuth
 // @Param challenge body CreateChallengeRequest true "Challenge data"
@@ -311,7 +311,7 @@ func (h *ChallengeHandler) getDifficultyColor(name string) string {
 // UpdateChallenge godoc
 // @Summary Update an existing challenge (admin only)
 // @Tags Admin
-// @Accept json
+// @Accept json,application/x-www-form-urlencoded
 // @Produce json
 // @Security CookieAuth
 // @Param id path string true "Challenge ID"
@@ -452,7 +452,7 @@ type CreateQuestionRequest struct {
 // CreateQuestion godoc
 // @Summary Create a new question for a challenge (admin only)
 // @Tags Admin
-// @Accept json
+// @Accept json,application/x-www-form-urlencoded
 // @Produce json
 // @Security CookieAuth
 // @Param question body CreateQuestionRequest true "Question data"
@@ -555,7 +555,7 @@ func (h *ChallengeHandler) CreateQuestion(w http.ResponseWriter, r *http.Request
 // UpdateQuestion godoc
 // @Summary Update an existing question (admin only)
 // @Tags Admin
-// @Accept json
+// @Accept json,application/x-www-form-urlencoded
 // @Produce json
 // @Security CookieAuth
 // @Param id path string true "Question ID"
@@ -693,7 +693,7 @@ type CreateHintRequest struct {
 // CreateHint godoc
 // @Summary Create a new hint for a question (admin only)
 // @Tags Admin
-// @Accept json
+// @Accept json,application/x-www-form-urlencoded
 // @Produce json
 // @Security CookieAuth
 // @Param hint body CreateHintRequest true "Hint data"
@@ -789,7 +789,7 @@ func (h *ChallengeHandler) CreateHint(w http.ResponseWriter, r *http.Request) {
 // UpdateHint godoc
 // @Summary Update an existing hint (admin only)
 // @Tags Admin
-// @Accept json
+// @Accept json,application/x-www-form-urlencoded
 // @Produce json
 // @Security CookieAuth
 // @Param id path string true "Hint ID"

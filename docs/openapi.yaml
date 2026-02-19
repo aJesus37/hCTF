@@ -284,6 +284,7 @@ paths:
     post:
       consumes:
       - application/json
+      - application/x-www-form-urlencoded
       parameters:
       - description: Challenge data
         in: body
@@ -347,6 +348,7 @@ paths:
     put:
       consumes:
       - application/json
+      - application/x-www-form-urlencoded
       parameters:
       - description: Challenge ID
         in: path
@@ -592,6 +594,7 @@ paths:
     post:
       consumes:
       - application/json
+      - application/x-www-form-urlencoded
       parameters:
       - description: Hint data
         in: body
@@ -662,6 +665,7 @@ paths:
     put:
       consumes:
       - application/json
+      - application/x-www-form-urlencoded
       parameters:
       - description: Hint ID
         in: path
@@ -704,6 +708,7 @@ paths:
     post:
       consumes:
       - application/json
+      - application/x-www-form-urlencoded
       parameters:
       - description: Question data
         in: body
@@ -767,6 +772,7 @@ paths:
     put:
       consumes:
       - application/json
+      - application/x-www-form-urlencoded
       parameters:
       - description: Question ID
         in: path

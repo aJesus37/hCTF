@@ -1,3 +1,7 @@
+// Note: This generates Swagger 2.0 (not OpenAPI 3.0). swaggo/swag only supports
+// Swagger 2.0 natively. The Swagger UI at /api/openapi renders it correctly.
+// Cookie-based auth (CookieAuth) is documented here despite being a 3.0 feature;
+// swaggo emits it as an extension and Swagger UI displays it correctly.
 // @title hCTF2 API
 // @version 1.0.0
 // @description Self-hosted CTF platform API. Most write endpoints require authentication via JWT cookie (auth_token).
