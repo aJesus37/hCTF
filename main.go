@@ -1,3 +1,26 @@
+// @title hCTF2 API
+// @version 1.0.0
+// @description Self-hosted CTF platform API. Most write endpoints require authentication via JWT cookie (auth_token).
+// @host localhost:8090
+// @BasePath /api
+// @securityDefinitions.apikey CookieAuth
+// @in cookie
+// @name auth_token
+// @tag.name Auth
+// @tag.description Authentication endpoints (login, register, logout, password reset)
+// @tag.name Challenges
+// @tag.description Challenge listing, details, and flag submission
+// @tag.name Teams
+// @tag.description Team creation, joining, and management
+// @tag.name Hints
+// @tag.description Hint viewing and unlocking
+// @tag.name Scoreboard
+// @tag.description Scoreboard data
+// @tag.name Admin
+// @tag.description Admin-only CRUD for challenges, questions, hints, categories, users
+// @tag.name SQL
+// @tag.description SQL Playground snapshot data
+
 package main
 
 import (

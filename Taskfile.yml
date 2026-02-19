@@ -136,6 +136,13 @@ tasks:
       - sh: test -f scripts/setup-duckdb-local.sh
         msg: "Setup script not found"
 
+  generate-openapi:
+    desc: Generate OpenAPI/Swagger spec from code annotations
+    cmds:
+      - swag init -g main.go -o docs/ --outputTypes yaml
+      - mv docs/swagger.yaml docs/openapi.yaml
+      - echo "OpenAPI spec generated at docs/openapi.yaml"
+
   help:
     desc: Show help information
     cmds:
