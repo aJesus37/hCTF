@@ -46,6 +46,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/yourusername/hctf2/internal/auth"
 	"github.com/yourusername/hctf2/internal/database"
+	"github.com/yourusername/hctf2/internal/email"
 	"github.com/yourusername/hctf2/internal/handlers"
 	"github.com/yourusername/hctf2/internal/models"
 	"github.com/yourusername/hctf2/internal/telemetry"
@@ -125,8 +126,27 @@ func main() {
 		motd             = flag.String("motd", "", "Message of the Day displayed below login form")
 		enablePrometheus = flag.Bool("metrics", false, "Enable Prometheus /metrics endpoint")
 		otlpEndpoint     = flag.String("otel-otlp-endpoint", "", "OTLP exporter endpoint (e.g. localhost:4318)")
+		smtpHost         = flag.String("smtp-host", "", "SMTP server host")
+		smtpPort         = flag.Int("smtp-port", 587, "SMTP server port")
+		smtpFrom         = flag.String("smtp-from", "", "SMTP from address")
+		smtpUser         = flag.String("smtp-user", "", "SMTP username")
+		smtpPass         = flag.String("smtp-password", "", "SMTP password")
+		baseURL          = flag.String("base-url", "http://localhost:8090", "Base URL for links in emails")
 	)
 	flag.Parse()
+
+	// Create email service
+	emailSvc := email.NewService(email.Config{
+		Host:     firstNonEmpty(*smtpHost, os.Getenv("SMTP_HOST")),
+		Port:     *smtpPort,
+		From:     firstNonEmpty(*smtpFrom, os.Getenv("SMTP_FROM")),
+		Username: firstNonEmpty(*smtpUser, os.Getenv("SMTP_USER")),
+		Password: firstNonEmpty(*smtpPass, os.Getenv("SMTP_PASSWORD")),
+	})
+
+	if !emailSvc.IsConfigured() {
+		log.Println("Warning: SMTP not configured. Password reset links will be logged to console.")
+	}
 
 	// Initialize telemetry
 	cleanupTelemetry, err := telemetry.Init(telemetry.Config{
@@ -196,7 +216,7 @@ func main() {
 	s := &Server{
 		db:          db,
 		templates:   tmpl,
-		authH:       handlers.NewAuthHandler(db),
+		authH:       handlers.NewAuthHandler(db, emailSvc, *baseURL),
 		challengeH:  handlers.NewChallengeHandler(db),
 		scoreboardH: handlers.NewScoreboardHandler(db),
 		teamH:       handlers.NewTeamHandler(db),

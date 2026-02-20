@@ -4,20 +4,25 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/yourusername/hctf2/internal/auth"
 	"github.com/yourusername/hctf2/internal/database"
+	"github.com/yourusername/hctf2/internal/email"
 )
 
 type AuthHandler struct {
-	db *database.DB
+	db       *database.DB
+	emailSvc *email.Service
+	baseURL  string
 }
 
-func NewAuthHandler(db *database.DB) *AuthHandler {
-	return &AuthHandler{db: db}
+func NewAuthHandler(db *database.DB, emailSvc *email.Service, baseURL string) *AuthHandler {
+	return &AuthHandler{db: db, emailSvc: emailSvc, baseURL: baseURL}
 }
 
 type RegisterRequest struct {
@@ -212,7 +217,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 // ForgotPassword godoc
 // @Summary Request a password reset token
-// @Description Generates a reset token. Email delivery is not yet implemented; token must be obtained via server logs.
+// @Description Generates a reset token and sends email via configured SMTP.
 // @Tags Auth
 // @Accept application/x-www-form-urlencoded
 // @Produce plain
@@ -255,9 +260,11 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Send email with reset link
-	// For now, just return success message. In production, you would:
-	// emailService.SendPasswordReset(email, tokenStr, "https://your-domain.com")
+	// Send reset email (or log link in dev mode)
+	resetURL := fmt.Sprintf("%s/reset-password?token=%s", h.baseURL, tokenStr)
+	if err := h.emailSvc.SendPasswordReset(email, resetURL); err != nil {
+		log.Printf("Failed to send password reset email: %v", err)
+	}
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("If that email exists, a reset link has been sent."))

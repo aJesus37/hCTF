@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/yourusername/hctf2/internal/database"
+	"github.com/yourusername/hctf2/internal/email"
 	"github.com/yourusername/hctf2/internal/handlers"
 )
 
@@ -421,7 +422,7 @@ func newTestServer(db *database.DB) *Server {
 	s := &Server{
 		db:          db,
 		templates:   tmpl,
-		authH:       handlers.NewAuthHandler(db),
+		authH:       handlers.NewAuthHandler(db, email.NewService(email.Config{}), "http://localhost:8090"),
 		challengeH:  handlers.NewChallengeHandler(db),
 		scoreboardH: handlers.NewScoreboardHandler(db),
 		sqlH:        handlers.NewSQLHandler(db),
