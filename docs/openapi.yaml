@@ -911,8 +911,7 @@ paths:
     post:
       consumes:
       - application/x-www-form-urlencoded
-      description: Generates a reset token. Email delivery is not yet implemented;
-        token must be obtained via server logs.
+      description: Generates a reset token and sends email via configured SMTP.
       parameters:
       - description: User email
         in: formData

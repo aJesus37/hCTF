@@ -14,12 +14,19 @@ The precedence order is: CLI flags > environment variables > defaults.
 Run `./hctf2 --help` to see all available flags:
 
 ```
---port PORT                    Server port (default: 8080)
---host HOST                    Server host (default: 0.0.0.0)
---database-path PATH           SQLite database path (default: data/hctf2.db)
---jwt-secret SECRET            JWT signing secret (auto-generated if not set)
+--port PORT                    Server port (default: 8090)
+--db PATH                      SQLite database path (default: ./hctf2.db)
 --admin-email EMAIL            Initial admin email (required for first setup)
 --admin-password PASSWORD      Initial admin password (required for first setup)
+--motd TEXT                    Message of the Day displayed below login form
+--metrics                      Enable Prometheus /metrics endpoint
+--otel-otlp-endpoint ENDPOINT  OTLP exporter endpoint (e.g. localhost:4318)
+--smtp-host HOST               SMTP server host
+--smtp-port PORT               SMTP server port (default: 587)
+--smtp-from EMAIL              SMTP from address
+--smtp-user USERNAME           SMTP username
+--smtp-password PASSWORD       SMTP password
+--base-url URL                 Base URL for links in emails (default: http://localhost:8090)
 ```
 
 ### Examples
@@ -329,6 +336,161 @@ If users get "invalid token" errors after restart:
 1. Clear browser cookies
 2. Ensure `JWT_SECRET` is consistent across restarts
 3. Check server logs for token validation errors
+
+## SMTP Configuration
+
+### Password Reset Emails
+
+**Command-Line Flags:**
+- `--smtp-host` - SMTP server hostname (e.g. smtp.gmail.com)
+- `--smtp-port` - SMTP server port (default: 587)
+- `--smtp-from` - From address for emails (e.g. noreply@example.com)
+- `--smtp-user` - SMTP authentication username
+- `--smtp-password` - SMTP authentication password
+- `--base-url` - Base URL for reset links (default: http://localhost:8090)
+
+**Environment Variables:**
+- `SMTP_HOST` - SMTP server hostname
+- `SMTP_FROM` - From address for emails
+- `SMTP_USER` - SMTP authentication username
+- `SMTP_PASSWORD` - SMTP authentication password
+
+**Examples:**
+
+Using Gmail SMTP:
+```bash
+./hctf2 \
+  --smtp-host smtp.gmail.com \
+  --smtp-port 587 \
+  --smtp-from noreply@yourdomain.com \
+  --smtp-user your-email@gmail.com \
+  --smtp-password "your-app-password" \
+  --base-url https://ctf.yourdomain.com
+```
+
+Using environment variables:
+```bash
+export SMTP_HOST=smtp.sendgrid.net
+export SMTP_FROM=noreply@yourdomain.com
+export SMTP_USER=apikey
+export SMTP_PASSWORD="your-sendgrid-api-key"
+export BASE_URL=https://ctf.yourdomain.com
+
+./hctf2
+```
+
+**Development Mode:**
+If SMTP is not configured, password reset links are logged to the console instead of being sent via email. This is useful for local development and testing.
+
+## OpenTelemetry Configuration
+
+### Prometheus Metrics
+
+**Command-Line Flag:**
+- `--metrics` - Enable Prometheus /metrics endpoint
+
+**Environment Variable:**
+- `OTEL_METRICS_PROMETHEUS=true` - Enable Prometheus metrics
+
+The `/metrics` endpoint serves metrics in Prometheus format, including:
+- `http_requests_total` - Total HTTP requests
+- `http_request_duration_seconds` - HTTP request duration
+- `active_users` - Current active users
+- `database_queries_total` - Total database queries
+
+**Example:**
+```bash
+./hctf2 --metrics --port 8090
+curl http://localhost:8090/metrics
+```
+
+### OTLP Export
+
+Export traces and metrics to an OpenTelemetry Collector or compatible backend.
+
+**Command-Line Flag:**
+- `--otel-otlp-endpoint` - OTLP endpoint (e.g. localhost:4318)
+
+**Environment Variable:**
+- `OTEL_EXPORTER_OTLP_ENDPOINT` - OTLP endpoint
+
+**Example with Jaeger:**
+```bash
+# Start Jaeger
+docker run -d --name jaeger \
+  -e COLLECTOR_OTLP_ENABLED=true \
+  -p 16686:16686 \
+  -p 4318:4318 \
+  jaegertracing/all-in-one:latest
+
+# Run hCTF2 with OTLP export
+./hctf2 --otel-otlp-endpoint localhost:4318
+```
+
+### Stdout Exporter (Debug)
+
+**Environment Variable:**
+- `OTEL_EXPORTER_STDOUT=true` - Log traces to stdout
+
+Useful for debugging OpenTelemetry instrumentation during development.
+
+## Health Check Endpoints
+
+hCTF2 provides Kubernetes-style health check endpoints:
+
+### Liveness Probe
+
+**Endpoint:** `GET /healthz`
+
+Returns HTTP 200 when the application is running:
+```json
+{"status":"ok"}
+```
+
+Use this for liveness probes in Kubernetes to restart unhealthy containers.
+
+### Readiness Probe
+
+**Endpoint:** `GET /readyz`
+
+Returns HTTP 200 when ready to serve traffic:
+```json
+{"status":"ready","checks":{"database":"ok"}}
+```
+
+Returns HTTP 503 when not ready:
+```json
+{"status":"not_ready","checks":{"database":"error: connection refused"}}
+```
+
+Use this for readiness probes to control traffic routing.
+
+### Kubernetes Example
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8090
+  initialDelaySeconds: 10
+  periodSeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8090
+  initialDelaySeconds: 5
+  periodSeconds: 10
+```
+
+### Docker HEALTHCHECK
+
+The Dockerfile includes a health check using the `/healthz` endpoint:
+
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8090/healthz
+```
 
 ### Database Migration Failures
 
