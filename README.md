@@ -163,7 +163,6 @@ No manual migration steps needed.
 | [OPERATIONS.md](OPERATIONS.md) | Deployment, monitoring, backup, troubleshooting |
 | [SQL_PLAYGROUND.md](SQL_PLAYGROUND.md) | DuckDB WASM SQL challenge mode |
 | [TESTING.md](TESTING.md) | Running and writing tests |
-| [KNOWN_ISSUES.md](KNOWN_ISSUES.md) | Known bugs and workarounds |
 
 ---
 
@@ -187,4 +186,4 @@ MIT — see [LICENSE](LICENSE).
 
 ## How this was built
 
-The architecture, database schema, and core backend were designed and implemented before any AI assistance. We use AI tools for specific, scoped tasks — drafting boilerplate, suggesting refactors, writing docs — and every change is reviewed and usually rewritten by a human maintainer. This is not autonomous "generate and ship" code.
+The architecture, database schema, and core backend were designed and implemented before any AI assistance. We use AI tools for specific, scoped tasks — drafting boilerplate, suggesting refactors, writing docs — and every change is reviewed and usually rewritten by a human maintainer (aside from the frontend. While the architecture was human-chosen, this is not a core skill for me, so I let the AI implement, but reviewed and validated everything). This is not autonomous "generate and ship" code.
