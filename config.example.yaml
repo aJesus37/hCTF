@@ -3,10 +3,14 @@
 # This file documents all available configuration options.
 # Copy this file to config.yaml and adjust as needed.
 #
-# Configuration sources:
-#   - CLI flags: --port, --db, --admin-email, --admin-password, --motd
-#   - Environment variables: ENVIRONMENT, OTEL_EXPORTER_STDOUT
-#   - Built-in defaults: all other values are hardcoded
+# Configuration sources (in order of precedence):
+#   1. CLI flags (highest priority)
+#   2. Environment variables
+#   3. Config file (this file)
+#   4. Built-in defaults (lowest priority)
+#
+# Available CLI flags: --port, --db, --admin-email, --admin-password, --motd,
+#                      --jwt-secret, --dev, --cors-origins, --base-url
 #
 # Note: most options are only available as CLI flags. There is no config-file
 # loader at runtime — this file serves as documentation and a reference
@@ -24,17 +28,20 @@ database:
   path: ./hctf2.db
 
 auth:
-  # JWT signing secret.
-  # Not currently configurable via flag or env var — the application generates
-  # a fixed internal secret at compile time. To use a custom secret, modify
-  # internal/auth/ and rebuild.
-  # Default: (internal constant — change before production use)
+  # JWT signing secret (REQUIRED for production).
+  # Configurable via:
+  #   - CLI flag: --jwt-secret
+  #   - Environment variable: JWT_SECRET
+  #   - This config file: jwt_secret (below)
+  # Minimum 32 characters required.
+  # Generate with: openssl rand -base64 32
+  # Default: (none - server refuses to start in production without this)
   jwt_secret: "change-this-to-a-random-secret-in-production"
 
   # How long JWT sessions remain valid.
   # Not currently runtime-configurable; hardcoded in internal/auth/.
-  # Default: 168h (7 days)
-  session_duration: 168h
+  # Default: 24h
+  session_duration: 24h
 
 admin:
   # Email address for the initial admin account.
