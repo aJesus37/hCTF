@@ -35,8 +35,11 @@ auth:
   #   - This config file: jwt_secret (below)
   # Minimum 32 characters required.
   # Generate with: openssl rand -base64 32
-  # Default: (none - server refuses to start in production without this)
-  jwt_secret: "change-this-to-a-random-secret-in-production"
+  #
+  # IMPORTANT: Replace this placeholder with a secure random secret!
+  # In production mode (--dev not set), the server will refuse to start
+  # if this is not changed from the placeholder.
+  jwt_secret: "CHANGE-THIS-TO-A-SECURE-RANDOM-STRING-MIN-32-CHARS"
 
   # How long JWT sessions remain valid.
   # Not currently runtime-configurable; hardcoded in internal/auth/.
