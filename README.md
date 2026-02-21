@@ -152,6 +152,27 @@ No manual migration steps needed.
 - No telemetry or analytics by default
 - Admin routes protected by role middleware
 
+### JWT Secret Configuration
+
+**Production (required):**
+```bash
+./hctf2 --jwt-secret "$(openssl rand -base64 32)"
+```
+
+Or via environment variable:
+```bash
+export JWT_SECRET="$(openssl rand -base64 32)"
+./hctf2
+```
+
+**Development (insecure):**
+```bash
+./hctf2 --dev  # Allows default JWT secret with warning
+```
+
+The server will refuse to start in production mode without a proper JWT secret (minimum 32 characters). See [CONFIGURATION.md](CONFIGURATION.md) for details.
+
+
 ---
 
 ## Documentation
