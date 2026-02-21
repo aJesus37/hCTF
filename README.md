@@ -2,6 +2,8 @@
 
 ![hCTF2 logo](internal/views/static/logo.svg)
 
+[![CI](https://github.com/zxxlang/hctf2/actions/workflows/ci.yml/badge.svg)](https://github.com/zxxlang/hctf2/actions/workflows/ci.yml)
+[![Release](https://github.com/zxxlang/hctf2/actions/workflows/release.yml/badge.svg)](https://github.com/zxxlang/hctf2/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](./LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.24+-blue.svg)](https://go.dev)
 
@@ -151,6 +153,26 @@ No manual migration steps needed.
 - All SQL queries use parameterized statements
 - No telemetry or analytics by default
 - Admin routes protected by role middleware
+
+### JWT Secret Configuration
+
+**Production (required):**
+```bash
+./hctf2 --jwt-secret "$(openssl rand -base64 32)"
+```
+
+Or via environment variable:
+```bash
+export JWT_SECRET="$(openssl rand -base64 32)"
+./hctf2
+```
+
+**Development (insecure):**
+```bash
+./hctf2 --dev  # Allows default JWT secret with warning
+```
+
+The server will refuse to start in production mode without a proper JWT secret (minimum 32 characters). See [CONFIGURATION.md](CONFIGURATION.md) for details.
 
 ---
 
