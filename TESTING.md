@@ -1,30 +1,89 @@
-# hCTF2 - Test Suite Documentation
+# hCTF2 - Testing Documentation
 
 ## Overview
 
-The hCTF2 test suite validates that all pages render correctly with proper content and that navigation works as expected. This ensures the routing fix stays fixed and prevents regressions.
+hCTF2 has a comprehensive testing strategy covering unit tests, integration tests, and end-to-end (E2E) browser automation tests.
 
-## Running Tests
+## Test Types
 
-### Run all tests
+| Test Type | Purpose | Command |
+|-----------|---------|---------|
+| **Unit Tests** | Test individual handlers and functions | `task test` |
+| **Smoke Tests** | Quick validation of critical paths | `./scripts/smoke-test.sh` |
+| **E2E Tests** | Full browser automation validation | `./scripts/e2e-test.sh` |
+| **Browser Automation** | Detailed feature testing | `./scripts/browser-automation-tests.sh` |
+
+---
+
+## Quick Start
+
+### Run All Tests
+
 ```bash
+# Unit tests
 task test
+
+# Smoke tests (fast, no browser)
+./scripts/smoke-test.sh
+
+# Full E2E tests (requires agent-browser)
+./scripts/e2e-test.sh
 ```
 
-### Run specific test
+### Setup for E2E Testing
+
+1. **Install agent-browser** (required for E2E tests):
+   ```bash
+   npm install -g agent-browser
+   ```
+
+2. **Start the server**:
+   ```bash
+   task rebuild
+   ./hctf2 --admin-email admin@hctf.local --admin-password changeme
+   ```
+
+3. **Seed test data** (optional, creates sample challenges):
+   ```bash
+   ./scripts/seed-test-data.sh
+   ```
+
+4. **Run E2E tests**:
+   ```bash
+   # Headless (default)
+   ./scripts/e2e-test.sh
+
+   # With visible browser window
+   ./scripts/e2e-test.sh --headed
+
+   # Against different URL
+   ./scripts/e2e-test.sh --url http://ctf.example.com
+   ```
+
+---
+
+## Unit Tests
+
+### Running Unit Tests
+
 ```bash
+# Run all tests
+task test
+
+# Run specific test
 go test -v -run TestPageContent
-```
 
-### Run tests with coverage
-```bash
+# Run with coverage
 go test -v -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
+
+# Verbose output
+go test -v ./...
 ```
 
-## Test Coverage
+### Test Coverage
 
-### 1. TestPageContent
+#### TestPageContent
 Validates that each page renders with all expected content.
 
 **Pages tested:**
@@ -35,11 +94,7 @@ Validates that each page renders with all expected content.
 - **Scoreboard** (`/scoreboard`): Rankings table, user scores
 - **SQL Playground** (`/sql`): SQL editor, example queries, schema
 
-**Validation:**
-- All required content elements are present
-- Page structure is valid (DOCTYPE, html, body, nav tags)
-
-### 2. TestNavigationLinks
+#### TestNavigationLinks
 Ensures the navigation bar contains links to all main pages.
 
 **Links verified:**
@@ -49,7 +104,7 @@ Ensures the navigation bar contains links to all main pages.
 - `/login` - User login
 - `/register` - User registration
 
-### 3. TestAPIEndpoints
+#### TestAPIEndpoints
 Validates that API endpoints return proper HTTP responses.
 
 **Endpoints tested:**
@@ -57,138 +112,433 @@ Validates that API endpoints return proper HTTP responses.
 - `GET /api/scoreboard` - Returns rankings (HTTP 200)
 - `GET /api/sql/snapshot` - Returns data snapshot (HTTP 200)
 
-### 4. TestPageContentConsistency
+#### TestPageContentConsistency
 Ensures the same page renders identically on repeated requests.
 
-**Why this matters:**
-- Prevents random rendering bugs
-- Validates no stale state between requests
-- Ensures template rendering is stable
-
-### 5. TestNoPageCollision
+#### TestNoPageCollision
 Confirms that pages don't render content from other pages (regression test for the routing bug).
 
-**Examples:**
-- Login page should NOT contain challenge-specific content
-- Scoreboard page should NOT contain SQL playground content
-- Register page should NOT contain login/home content
+---
 
-**This test prevents the original navigation bug from returning.**
+## Smoke Tests
 
-## Test Results
+Fast validation for CI/CD pipelines. Tests critical paths without browser automation.
 
-All tests pass:
-```
-PASS: TestPageContent (0.01s)
-  ✅ Home Page
-  ✅ Login Page
-  ✅ Register Page
-  ✅ Challenges Page
-  ✅ Scoreboard Page
-  ✅ SQL Playground Page
+### Usage
 
-PASS: TestNavigationLinks (0.00s)
-  ✅ All navigation links present
+```bash
+# Default (localhost:8090)
+./scripts/smoke-test.sh
 
-PASS: TestAPIEndpoints (0.00s)
-  ✅ /api/challenges returns 200
-  ✅ /api/scoreboard returns 200
-  ✅ /api/sql/snapshot returns 200
-
-PASS: TestPageContentConsistency (0.01s)
-  ✅ All pages render consistently
-
-PASS: TestNoPageCollision (0.00s)
-  ✅ No cross-page content
-  ✅ Login page isolated
-  ✅ Register page isolated
-  ✅ Challenges page isolated
+# Custom URL
+./scripts/smoke-test.sh --url http://ctf.example.com
 ```
 
-## Adding New Tests
+### What's Tested
 
-When adding new pages or features:
+| Check | Description |
+|-------|-------------|
+| Health checks | `/healthz` and `/readyz` return 200 |
+| Public pages | All main pages load (200) |
+| API endpoints | JSON responses are valid |
+| Content validation | Key content present on pages |
+| Auth protection | Protected routes redirect/reject |
 
-1. **Add to TestPageContent** - Verify page renders with expected content
-2. **Add to TestNavigationLinks** (if page has nav link)
-3. **Add to TestAPIEndpoints** (if page has API)
-4. **Add to TestNoPageCollision** (to prevent regressions)
+### Exit Codes
 
-Example:
-```go
-{
-  name: "New Page",
-  method: "GET",
-  path: "/new-page",
-  contentMust: []string{
-    "Expected heading",
-    "Expected content",
-  },
-}
+- `0` - All tests passed
+- `1` - One or more tests failed
+
+---
+
+## End-to-End (E2E) Tests
+
+Comprehensive browser automation testing using [agent-browser](https://www.npmjs.com/package/agent-browser).
+
+### Prerequisites
+
+```bash
+# Install agent-browser globally
+npm install -g agent-browser
+
+# Verify installation
+agent-browser --version
 ```
 
-## Test Architecture
+### Test Suites
 
-- **In-Memory Database**: Uses SQLite in-memory database (`:memory:`) for fast test execution
-- **No External Dependencies**: Tests don't require external services
-- **Isolated Tests**: Each test runs independently
-- **Fast Execution**: Full test suite completes in ~30ms
+| Suite | Description |
+|-------|-------------|
+| **Public Pages** | Unauthenticated page access |
+| **Authentication** | Registration, login, logout flows |
+| **Protected Routes** | Auth requirement validation |
+| **Business Rules** | Flags hidden, scoreboard works |
+| **Admin Features** | Admin panel access and functionality |
+| **API Endpoints** | REST API validation |
+| **HTMX Functionality** | Dynamic content loading |
+| **Responsive Design** | Mobile/desktop rendering |
+| **Security Headers** | Header validation |
 
-## Common Issues
+### Usage
 
-### Test fails with "template not found"
-- Ensure all template files are in `internal/views/templates/`
-- Run `task build` to embed templates in binary
+```bash
+# Basic usage
+./scripts/e2e-test.sh
 
-### API test returns wrong status code
-- Check that route is registered in router setup
-- Verify middleware isn't blocking the endpoint
+# With visible browser window
+./scripts/e2e-test.sh --headed
 
-### Content test fails
-- Verify content string is present in page HTML
-- Check for typos in expected content
-- Test may be too strict (whitespace, case sensitivity)
+# Verbose output
+./scripts/e2e-test.sh --verbose
+
+# Against remote instance
+./scripts/e2e-test.sh --url http://ctf.example.com
+```
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| `--headed` | Run browser in visible window |
+| `--verbose` | Enable detailed output |
+| `--url URL` | Set target URL |
+| `--help` | Show help message |
+
+### Example Output
+
+```
+[INFO] hCTF2 End-to-End Test Suite
+[INFO] Base URL: http://localhost:8090
+[INFO] Mode: Headless
+
+==========================================
+TEST SUITE: Public Pages (Unauthenticated)
+==========================================
+[PASS] Server is running
+[PASS] Health check (liveness) - Status 200
+[PASS] Readiness check - Status 200
+[PASS] Home page loads - Contains expected content
+[PASS] Challenges page loads - Contains expected content
+...
+
+==========================================
+TEST SUMMARY
+==========================================
+Passed: 42
+Failed: 0
+
+All tests passed!
+```
+
+---
+
+## Browser Automation Tests
+
+Detailed feature-by-feature testing with comprehensive validation.
+
+### Usage
+
+```bash
+# Run all tests
+./scripts/browser-automation-tests.sh
+
+# Run specific test
+./scripts/browser-automation-tests.sh --test auth
+./scripts/browser-automation-tests.sh --test challenges
+./scripts/browser-automation-tests.sh --test admin
+
+# With screenshots
+./scripts/browser-automation-tests.sh --screenshots
+
+# Headed mode for debugging
+./scripts/browser-automation-tests.sh --headed --test auth
+```
+
+### Available Tests
+
+| Test | Coverage |
+|------|----------|
+| `auth` | Registration, login, logout, invalid credentials |
+| `challenges` | Challenge list, detail view, flag masking |
+| `teams` | Team creation, joining, management |
+| `scoreboard` | Rankings, points, auto-refresh |
+| `profile` | User stats, solved challenges |
+| `admin` | Admin panel, CRUD operations |
+| `sql` | SQL Playground interface |
+| `theme` | Dark/light mode toggle |
+| `navigation` | Navigation links and routing |
+| `responsive` | Mobile/desktop rendering |
+| `api` | API documentation |
+
+### Screenshots
+
+Enable screenshots to capture the browser state during tests:
+
+```bash
+./scripts/browser-automation-tests.sh --screenshots
+```
+
+Screenshots are saved to `./test-screenshots/`:
+- `register_page.png`
+- `login_page.png`
+- `challenges_list.png`
+- `challenge_detail.png`
+- `admin_check.png`
+- etc.
+
+---
+
+## Test Data Seeding
+
+Create sample challenges, questions, and users for testing.
+
+### Usage
+
+```bash
+# Default (requires admin@hctf.local/changeme)
+./scripts/seed-test-data.sh
+
+# Custom admin credentials
+ADMIN_EMAIL=admin@test.com ADMIN_PASSWORD=admin123 ./scripts/seed-test-data.sh
+
+# Against remote server
+BASE_URL=http://ctf.example.com ./scripts/seed-test-data.sh
+```
+
+### What's Created
+
+**Categories:**
+- Web, Crypto, Forensics, Reverse Engineering, Pwn, Misc
+
+**Difficulties:**
+- Easy, Medium, Hard, Expert
+
+**Challenges:**
+1. Intro to Web (Web/Easy) - Hidden comment challenge
+2. Base64 Basics (Crypto/Easy) - Encoding/decoding
+3. File Analysis (Forensics/Medium) - Magic bytes
+4. Advanced XSS (Web/Hard) - **Hidden challenge**
+5. String Analysis (Reverse/Medium) - Binary analysis
+6. Welcome Challenge (Misc/Easy) - Free points
+
+**Test Users:**
+- player1@test.com / player123
+- player2@test.com / player123
+- hacker@test.com / hacker123
+
+---
 
 ## CI/CD Integration
 
-To run tests in CI/CD pipeline:
+### GitHub Actions Example
+
+```yaml
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - run: go test -v ./...
+
+  smoke-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - run: go build -o hctf2
+      - run: ./hctf2 --admin-email admin@test.com --admin-password admin123 &
+      - run: sleep 3
+      - run: ./scripts/smoke-test.sh
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g agent-browser
+      - run: go build -o hctf2
+      - run: ./hctf2 --admin-email admin@test.com --admin-password admin123 &
+      - run: sleep 3
+      - run: ./scripts/seed-test-data.sh
+      - run: ./scripts/e2e-test.sh
+```
+
+### Pre-commit Hook
 
 ```bash
 #!/bin/bash
-set -e
+# .git/hooks/pre-commit
 
-# Run tests with verbose output
-go test -v ./...
+echo "Running tests..."
 
-# Optionally generate coverage
-go test -v -coverprofile=coverage.out ./...
+# Unit tests
+if ! go test ./...; then
+    echo "Unit tests failed!"
+    exit 1
+fi
 
-# Check coverage threshold (optional)
-# coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-# if (( $(echo "$coverage < 70" | bc -l) )); then
-#   echo "Coverage too low: $coverage%"
-#   exit 1
-# fi
+echo "All tests passed!"
 ```
 
-## Performance
+---
 
-- **Full test suite**: ~30ms
-- **Per test**: 1-10ms
-- **Memory usage**: <10MB
+## Debugging Tests
 
-Tests are fast enough to run on every commit.
+### Browser Automation Debugging
 
-## Future Improvements
+1. **Run in headed mode** to see the browser:
+   ```bash
+   ./scripts/e2e-test.sh --headed
+   ```
 
-- [ ] Add database integration tests
-- [ ] Add API authentication tests
-- [ ] Add form submission tests
-- [ ] Add performance regression tests
-- [ ] Add E2E tests with browser automation (Selenium/Playwright)
+2. **Add screenshots** at key points:
+   ```bash
+   ./scripts/browser-automation-tests.sh --headed --screenshots
+   ```
+
+3. **Check browser console logs**:
+   ```bash
+   agent-browser --session hctf2-e2e eval "console.log('test')"
+   ```
+
+4. **Inspect page state**:
+   ```bash
+   agent-browser --session hctf2-e2e snapshot -i
+   ```
+
+### Common Issues
+
+| Issue | Solution |
+|-------|----------|
+| `agent-browser not found` | Install with `npm install -g agent-browser` |
+| `Server is not running` | Start server before running E2E tests |
+| `Element not found` | Page may have changed; update selectors |
+| `Timeout waiting for page` | Increase wait time or check server performance |
+| `Stale element reference` | Page changed between snapshot and interaction |
+
+### Test Isolation
+
+Each test suite uses a unique browser session to prevent interference:
+
+```bash
+# Default sessions
+e2e-test.sh          # session: hctf2-e2e
+browser-automation-tests.sh  # session: hctf2-automation
+```
+
+To clean up stale sessions:
+
+```bash
+agent-browser session list
+agent-browser --session hctf2-e2e close
+```
+
+---
+
+## Writing New Tests
+
+### Adding Unit Tests
+
+```go
+func TestNewFeature(t *testing.T) {
+    // Setup
+    db := setupTestDB(t)
+    defer db.Close()
+    
+    // Test cases
+    tests := []struct {
+        name    string
+        input   string
+        want    string
+        wantErr bool
+    }{
+        {"valid case", "input", "output", false},
+        {"error case", "", "", true},
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            got, err := NewFeature(tt.input)
+            if (err != nil) != tt.wantErr {
+                t.Errorf("error = %v, wantErr %v", err, tt.wantErr)
+                return
+            }
+            if got != tt.want {
+                t.Errorf("got = %v, want %v", got, tt.want)
+            }
+        })
+    }
+}
+```
+
+### Adding E2E Tests
+
+Edit `scripts/e2e-test.sh` and add a new test function:
+
+```bash
+test_new_feature() {
+    log_info "Testing: New Feature"
+    
+    # Navigate to feature page
+    agent-browser $BROWSER_OPTS open "$BASE_URL/new-feature" > /dev/null 2>&1
+    sleep 2
+    
+    # Verify content
+    local page_text=$(agent-browser $BROWSER_OPTS get text body 2>/dev/null || echo "")
+    
+    if echo "$page_text" | grep -q "Expected Content"; then
+        log_pass "New Feature - Works correctly"
+    else
+        log_fail "New Feature - Missing expected content"
+    fi
+}
+```
+
+Then add it to the `main()` function:
+
+```bash
+run_new_feature_tests() {
+    # ... tests
+}
+
+main() {
+    # ... existing tests
+    run_new_feature_tests
+}
+```
+
+---
+
+## Performance Benchmarks
+
+| Test Type | Approximate Duration |
+|-----------|---------------------|
+| Unit tests | ~1 second |
+| Smoke tests | ~3 seconds |
+| E2E tests (headless) | ~30-60 seconds |
+| E2E tests (headed) | ~60-120 seconds |
+| Full browser automation | ~2-5 minutes |
+
+---
 
 ## References
 
-- [Testing in Go](https://golang.org/doc/effective_go#testing)
+- [Go Testing](https://golang.org/doc/effective_go#testing)
 - [Table-driven tests](https://github.com/golang/go/wiki/TableDrivenTests)
 - [httptest package](https://pkg.go.dev/net/http/httptest)
+- [agent-browser documentation](https://www.npmjs.com/package/agent-browser)
+- [Playwright documentation](https://playwright.dev/) (agent-browser is built on Playwright)
