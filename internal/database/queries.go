@@ -1199,7 +1199,9 @@ func (db *DB) CreatePasswordResetToken(userID, token string, expires time.Time) 
 	query := `UPDATE users
 	          SET password_reset_token = ?, password_reset_expires = ?, updated_at = CURRENT_TIMESTAMP
 	          WHERE id = ?`
-	_, err := db.Exec(query, token, expires, userID)
+	// Format time as SQLite datetime string in UTC to match CURRENT_TIMESTAMP
+	expiresStr := expires.UTC().Format("2006-01-02 15:04:05")
+	_, err := db.Exec(query, token, expiresStr, userID)
 	return err
 }
 
