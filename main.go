@@ -545,6 +545,9 @@ func (s *Server) handleChallenges(w http.ResponseWriter, r *http.Request) {
 	if claims != nil {
 		completions, _ := s.db.GetChallengeCompletionForUser(claims.UserID)
 		data["Completions"] = completions
+	} else {
+		// Set empty completions for unauthenticated users
+		data["Completions"] = make(map[string]*database.ChallengeCompletion)
 	}
 
 	s.render(w, "base.html", data)
