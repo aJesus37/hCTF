@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -23,10 +24,27 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-var jwtSecret = []byte("change-this-secret-in-production")
+var jwtSecret []byte
+
+// SetJWTSecret sets the JWT signing secret. Must be called before server starts.
+func SetJWTSecret(secret string) error {
+	if len(secret) < 32 {
+		return errors.New("JWT secret must be at least 32 characters")
+	}
+	jwtSecret = []byte(secret)
+	return nil
+}
+
+// GetJWTSecret returns the current JWT secret (used internally)
+func GetJWTSecret() []byte {
+	return jwtSecret
+}
 
 // GenerateToken creates a JWT token for the user
 func GenerateToken(userID, email, name string, isAdmin bool) (string, error) {
+	if len(jwtSecret) == 0 {
+		return "", errors.New("JWT secret not configured")
+	}
 	claims := &Claims{
 		UserID:  userID,
 		Email:   email,

@@ -110,9 +110,7 @@ func (h *customFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
 	}
 
-	// Set CORS headers for all static files
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+	// CORS headers are handled by global middleware
 
 	h.fs.ServeHTTP(w, r)
 }
@@ -124,6 +122,45 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+// corsMiddleware returns a middleware that handles CORS based on configuration
+func corsMiddleware(allowedOrigins []string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+
+			// Check if origin is allowed
+			allowOrigin := ""
+			if len(allowedOrigins) == 0 {
+				// Same-origin only: only allow if no origin header (same-origin request)
+				if origin == "" {
+					allowOrigin = "*"
+				}
+			} else {
+				// Check against allowed list
+				for _, allowed := range allowedOrigins {
+					if allowed == "*" || allowed == origin {
+						allowOrigin = origin
+						break
+					}
+				}
+			}
+
+			if allowOrigin != "" {
+				w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+				w.Header().Set("Access-Control-Allow-Credentials", "true")
+			}
+
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
 func main() {
 	var (
 		port             = flag.Int("port", 8090, "Server port")
@@ -141,6 +178,7 @@ func main() {
 		baseURL          = flag.String("base-url", "http://localhost:8090", "Base URL for links in emails")
 		jwtSecret        = flag.String("jwt-secret", getEnv("JWT_SECRET", ""), "JWT signing secret (min 32 chars, required in production)")
 		dev              = flag.Bool("dev", false, "Enable development mode (allows default JWT secret, relaxed security)")
+		corsOrigins      = flag.String("cors-origins", getEnv("CORS_ORIGINS", ""), "Comma-separated list of allowed CORS origins (empty = same-origin only)")
 	)
 	flag.Parse()
 
@@ -255,32 +293,31 @@ func main() {
 		motd:        *motd,
 	}
 
+	// Parse CORS origins from CLI flag
+	var allowedOrigins []string
+	if *corsOrigins != "" {
+		allowedOrigins = strings.Split(*corsOrigins, ",")
+		// Trim spaces
+		for i := range allowedOrigins {
+			allowedOrigins[i] = strings.TrimSpace(allowedOrigins[i])
+		}
+	}
+
 	// Setup router
 	r := chi.NewRouter()
 
 	// CORS middleware for CDN resources and DuckDB WASM
+	r.Use(corsMiddleware(allowedOrigins))
+
+	// Note: COEP/COOP headers removed for /sql page as they block CDN resources
+	// CodeMirror and other dependencies load from esm.sh and other CDNs
+	// DuckDB WASM works without these headers for basic queries
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Allow cross-origin requests for static files (needed for web workers)
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-			w.Header().Set("Access-Control-Max-Age", "86400")
-
-			// Note: COEP/COOP headers removed for /sql page as they block CDN resources
-			// CodeMirror and other dependencies load from esm.sh and other CDNs
-			// DuckDB WASM works without these headers for basic queries
-
-			// For static files, also allow shared array buffers
+			// For static files, allow shared array buffers
 			if strings.HasPrefix(r.URL.Path, "/static/") {
 				w.Header().Set("Cross-Origin-Embedder-Policy", "credentialless")
 			}
-
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
 			next.ServeHTTP(w, r)
 		})
 	})
@@ -700,7 +737,7 @@ func (s *Server) handleTeams(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
 	// Serve the OpenAPI specification YAML file
 	w.Header().Set("Content-Type", "text/yaml")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	// CORS headers are handled by global middleware
 
 	data, err := openapiSpec.ReadFile("docs/openapi.yaml")
 	if err != nil {
@@ -851,27 +888,6 @@ func (s *Server) handleEditChallenge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html")
-	visibleChecked := ""
-	if challenge.Visible {
-		visibleChecked = "checked"
-	}
-
-	sqlEnabledChecked := ""
-	if challenge.SQLEnabled {
-		sqlEnabledChecked = "checked"
-	}
-
-	sqlDatasetURL := ""
-	if challenge.SQLDatasetURL != nil {
-		sqlDatasetURL = *challenge.SQLDatasetURL
-	}
-
-	sqlSchemaHint := ""
-	if challenge.SQLSchemaHint != nil {
-		sqlSchemaHint = *challenge.SQLSchemaHint
-	}
-
 	// Get dynamic categories and difficulties
 	categories, _ := s.db.GetAllCategories()
 	difficulties, _ := s.db.GetAllDifficulties()
@@ -900,6 +916,27 @@ func (s *Server) handleEditChallenge(w http.ResponseWriter, r *http.Request) {
 			selected = "selected"
 		}
 		difficultyOptions += fmt.Sprintf(`<option value="%s" %s>%s</option>`, d.Name, selected, d.Name)
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	visibleChecked := ""
+	if challenge.Visible {
+		visibleChecked = "checked"
+	}
+
+	sqlEnabledChecked := ""
+	if challenge.SQLEnabled {
+		sqlEnabledChecked = "checked"
+	}
+
+	sqlDatasetURL := ""
+	if challenge.SQLDatasetURL != nil {
+		sqlDatasetURL = *challenge.SQLDatasetURL
+	}
+
+	sqlSchemaHint := ""
+	if challenge.SQLSchemaHint != nil {
+		sqlSchemaHint = *challenge.SQLSchemaHint
 	}
 
 	html := fmt.Sprintf(`<div id="challenge-%s" class="bg-dark-surface border border-dark-border rounded-lg p-6 hover:border-purple-500 transition">

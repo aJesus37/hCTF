@@ -174,6 +174,7 @@ export JWT_SECRET="$(openssl rand -base64 32)"
 
 The server will refuse to start in production mode without a proper JWT secret (minimum 32 characters). See [CONFIGURATION.md](CONFIGURATION.md) for details.
 
+
 ---
 
 ## Documentation

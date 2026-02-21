@@ -146,6 +146,18 @@ tasks:
       - sh: command -v swag
         msg: "swag not installed. Run: go install github.com/swaggo/swag/cmd/swag@v1.16.4"
 
+  build-css:
+    desc: Build Tailwind CSS from source
+    cmds:
+      - npm install
+      - npm run build:css
+
+  watch-css:
+    desc: Watch and rebuild Tailwind CSS during development
+    cmds:
+      - npm install
+      - npm run watch:css
+
   help:
     desc: Show help information
     cmds:

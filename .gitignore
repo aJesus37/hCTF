@@ -44,3 +44,7 @@ docs/validation/*.png
 
 .task.worktrees/
 .worktrees/
+
+# Node.js (build-time only)
+node_modules/
+package-lock.json
