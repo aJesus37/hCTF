@@ -709,7 +709,8 @@ func (db *DB) GetTeamScoreboard(limit int) ([]models.ScoreboardEntry, error) {
 	var args []interface{}
 
 	if ft := db.FreezeTimestamp(); ft != nil {
-		freezeCond = fmt.Sprintf(" AND s.created_at <= '%s'", ft.UTC().Format("2006-01-02 15:04:05"))
+		freezeCond = " AND s.created_at <= ?"
+		args = append(args, ft.UTC().Format("2006-01-02 15:04:05"))
 	}
 
 	query := fmt.Sprintf(`
