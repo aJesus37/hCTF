@@ -693,6 +693,31 @@
 
     <!-- Settings Tab -->
     <div x-show="tab === 'settings'" class="space-y-8">
+        <!-- Score Freeze -->
+        <div class="bg-gray-800 rounded-lg p-6 mb-6">
+            <h3 class="text-lg font-semibold text-white mb-4">Score Freeze</h3>
+            <form hx-post="/api/admin/settings/freeze" hx-target="#freeze-status" class="space-y-4">
+                <div>
+                    <label class="text-xs text-gray-300 block mb-1">Freeze At (leave blank for immediate)</label>
+                    <input type="datetime-local" name="freeze_at"
+                           value="{{.FreezeAt}}"
+                           class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none">
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="text-xs text-gray-300">Freeze Enabled</label>
+                    <input type="hidden" name="freeze_enabled" value="0">
+                    <input type="checkbox" name="freeze_enabled" value="1" {{if .FreezeEnabled}}checked{{end}}
+                           class="rounded">
+                </div>
+                <div class="flex items-center gap-3">
+                    <button type="submit"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition">
+                        Save Freeze Settings
+                    </button>
+                    <span class="text-sm text-gray-400">Status: <span id="freeze-status" class="{{if .Frozen}}text-blue-400{{else}}text-green-400{{end}} font-semibold">{{if .Frozen}}Frozen{{else}}Live{{end}}</span></span>
+                </div>
+            </form>
+        </div>
         <!-- Categories Section -->
         <div>
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Categories</h2>

@@ -454,6 +454,7 @@ func main() {
 		r.Get("/api/admin/users", s.settingsH.ListUsers)
 		r.Put("/api/admin/users/{id}/admin", s.settingsH.UpdateUserAdmin)
 		r.Delete("/api/admin/users/{id}", s.settingsH.DeleteUser)
+		r.Post("/api/admin/settings/freeze", s.settingsH.SetScoreFreeze)
 		r.Get("/api/categories-checkboxes", s.handleCategoriesCheckboxes)
 		r.Get("/api/difficulties-dropdown", s.handleDifficultiesDropdown)
 	})
@@ -873,17 +874,26 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 
 	customCode, _ := s.db.GetCustomCode("admin")
 
+	freezeEnabled, freezeAt, _ := s.db.GetScoreFreeze()
+	freezeAtStr := ""
+	if freezeAt != nil {
+		freezeAtStr = freezeAt.Format("2006-01-02T15:04")
+	}
+
 	data := map[string]interface{}{
-		"Title":        "Admin Dashboard",
-		"Page":         "admin",
-		"User":         claims,
-		"Challenges":   challenges,
-		"Questions":    questionsWithChallenge,
-		"Hints":        hints,
-		"Categories":   categories,
-		"Difficulties": difficulties,
-		"Users":        users,
-		"CustomCode":   customCode,
+		"Title":         "Admin Dashboard",
+		"Page":          "admin",
+		"User":          claims,
+		"Challenges":    challenges,
+		"Questions":     questionsWithChallenge,
+		"Hints":         hints,
+		"Categories":    categories,
+		"Difficulties":  difficulties,
+		"Users":         users,
+		"CustomCode":    customCode,
+		"FreezeEnabled": freezeEnabled,
+		"Frozen":        s.db.IsFrozen(),
+		"FreezeAt":      freezeAtStr,
 	}
 	s.render(w, "base.html", data)
 }
