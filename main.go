@@ -470,6 +470,7 @@ func main() {
 
 	// API routes - Scoreboard
 	r.Get("/api/scoreboard", s.scoreboardH.GetScoreboard)
+	r.Get("/api/ctftime", s.scoreboardH.CTFtimeExport)
 
 	// 404 handler for unmatched routes
 	r.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -894,6 +895,13 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		"FreezeEnabled": freezeEnabled,
 		"Frozen":        s.db.IsFrozen(),
 		"FreezeAt":      freezeAtStr,
+		"BaseURL":       func() string {
+			scheme := "http"
+			if r.TLS != nil {
+				scheme = "https"
+			}
+			return scheme + "://" + r.Host
+		}(),
 	}
 	s.render(w, "base.html", data)
 }

@@ -727,16 +727,24 @@ func (db *DB) GetTeamScoreboard(limit int) ([]models.ScoreboardEntry, error) {
 				SUM(
 					CASE
 						WHEN c.dynamic_scoring = 1 THEN
-							MAX(
-								c.minimum_points,
-								c.initial_points - CAST(
+							CASE
+								WHEN c.minimum_points > c.initial_points - CAST(
 									(c.initial_points - c.minimum_points) *
 									(SELECT COUNT(*) FROM submissions s2
 									 WHERE s2.question_id = s.question_id
 									 AND s2.is_correct = 1
 									 AND s2.created_at < s.created_at) /
 									CAST(c.decay_threshold AS REAL) AS INTEGER
-							)
+								) THEN c.minimum_points
+								ELSE c.initial_points - CAST(
+									(c.initial_points - c.minimum_points) *
+									(SELECT COUNT(*) FROM submissions s2
+									 WHERE s2.question_id = s.question_id
+									 AND s2.is_correct = 1
+									 AND s2.created_at < s.created_at) /
+									CAST(c.decay_threshold AS REAL) AS INTEGER
+								)
+							END
 						ELSE q.points
 					END
 				) as points,

@@ -718,6 +718,18 @@
                 </div>
             </form>
         </div>
+        <!-- CTFtime Integration -->
+        <div class="bg-gray-800 rounded-lg p-6 mb-6">
+            <h3 class="text-lg font-semibold text-white mb-2">CTFtime Integration</h3>
+            <p class="text-sm text-gray-400 mb-3">Enter this URL in your CTFtime event scoreboard settings:</p>
+            <div class="flex items-center gap-2">
+                <code id="ctftime-url" class="bg-gray-900 text-purple-300 px-3 py-2 rounded text-sm flex-1 select-all">{{.BaseURL}}/api/ctftime</code>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('ctftime-url').textContent.trim())"
+                        class="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm transition">
+                    Copy
+                </button>
+            </div>
+        </div>
         <!-- Categories Section -->
         <div>
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Categories</h2>
