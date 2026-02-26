@@ -303,6 +303,7 @@ paths:
       consumes:
       - application/json
       - application/x-www-form-urlencoded
+      - multipart/form-data
       parameters:
       - description: Challenge data
         in: body
@@ -310,6 +311,10 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/handlers.CreateChallengeRequest'
+      - description: Optional file attachment (max 50MB)
+        in: formData
+        name: file
+        type: file
       produces:
       - application/json
       responses:
