@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
+	"strconv"
+	"time"
 
 	"github.com/yourusername/hctf2/internal/database"
 )
@@ -202,4 +205,90 @@ func (h *ScoreboardHandler) CTFtimeExport(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+// GetScoreEvolution godoc
+// @Summary Get score evolution over time for chart
+// @Description Returns time-series score data for top N users. Used by Chart.js.
+// @Tags Scoreboard
+// @Produce json
+// @Param mode query string false "Score mode: individual or team" default(individual)
+// @Param limit query int false "Number of top users to include" default(20)
+// @Success 200 {object} object{intervals=[]string,series=[]object}
+// @Router /api/scoreboard/evolution [get]
+func (h *ScoreboardHandler) GetScoreEvolution(w http.ResponseWriter, r *http.Request) {
+	// Parse params
+	limitStr := r.URL.Query().Get("limit")
+	limit := 20
+	if limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 50 {
+			limit = l
+		}
+	}
+
+	// Get data for last 7 days
+	since := time.Now().Add(-7 * 24 * time.Hour)
+
+	series, err := h.db.GetScoreEvolution(limit, since)
+	if err != nil {
+		http.Error(w, `{"error":"failed to fetch evolution"}`, http.StatusInternalServerError)
+		return
+	}
+
+	// Format response for Chart.js
+	response := formatEvolutionForChart(series)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func formatEvolutionForChart(series []database.ScoreEvolutionSeries) map[string]interface{} {
+	// Collect all timestamps
+	timeMap := make(map[string]bool)
+	for _, s := range series {
+		for _, p := range s.Scores {
+			timeMap[p.RecordedAt.Format("15:04")] = true
+		}
+	}
+
+	// Sort timestamps
+	var intervals []string
+	for t := range timeMap {
+		intervals = append(intervals, t)
+	}
+	sort.Strings(intervals)
+
+	// Build series data
+	colors := []string{"#3b82f6", "#22c55e", "#a855f7", "#f97316", "#ec4899", "#14b8a6", "#f59e0b", "#8b5cf6"}
+
+	var chartSeries []map[string]interface{}
+	for i, s := range series {
+		scores := make([]int, len(intervals))
+		// Fill in scores
+		for j, interval := range intervals {
+			for _, p := range s.Scores {
+				if p.RecordedAt.Format("15:04") == interval {
+					scores[j] = p.Score
+					break
+				}
+			}
+			// Carry forward previous score if no data point
+			if j > 0 && scores[j] == 0 {
+				scores[j] = scores[j-1]
+			}
+		}
+
+		color := colors[i%len(colors)]
+		chartSeries = append(chartSeries, map[string]interface{}{
+			"id":     s.UserID,
+			"name":   s.Name,
+			"color":  color,
+			"scores": scores,
+		})
+	}
+
+	return map[string]interface{}{
+		"intervals": intervals,
+		"series":    chartSeries,
+	}
 }

@@ -500,6 +500,7 @@ func main() {
 
 	// API routes - Scoreboard
 	r.Get("/api/scoreboard", s.scoreboardH.GetScoreboard)
+	r.Get("/api/scoreboard/evolution", s.scoreboardH.GetScoreEvolution)
 	r.Get("/api/ctftime", s.scoreboardH.CTFtimeExport)
 
 	// 404 handler for unmatched routes
