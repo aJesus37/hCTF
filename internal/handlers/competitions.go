@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"strconv"
 	"time"
@@ -304,7 +305,7 @@ func (h *CompetitionHandler) ListTeams(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Fprint(w, `<ul class="space-y-1">`)
 		for _, t := range teams {
-			fmt.Fprintf(w, `<li class="text-sm text-gray-700 dark:text-gray-300">%s</li>`, t.Name)
+			fmt.Fprintf(w, `<li class="text-sm text-gray-700 dark:text-gray-300">%s</li>`, html.EscapeString(t.Name))
 		}
 		fmt.Fprint(w, `</ul>`)
 		return
