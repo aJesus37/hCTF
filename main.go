@@ -1004,6 +1004,7 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 	categories, _ := s.db.GetAllCategories()
 	difficulties, _ := s.db.GetAllDifficulties()
 	users, _ := s.db.GetAllUsers()
+	competitions, _ := s.db.ListCompetitions()
 
 	customCode, _ := s.db.GetCustomCode("admin")
 
@@ -1030,6 +1031,7 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		"Frozen":                  s.db.IsFrozen(),
 		"FreezeAt":                freezeAtStr,
 		"AdminVisibleInScoreboard": adminVisible,
+		"Competitions":             competitions,
 		"BaseURL":       func() string {
 			scheme := "http"
 			if r.TLS != nil {
