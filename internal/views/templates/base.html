@@ -89,6 +89,7 @@
                     {{if .User}}
                         <a href="/profile" class="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors mr-4">{{.User.Name}}</a>
                         {{if .User.IsAdmin}}
+                            <a href="/submissions" class="text-sm {{if eq .Page "submissions"}}text-green-500{{else}}text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white{{end}} transition-colors mr-4">Live</a>
                             <a href="/admin" class="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 mr-4">Admin</a>
                         {{end}}
                         <button hx-post="/api/auth/logout"
@@ -105,7 +106,7 @@
         </div>
     </nav>
 
-    <main class="flex-grow flex flex-col {{if or (eq .Page "scoreboard") (eq .Page "login") (eq .Page "register") (eq .Page "admin") (eq .Page "challenges") (eq .Page "challenge") (eq .Page "sql") (eq .Page "teams") (eq .Page "profile") (eq .Page "team-profile") (eq .Page "docs") (eq .Page "competitions") (eq .Page "competition")}}w-full{{else}}max-w-7xl mx-auto{{end}} px-4 sm:px-6 lg:px-12 xl:px-16 py-8">
+    <main class="flex-grow flex flex-col {{if or (eq .Page "scoreboard") (eq .Page "login") (eq .Page "register") (eq .Page "admin") (eq .Page "challenges") (eq .Page "challenge") (eq .Page "sql") (eq .Page "teams") (eq .Page "profile") (eq .Page "team-profile") (eq .Page "docs") (eq .Page "competitions") (eq .Page "competition") (eq .Page "submissions")}}w-full{{else}}max-w-7xl mx-auto{{end}} px-4 sm:px-6 lg:px-12 xl:px-16 py-8">
         {{if eq .Page "login"}}
             {{template "login-content" .}}
         {{else if eq .Page "register"}}
@@ -138,6 +139,8 @@
             {{template "competitions-content" .}}
         {{else if eq .Page "competition"}}
             {{template "competition-content" .}}
+        {{else if eq .Page "submissions"}}
+            {{template "submissions-content" .}}
         {{else}}
             {{template "index-content" .}}
         {{end}}

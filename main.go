@@ -390,6 +390,7 @@ func main() {
 	r.Get("/scoreboard", s.handleScoreboard)
 	r.Get("/competitions", s.handleCompetitionList)
 	r.Get("/competitions/{id}", s.handleCompetitionDetail)
+	r.Get("/submissions", s.handleSubmissionsPage)
 	r.Get("/sql", s.handleSQL)
 	r.Get("/login", s.handleLoginPage)
 	r.Get("/register", s.handleRegisterPage)
@@ -544,6 +545,8 @@ func main() {
 	r.Get("/api/competitions/{id}", s.competitionH.GetCompetition)
 	r.Get("/api/competitions/{id}/scoreboard", s.competitionH.GetScoreboard)
 	r.Get("/api/competitions/{id}/scoreboard/evolution", s.competitionH.GetCompetitionScoreEvolution)
+	r.Get("/api/competitions/submissions", s.competitionH.GetGlobalSubmissionFeed)
+	r.Get("/api/competitions/{id}/submissions", s.competitionH.GetSubmissionFeed)
 
 	// 404 handler for unmatched routes
 	r.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -831,6 +834,18 @@ func (s *Server) handleCompetitionDetail(w http.ResponseWriter, r *http.Request)
 	if claims != nil {
 		completions, _ := s.db.GetChallengeCompletionForUser(claims.UserID)
 		data["Completions"] = completions
+	}
+	s.render(w, "base.html", data)
+}
+
+func (s *Server) handleSubmissionsPage(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+	competitions, _ := s.db.ListCompetitions()
+	data := map[string]interface{}{
+		"Title":        "Live Submissions",
+		"Page":         "submissions",
+		"User":         claims,
+		"Competitions": competitions,
 	}
 	s.render(w, "base.html", data)
 }

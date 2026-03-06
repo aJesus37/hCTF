@@ -2641,6 +2641,129 @@ func (db *DB) GetCompetitionScoreEvolution(compID int64) ([]ScoreEvolutionSeries
 	return result, nil
 }
 
+// CompetitionSubmission represents a single submission event for the live feed.
+type CompetitionSubmission struct {
+	TeamName      string
+	UserName      string
+	ChallengeName string
+	QuestionName  string
+	IsCorrect     bool
+	SubmittedFlag string // only populated for admin view
+	SubmittedAt   time.Time
+}
+
+// GetCompetitionRecentSubmissions returns the latest submissions for a competition.
+// If adminView is true, all submissions (including wrong) and the submitted flag are included.
+// If adminView is false, only correct submissions are returned and flag text is omitted.
+func (db *DB) GetCompetitionRecentSubmissions(compID int64, limit int, adminView bool) ([]CompetitionSubmission, error) {
+	whereClause := ""
+	if !adminView {
+		whereClause = "AND s.is_correct = 1"
+	}
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(t.name, '') as team_name,
+			u.name as user_name,
+			c.name as challenge_name,
+			q.name as question_name,
+			s.is_correct,
+			CASE WHEN ? THEN s.submitted_flag ELSE '' END as submitted_flag,
+			s.created_at
+		FROM submissions s
+		JOIN questions q ON q.id = s.question_id
+		JOIN challenges c ON c.id = q.challenge_id
+		JOIN competition_challenges cc ON cc.challenge_id = c.id AND cc.competition_id = ?
+		JOIN users u ON u.id = s.user_id
+		LEFT JOIN teams t ON t.id = s.team_id
+		WHERE 1=1 %s
+		ORDER BY s.created_at DESC
+		LIMIT ?`, whereClause)
+
+	adminInt := 0
+	if adminView {
+		adminInt = 1
+	}
+	rows, err := db.Query(query, adminInt, compID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []CompetitionSubmission
+	for rows.Next() {
+		var sub CompetitionSubmission
+		var createdAt string
+		if err := rows.Scan(&sub.TeamName, &sub.UserName, &sub.ChallengeName,
+			&sub.QuestionName, &sub.IsCorrect, &sub.SubmittedFlag, &createdAt); err != nil {
+			return nil, err
+		}
+		for _, layout := range []string{"2006-01-02 15:04:05", time.RFC3339} {
+			if t, err := time.Parse(layout, createdAt); err == nil {
+				sub.SubmittedAt = t
+				break
+			}
+		}
+		results = append(results, sub)
+	}
+	return results, nil
+}
+
+// GetGlobalRecentSubmissions returns the latest submissions across all competitions.
+// Same admin/public visibility rules as GetCompetitionRecentSubmissions.
+func (db *DB) GetGlobalRecentSubmissions(limit int, adminView bool) ([]CompetitionSubmission, error) {
+	whereClause := ""
+	if !adminView {
+		whereClause = "AND s.is_correct = 1"
+	}
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(t.name, '') as team_name,
+			u.name as user_name,
+			c.name as challenge_name,
+			q.name as question_name,
+			s.is_correct,
+			CASE WHEN ? THEN s.submitted_flag ELSE '' END as submitted_flag,
+			s.created_at
+		FROM submissions s
+		JOIN questions q ON q.id = s.question_id
+		JOIN challenges c ON c.id = q.challenge_id
+		JOIN competition_challenges cc ON cc.challenge_id = c.id
+		JOIN competitions comp ON comp.id = cc.competition_id
+		JOIN users u ON u.id = s.user_id
+		LEFT JOIN teams t ON t.id = s.team_id
+		WHERE 1=1 %s
+		ORDER BY s.created_at DESC
+		LIMIT ?`, whereClause)
+
+	adminInt := 0
+	if adminView {
+		adminInt = 1
+	}
+	rows, err := db.Query(query, adminInt, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []CompetitionSubmission
+	for rows.Next() {
+		var sub CompetitionSubmission
+		var createdAt string
+		if err := rows.Scan(&sub.TeamName, &sub.UserName, &sub.ChallengeName,
+			&sub.QuestionName, &sub.IsCorrect, &sub.SubmittedFlag, &createdAt); err != nil {
+			return nil, err
+		}
+		for _, layout := range []string{"2006-01-02 15:04:05", time.RFC3339} {
+			if t, err := time.Parse(layout, createdAt); err == nil {
+				sub.SubmittedAt = t
+				break
+			}
+		}
+		results = append(results, sub)
+	}
+	return results, nil
+}
+
 // TickCompetitionLifecycle auto-transitions competitions based on current time.
 // Call from a background goroutine every 60 seconds.
 func (db *DB) TickCompetitionLifecycle() {

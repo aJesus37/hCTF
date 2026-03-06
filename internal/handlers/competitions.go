@@ -522,6 +522,85 @@ func sortStrings(ss []string) {
 }
 
 // parseOptionalTime parses datetime-local input format or RFC3339.
+// GetSubmissionFeed godoc
+// @Summary Live submission feed for a competition (HTMX fragment)
+// @Tags Competitions
+// @Security CookieAuth
+// @Param id path int true "Competition ID"
+// @Success 200 {string} string "HTML fragment"
+// @Router /api/competitions/{id}/submissions [get]
+func (h *CompetitionHandler) GetSubmissionFeed(w http.ResponseWriter, r *http.Request) {
+	id, err := parseCompID(r)
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	claims := auth.GetUserFromContext(r.Context())
+	isAdmin := claims != nil && claims.IsAdmin
+	subs, err := h.db.GetCompetitionRecentSubmissions(id, 50, isAdmin)
+	if err != nil {
+		http.Error(w, "Failed to fetch submissions", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html")
+	renderSubmissionFeed(w, subs, isAdmin)
+}
+
+// GetGlobalSubmissionFeed godoc
+// @Summary Live submission feed across all competitions (HTMX fragment, admin only)
+// @Tags Competitions
+// @Security CookieAuth
+// @Success 200 {string} string "HTML fragment"
+// @Router /api/competitions/submissions [get]
+func (h *CompetitionHandler) GetGlobalSubmissionFeed(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+	isAdmin := claims != nil && claims.IsAdmin
+	subs, err := h.db.GetGlobalRecentSubmissions(100, isAdmin)
+	if err != nil {
+		http.Error(w, "Failed to fetch submissions", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html")
+	renderSubmissionFeed(w, subs, isAdmin)
+}
+
+func renderSubmissionFeed(w http.ResponseWriter, subs []database.CompetitionSubmission, isAdmin bool) {
+	if len(subs) == 0 {
+		w.Write([]byte(`<p class="text-center py-6 text-gray-500 dark:text-gray-400 text-sm">No submissions yet.</p>`))
+		return
+	}
+	w.Write([]byte(`<div class="divide-y divide-gray-100 dark:divide-dark-border">`))
+	for _, s := range subs {
+		actor := html.EscapeString(s.UserName)
+		if s.TeamName != "" {
+			actor = html.EscapeString(s.TeamName) + " (" + html.EscapeString(s.UserName) + ")"
+		}
+		timeStr := s.SubmittedAt.UTC().Format("Jan 02 15:04:05")
+		chall := html.EscapeString(s.ChallengeName) + " / " + html.EscapeString(s.QuestionName)
+
+		if s.IsCorrect {
+			w.Write([]byte(`<div class="flex items-start gap-3 py-2 px-1">`))
+			w.Write([]byte(`<span class="text-green-500 font-bold text-sm mt-0.5">✓</span>`))
+			w.Write([]byte(`<div class="flex-1 min-w-0">`))
+			w.Write([]byte(`<p class="text-sm text-gray-900 dark:text-white"><span class="font-semibold">` + actor + `</span> solved <span class="text-purple-500">` + chall + `</span></p>`))
+			if isAdmin {
+				w.Write([]byte(`<p class="text-xs text-green-600 dark:text-green-400 font-mono mt-0.5">` + html.EscapeString(s.SubmittedFlag) + `</p>`))
+			}
+			w.Write([]byte(`<p class="text-xs text-gray-400 mt-0.5">` + timeStr + `</p>`))
+			w.Write([]byte(`</div></div>`))
+		} else if isAdmin {
+			w.Write([]byte(`<div class="flex items-start gap-3 py-2 px-1">`))
+			w.Write([]byte(`<span class="text-red-500 font-bold text-sm mt-0.5">✗</span>`))
+			w.Write([]byte(`<div class="flex-1 min-w-0">`))
+			w.Write([]byte(`<p class="text-sm text-gray-600 dark:text-gray-400"><span class="font-semibold text-gray-800 dark:text-gray-200">` + actor + `</span> wrong attempt on <span class="text-purple-400">` + chall + `</span></p>`))
+			w.Write([]byte(`<p class="text-xs text-red-500 font-mono mt-0.5">` + html.EscapeString(s.SubmittedFlag) + `</p>`))
+			w.Write([]byte(`<p class="text-xs text-gray-400 mt-0.5">` + timeStr + `</p>`))
+			w.Write([]byte(`</div></div>`))
+		}
+	}
+	w.Write([]byte(`</div>`))
+}
+
 func parseOptionalTime(s string) *time.Time {
 	if s == "" {
 		return nil
