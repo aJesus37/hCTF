@@ -84,12 +84,14 @@ func (h *CompetitionHandler) RegisterTeam(w http.ResponseWriter, r *http.Request
 	}
 	user, err := h.db.GetUserByID(claims.UserID)
 	if err != nil || user.TeamID == nil {
-		http.Error(w, "You must be in a team to register", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<div class="text-sm text-red-400">You must be in a team to register. <a href="/teams" class="underline hover:text-red-300">Join or create a team</a>.</div>`)
 		return
 	}
 	id, err := parseCompID(r)
 	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<div class="text-sm text-red-400">Invalid competition.</div>`)
 		return
 	}
 	if err := h.db.RegisterTeamForCompetition(id, *user.TeamID); err != nil {
@@ -98,11 +100,12 @@ func (h *CompetitionHandler) RegisterTeam(w http.ResponseWriter, r *http.Request
 		if errMsg != "registration is closed" && errMsg != "competition has ended" {
 			errMsg = "Failed to register team"
 		}
-		http.Error(w, errMsg, http.StatusBadRequest)
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprintf(w, `<div class="text-sm text-red-400">%s</div>`, html.EscapeString(errMsg))
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "registered"})
+	w.Header().Set("Content-Type", "text/html")
+	fmt.Fprint(w, `<span class="text-sm text-green-500 font-medium">&#10003; Registered</span>`)
 }
 
 // GetScoreboard godoc
