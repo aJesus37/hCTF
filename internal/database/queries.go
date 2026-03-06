@@ -2524,6 +2524,12 @@ func (db *DB) GetCompetitionScoreboard(compID int64) ([]models.CompetitionScoreb
 func (db *DB) TickCompetitionLifecycle() {
 	now := time.Now().UTC().Format(time.RFC3339)
 
+	// draft → registration when registration_start arrives
+	db.Exec(`
+		UPDATE competitions
+		SET status='registration', updated_at=datetime('now')
+		WHERE status='draft' AND registration_start IS NOT NULL AND registration_start <= ?`, now)
+
 	// registration → running when start_at arrives
 	db.Exec(`
 		UPDATE competitions

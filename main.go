@@ -327,6 +327,7 @@ func main() {
 
 	// Competition lifecycle watcher
 	go func() {
+		db.TickCompetitionLifecycle() // run immediately on startup
 		ticker := time.NewTicker(60 * time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
