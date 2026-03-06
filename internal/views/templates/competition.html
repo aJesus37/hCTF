@@ -191,5 +191,23 @@
         {{end}}
         {{end}}
     </div>
+
+    <!-- Live Submission Feed -->
+    {{if or (eq $comp.Status "running") (eq $comp.Status "ended")}}
+    <div class="bg-white dark:bg-dark-card border border-gray-200 dark:border-dark-border rounded-xl p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{if .User}}{{if .User.IsAdmin}}All Submissions{{else}}Recent Solves{{end}}{{else}}Recent Solves{{end}}
+            </h2>
+            <span class="text-xs text-gray-400">live · refreshes every 10s</span>
+        </div>
+        <div id="comp-submission-feed"
+             hx-get="/api/competitions/{{$comp.ID}}/submissions"
+             hx-trigger="load, every 10s"
+             hx-swap="innerHTML">
+            <p class="text-center py-6 text-gray-400 text-sm">Loading...</p>
+        </div>
+    </div>
+    {{end}}
 </div>
 {{end}}
