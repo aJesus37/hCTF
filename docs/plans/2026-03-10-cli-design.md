@@ -1,7 +1,7 @@
 # hCTF2 CLI Design
 
 **Date**: 2026-03-10
-**Status**: Approved
+**Status**: Implemented (v0.7.0)
 
 ## Overview
 

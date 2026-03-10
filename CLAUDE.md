@@ -292,7 +292,7 @@ Follow Semantic Versioning: `MAJOR.MINOR.PATCH`
 - **MINOR**: New features (backwards compatible)
 - **PATCH**: Bug fixes (backwards compatible)
 
-Current version: **v0.6.0** (Competition Lifecycle Management: time-bounded events, per-competition scoreboards, scoreboard blackout, auto-transitions)
+Current version: **v0.7.0** (Full CLI: cobra subcommands, charmbracelet TUI, HTTP client for all API domains)
 
 ### When to Bump
 
@@ -481,6 +481,7 @@ The following features have been implemented:
 22. ✅ **Live Submission Feed** - Per-competition and global `/submissions` page; public shows correct solves, admin sees all attempts with submitted flag text; polls every 10s
 23. ✅ **Multi-attempt Wrong Answers** - Removed unique constraint on submissions so users can submit multiple wrong flags without errors
 24. ✅ **Question Anchor Links** - Each question card has a `#question-{id}` anchor; hover the title to copy a direct link; live feed and profile activity link directly to the anchored question
+25. ✅ **Full CLI** - Cobra-based subcommands (`hctf2 serve`, `challenge`, `team`, `competition`, `user`, `flag`, `login`, `status`); charmbracelet TUI (lipgloss tables, glamour markdown, huh forms, bubbletea interactive browser); `internal/client/` HTTP client; `internal/config/` config file at `~/.config/hctf2/config.yaml`
 
 ### Planned Features
 
