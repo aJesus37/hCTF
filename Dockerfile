@@ -14,6 +14,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w -extldflags=-static -X main.version=${VERSION}" \
     -o hctf2 main.go
 
+# Pre-create writable directories owned by uid 1000
+# scratch has no shell so we do this in the build stage
+RUN mkdir -p /staging/data /staging/tmp && \
+    chown -R 1000:1000 /staging
+
 # Grab CA certs for HTTPS support (SMTP, OTLP, etc.)
 FROM alpine:3.21 AS certs
 RUN apk --no-cache add ca-certificates
@@ -26,6 +31,10 @@ COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Static binary
 COPY --from=builder /app/hctf2 /hctf2
+
+# Pre-created writable dirs (scratch has no shell to mkdir at runtime)
+COPY --from=builder --chown=1000:1000 /staging/data /data
+COPY --from=builder --chown=1000:1000 /staging/tmp /tmp
 
 EXPOSE 8090
 
