@@ -247,6 +247,45 @@ func (h *ChallengeHandler) SubmitFlag(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetQuestionSolution godoc
+// @Summary Get the flag for a question the user has already solved
+// @Tags Challenges
+// @Produce json
+// @Security CookieAuth
+// @Param id path string true "Question ID"
+// @Success 200 {object} object{flag=string}
+// @Failure 401 {object} object{error=string}
+// @Failure 403 {object} object{error=string}
+// @Failure 404 {object} object{error=string}
+// @Router /questions/{id}/solution [get]
+func (h *ChallengeHandler) GetQuestionSolution(w http.ResponseWriter, r *http.Request) {
+	questionID := chi.URLParam(r, "id")
+	claims := auth.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	solved, err := h.db.HasUserSolved(questionID, claims.UserID)
+	if err != nil {
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+	if !solved {
+		http.Error(w, "not solved", http.StatusForbidden)
+		return
+	}
+
+	q, err := h.db.GetQuestionByID(questionID)
+	if err != nil {
+		http.Error(w, "question not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"flag": q.Flag})
+}
+
 type CreateChallengeRequest struct {
 	Name           string  `json:"name"`
 	Description    string  `json:"description"`
