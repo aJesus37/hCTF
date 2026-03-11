@@ -101,6 +101,23 @@ func (c *Client) SubmitFlag(questionID, flag string) (*SubmitResult, error) {
 	return &SubmitResult{Correct: correct}, nil
 }
 
+// GetQuestionSolution returns the flag for a question the user has already solved.
+// Returns an error if the question is not solved or the user is not authenticated.
+func (c *Client) GetQuestionSolution(questionID string) (string, error) {
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/questions/%s/solution", c.ServerURL, questionID), nil)
+	resp, err := c.Do(req)
+	if err != nil {
+		return "", err
+	}
+	var out struct {
+		Flag string `json:"flag"`
+	}
+	if err := decodeJSON(resp, &out); err != nil {
+		return "", err
+	}
+	return out.Flag, nil
+}
+
 func (c *Client) CreateChallenge(title, category, difficulty, description string, points int) (*Challenge, error) {
 	body, _ := json.Marshal(map[string]any{
 		"name": title, "category": category, "difficulty": difficulty,

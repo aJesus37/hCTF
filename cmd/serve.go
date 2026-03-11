@@ -419,6 +419,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 	r.Group(func(r chi.Router) {
 		r.Use(auth.RequireAuth)
 		r.Post("/api/questions/{id}/submit", s.ChallengeH.SubmitFlag)
+		r.Get("/api/questions/{id}/solution", s.ChallengeH.GetQuestionSolution)
 	})
 
 	r.Get("/api/teams", s.TeamH.ListTeams)

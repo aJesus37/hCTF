@@ -225,9 +225,15 @@ func runSubmitLoop(c *client.Client, challengeID string) error {
 			}
 		}
 
-		// Already solved: show read-only status, don't allow re-submission.
+		// Already solved: show actual flag read-only, don't allow re-submission.
 		if questionSolved {
-			fmt.Fprintln(os.Stdout, tui.SuccessStyle.Render(fmt.Sprintf("✓ %q is already solved.", questionName)))
+			flag, err := c.GetQuestionSolution(questionID)
+			if err == nil {
+				fmt.Fprintln(os.Stdout, tui.SuccessStyle.Render(fmt.Sprintf("✓ %s", questionName)))
+				fmt.Fprintln(os.Stdout, tui.MutedStyle.Render("Flag: ")+flag)
+			} else {
+				fmt.Fprintln(os.Stdout, tui.SuccessStyle.Render(fmt.Sprintf("✓ %q is already solved.", questionName)))
+			}
 			var again bool
 			if err := huh.NewForm(huh.NewGroup(
 				huh.NewConfirm().
