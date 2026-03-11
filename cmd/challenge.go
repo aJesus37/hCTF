@@ -225,15 +225,25 @@ func runSubmitLoop(c *client.Client, challengeID string) error {
 			}
 		}
 
-		// Prompt for flag.
-		title := fmt.Sprintf("Flag for %q", questionName)
+		// Already solved: show read-only status, don't allow re-submission.
 		if questionSolved {
-			title += " (already solved)"
+			fmt.Fprintln(os.Stdout, tui.SuccessStyle.Render(fmt.Sprintf("✓ %q is already solved.", questionName)))
+			var again bool
+			if err := huh.NewForm(huh.NewGroup(
+				huh.NewConfirm().
+					Title("View another question?").
+					Value(&again),
+			)).Run(); err != nil || !again {
+				return err
+			}
+			continue
 		}
+
+		// Prompt for flag.
 		var flag string
 		if err := huh.NewForm(huh.NewGroup(
 			huh.NewInput().
-				Title(title).
+				Title(fmt.Sprintf("Flag for %q", questionName)).
 				Placeholder("flag{...}").
 				Value(&flag),
 		)).Run(); err != nil {
