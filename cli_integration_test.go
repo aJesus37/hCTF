@@ -910,6 +910,606 @@ func adminToken(t *testing.T) string {
 	return ""
 }
 
+// ── register ─────────────────────────────────────────────────────────────────
+
+func TestCLIRegisterSuccess(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "register",
+		"--server", cliServer,
+		"--email", "unique1@test.local",
+		"--name", "TestUser",
+		"--password", "pass123",
+	)
+	assertSuccess(t, stdout, stderr, code)
+	assertContains(t, stdout, "unique1@test.local")
+}
+
+func TestCLIRegisterDuplicateEmail(t *testing.T) {
+	// First registration should succeed.
+	stdout, stderr, code := runCLI(t, "register",
+		"--server", cliServer,
+		"--email", "dup-reg@test.local",
+		"--name", "DupUser",
+		"--password", "pass123",
+	)
+	assertSuccess(t, stdout, stderr, code)
+
+	// Second registration with same email must fail.
+	_, _, code2 := runCLI(t, "register",
+		"--server", cliServer,
+		"--email", "dup-reg@test.local",
+		"--name", "DupUser2",
+		"--password", "pass123",
+	)
+	assertError(t, "", "", code2)
+}
+
+func TestCLIRegisterMissingFlags(t *testing.T) {
+	// In non-TTY mode, missing email/password must error.
+	_, _, code := runCLI(t, "register", "--server", cliServer)
+	assertError(t, "", "", code)
+}
+
+// ── scoreboard ────────────────────────────────────────────────────────────────
+
+func TestCLIScoreboard(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "scoreboard")
+	assertSuccess(t, stdout, stderr, code)
+	// Either shows the table header or the empty message.
+	if !strings.Contains(stdout, "RANK") && !strings.Contains(stdout, "No scoreboard") {
+		t.Errorf("expected scoreboard output, got: %q", stdout)
+	}
+}
+
+func TestCLIScoreboardJSON(t *testing.T) {
+	var entries []map[string]any
+	runCLIJSON(t, &entries, "scoreboard", "--json")
+	if entries == nil {
+		entries = []map[string]any{}
+	}
+}
+
+// ── challenge update ──────────────────────────────────────────────────────────
+
+func TestCLIChallengeUpdate(t *testing.T) {
+	stdout, _, code := runCLI(t,
+		"challenge", "create",
+		"--title", "Original Title",
+		"--category", "web",
+		"--difficulty", "easy",
+		"--points", "100",
+		"--quiet",
+	)
+	if code != 0 {
+		t.Fatalf("create failed (code %d): %s", code, stdout)
+	}
+	id := strings.TrimSpace(stdout)
+
+	out, stderr, code := runCLI(t,
+		"challenge", "update", id,
+		"--title", "Updated Title",
+		"--category", "web",
+		"--difficulty", "easy",
+		"--points", "200",
+	)
+	assertSuccess(t, out, stderr, code)
+	assertContains(t, out, "Updated")
+}
+
+func TestCLIChallengeUpdateQuiet(t *testing.T) {
+	stdout, _, code := runCLI(t,
+		"challenge", "create",
+		"--title", "UpdateQuiet",
+		"--category", "misc",
+		"--difficulty", "easy",
+		"--points", "100",
+		"--quiet",
+	)
+	if code != 0 {
+		t.Fatalf("create failed")
+	}
+	id := strings.TrimSpace(stdout)
+
+	out, stderr, code := runCLI(t,
+		"challenge", "update", id,
+		"--title", "UpdatedQuiet",
+		"--category", "misc",
+		"--difficulty", "easy",
+		"--points", "150",
+		"--quiet",
+	)
+	assertSuccess(t, out, stderr, code)
+	// --quiet emits only the challenge ID, not prose like "Updated challenge"
+	trimmed := strings.TrimSpace(out)
+	if trimmed == "" {
+		t.Error("--quiet should output the challenge ID")
+	}
+	assertNotContains(t, out, "Updated challenge")
+}
+
+func TestCLIChallengeUpdateMissingArg(t *testing.T) {
+	_, stderr, code := runCLI(t, "challenge", "update")
+	assertError(t, "", stderr, code)
+}
+
+// ── question list / create / delete ──────────────────────────────────────────
+
+func TestCLIQuestionList(t *testing.T) {
+	stdout, _, code := runCLI(t,
+		"challenge", "create",
+		"--title", "QListChallenge",
+		"--category", "misc",
+		"--difficulty", "easy",
+		"--points", "50",
+		"--quiet",
+	)
+	if code != 0 {
+		t.Fatalf("create challenge failed")
+	}
+	chID := strings.TrimSpace(stdout)
+
+	out, stderr, code := runCLI(t, "question", "list", chID)
+	assertSuccess(t, out, stderr, code)
+	assertContains(t, out, "NAME")
+}
+
+func TestCLIQuestionCreate(t *testing.T) {
+	stdout, _, code := runCLI(t,
+		"challenge", "create",
+		"--title", "QCreateChallenge",
+		"--category", "misc",
+		"--difficulty", "easy",
+		"--points", "50",
+		"--quiet",
+	)
+	if code != 0 {
+		t.Fatalf("create challenge failed")
+	}
+	chID := strings.TrimSpace(stdout)
+
+	out, stderr, code := runCLI(t,
+		"question", "create",
+		"--challenge", chID,
+		"--name", "Q1",
+		"--flag", "flag{test}",
+		"--points", "100",
+		"--quiet",
+	)
+	assertSuccess(t, out, stderr, code)
+	if strings.TrimSpace(out) == "" {
+		t.Error("--quiet should output the question ID")
+	}
+}
+
+func TestCLIQuestionDelete(t *testing.T) {
+	stdout, _, code := runCLI(t,
+		"challenge", "create",
+		"--title", "QDeleteChallenge",
+		"--category", "misc",
+		"--difficulty", "easy",
+		"--points", "50",
+		"--quiet",
+	)
+	if code != 0 {
+		t.Fatalf("create challenge failed")
+	}
+	chID := strings.TrimSpace(stdout)
+
+	stdout, _, code = runCLI(t,
+		"question", "create",
+		"--challenge", chID,
+		"--name", "QToDelete",
+		"--flag", "flag{del}",
+		"--points", "50",
+		"--quiet",
+	)
+	if code != 0 {
+		t.Fatalf("create question failed")
+	}
+	qID := strings.TrimSpace(stdout)
+
+	out, stderr, code := runCLI(t, "question", "delete", qID)
+	assertSuccess(t, out, stderr, code)
+}
+
+func TestCLIQuestionCreateMissingFlag(t *testing.T) {
+	stdout, _, code := runCLI(t,
+		"challenge", "create",
+		"--title", "QMissingFlagChallenge",
+		"--category", "misc",
+		"--difficulty", "easy",
+		"--points", "50",
+		"--quiet",
+	)
+	if code != 0 {
+		t.Fatalf("create challenge failed")
+	}
+	chID := strings.TrimSpace(stdout)
+
+	// Missing --flag must error in non-TTY mode.
+	_, _, code = runCLI(t,
+		"question", "create",
+		"--challenge", chID,
+		"--name", "Q1",
+		"--points", "100",
+	)
+	assertError(t, "", "", code)
+}
+
+func TestCLIQuestionListJSON(t *testing.T) {
+	stdout, _, code := runCLI(t,
+		"challenge", "create",
+		"--title", "QListJSONChallenge",
+		"--category", "misc",
+		"--difficulty", "easy",
+		"--points", "50",
+		"--quiet",
+	)
+	if code != 0 {
+		t.Fatalf("create challenge failed")
+	}
+	chID := strings.TrimSpace(stdout)
+
+	var qs []map[string]any
+	runCLIJSON(t, &qs, "question", "list", chID, "--json")
+	if qs == nil {
+		qs = []map[string]any{}
+	}
+}
+
+// ── hint list / create / delete ───────────────────────────────────────────────
+
+// hintTestSetup creates a challenge and question for hint tests, returns question ID.
+func hintTestSetup(t *testing.T) string {
+	t.Helper()
+	stdout, _, code := runCLI(t,
+		"challenge", "create",
+		"--title", "HintChallenge-"+t.Name(),
+		"--category", "misc",
+		"--difficulty", "easy",
+		"--points", "50",
+		"--quiet",
+	)
+	if code != 0 {
+		t.Fatalf("create challenge failed")
+	}
+	chID := strings.TrimSpace(stdout)
+
+	stdout, _, code = runCLI(t,
+		"question", "create",
+		"--challenge", chID,
+		"--name", "HintQ",
+		"--flag", "flag{hint}",
+		"--points", "50",
+		"--quiet",
+	)
+	if code != 0 {
+		t.Fatalf("create question failed")
+	}
+	return strings.TrimSpace(stdout)
+}
+
+func TestCLIHintList(t *testing.T) {
+	qID := hintTestSetup(t)
+	out, stderr, code := runCLI(t, "hint", "list", qID)
+	assertSuccess(t, out, stderr, code)
+	assertContains(t, out, "COST")
+}
+
+func TestCLIHintCreate(t *testing.T) {
+	qID := hintTestSetup(t)
+	out, stderr, code := runCLI(t,
+		"hint", "create",
+		"--question", qID,
+		"--content", "Try harder",
+		"--cost", "10",
+		"--quiet",
+	)
+	assertSuccess(t, out, stderr, code)
+	if strings.TrimSpace(out) == "" {
+		t.Error("--quiet should output hint ID")
+	}
+}
+
+func TestCLIHintDelete(t *testing.T) {
+	qID := hintTestSetup(t)
+
+	stdout, _, code := runCLI(t,
+		"hint", "create",
+		"--question", qID,
+		"--content", "Delete me hint",
+		"--cost", "5",
+		"--quiet",
+	)
+	if code != 0 {
+		t.Fatalf("create hint failed")
+	}
+	hID := strings.TrimSpace(stdout)
+
+	out, stderr, code := runCLI(t, "hint", "delete", hID)
+	assertSuccess(t, out, stderr, code)
+}
+
+func TestCLIHintListJSON(t *testing.T) {
+	qID := hintTestSetup(t)
+	var hints []map[string]any
+	runCLIJSON(t, &hints, "hint", "list", qID, "--json")
+	if hints == nil {
+		hints = []map[string]any{}
+	}
+}
+
+// ── category list / create / delete ──────────────────────────────────────────
+
+func TestCLICategoryList(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "category", "list")
+	assertSuccess(t, stdout, stderr, code)
+	assertContains(t, stdout, "NAME")
+}
+
+func TestCLICategoryCreate(t *testing.T) {
+	out, stderr, code := runCLI(t, "category", "create", "--name", "TestCat")
+	assertSuccess(t, out, stderr, code)
+	assertContains(t, out, "TestCat")
+}
+
+func TestCLICategoryDelete(t *testing.T) {
+	// Create a category, find its ID via JSON list, then delete.
+	_, _, code := runCLI(t, "category", "create", "--name", "CatToDelete")
+	if code != 0 {
+		t.Fatalf("create category failed")
+	}
+
+	var cats []map[string]any
+	runCLIJSON(t, &cats, "category", "list", "--json")
+	var id string
+	for _, c := range cats {
+		if c["name"] == "CatToDelete" {
+			id = c["id"].(string)
+			break
+		}
+	}
+	if id == "" {
+		t.Fatal("created category not found in list")
+	}
+
+	out, stderr, code := runCLI(t, "category", "delete", id)
+	assertSuccess(t, out, stderr, code)
+}
+
+func TestCLICategoryListJSON(t *testing.T) {
+	var cats []map[string]any
+	runCLIJSON(t, &cats, "category", "list", "--json")
+	if cats == nil {
+		cats = []map[string]any{}
+	}
+}
+
+// ── difficulty list / create / delete ─────────────────────────────────────────
+
+func TestCLIDifficultyList(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "difficulty", "list")
+	assertSuccess(t, stdout, stderr, code)
+	assertContains(t, stdout, "NAME")
+}
+
+func TestCLIDifficultyCreate(t *testing.T) {
+	out, stderr, code := runCLI(t, "difficulty", "create", "--name", "TestDiff")
+	assertSuccess(t, out, stderr, code)
+	assertContains(t, out, "TestDiff")
+}
+
+func TestCLIDifficultyDelete(t *testing.T) {
+	_, _, code := runCLI(t, "difficulty", "create", "--name", "DiffToDelete")
+	if code != 0 {
+		t.Fatalf("create difficulty failed")
+	}
+
+	var diffs []map[string]any
+	runCLIJSON(t, &diffs, "difficulty", "list", "--json")
+	var id string
+	for _, d := range diffs {
+		if d["name"] == "DiffToDelete" {
+			id = d["id"].(string)
+			break
+		}
+	}
+	if id == "" {
+		t.Fatal("created difficulty not found in list")
+	}
+
+	out, stderr, code := runCLI(t, "difficulty", "delete", id)
+	assertSuccess(t, out, stderr, code)
+}
+
+func TestCLIDifficultyListJSON(t *testing.T) {
+	var diffs []map[string]any
+	runCLIJSON(t, &diffs, "difficulty", "list", "--json")
+	if diffs == nil {
+		diffs = []map[string]any{}
+	}
+}
+
+// ── team leave and disband ───────────────────────────────────────────────────
+
+func TestCLITeamLeave(t *testing.T) {
+	// Create a second user and a temp config for them.
+	secondEmail := "team-leave-user@test.local"
+	secondPass := "leavepass123"
+	createTestUser(t, secondEmail, secondPass)
+
+	tmpCfg := t.TempDir() + "/cfg.yaml"
+	// Login as second user.
+	cmd := exec.Command(cliBinary, "login",
+		"--server", cliServer,
+		"--email", secondEmail,
+		"--password", secondPass,
+	)
+	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("login second user failed: %v", err)
+	}
+
+	// Second user creates a team.
+	cmd = exec.Command(cliBinary, "team", "create", "LeaveTeam", "--quiet")
+	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("second user create team failed: %v", err)
+	}
+
+	// Second user leaves the team (owner can also leave/disband via leave endpoint).
+	// Actually owners can't leave; disband instead. But team leave for a non-owner works.
+	// Let's have admin join the team by having second user regen invite, admin joins, then admin leaves.
+	var outBuf strings.Builder
+	cmd = exec.Command(cliBinary, "team", "invite-regen")
+	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Stdout = &outBuf
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("regen invite failed: %v", err)
+	}
+	inviteCode := strings.TrimSpace(outBuf.String())
+
+	// Admin joins team.
+	out, stderr, code := runCLI(t, "team", "join", inviteCode)
+	assertSuccess(t, out, stderr, code)
+
+	// Admin leaves team.
+	out, stderr, code = runCLI(t, "team", "leave")
+	assertSuccess(t, out, stderr, code)
+
+	// Cleanup: second user disbands team.
+	cmd = exec.Command(cliBinary, "team", "disband")
+	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Run()
+}
+
+func TestCLITeamDisband(t *testing.T) {
+	// Admin creates a team, then disbands it.
+	stdout, _, code := runCLI(t, "team", "create", "DisbandTeam", "--quiet")
+	if code != 0 {
+		t.Fatalf("create team failed")
+	}
+	_ = strings.TrimSpace(stdout)
+
+	out, stderr, code := runCLI(t, "team", "disband")
+	assertSuccess(t, out, stderr, code)
+	// No need to call leaveTeam since team was disbanded.
+}
+
+// ── team invite-regen ─────────────────────────────────────────────────────────
+
+func TestCLITeamInviteRegen(t *testing.T) {
+	stdout, _, code := runCLI(t, "team", "create", "InviteRegenTeam", "--quiet")
+	if code != 0 {
+		t.Fatalf("create team failed")
+	}
+	_ = strings.TrimSpace(stdout)
+	defer leaveTeam(t)
+
+	out, stderr, code := runCLI(t, "team", "invite-regen")
+	assertSuccess(t, out, stderr, code)
+	if strings.TrimSpace(out) == "" {
+		t.Error("expected non-empty invite code output")
+	}
+}
+
+// ── competition get / delete / add-challenge / remove-challenge / freeze / unfreeze / register ──
+
+func TestCLICompetitionGet(t *testing.T) {
+	stdout, _, code := runCLI(t, "competition", "create", "GetComp", "--quiet")
+	if code != 0 {
+		t.Fatalf("create competition failed")
+	}
+	id := strings.TrimSpace(stdout)
+
+	out, stderr, code := runCLI(t, "competition", "get", id)
+	assertSuccess(t, out, stderr, code)
+	assertContains(t, out, "GetComp")
+}
+
+func TestCLICompetitionGetJSON(t *testing.T) {
+	stdout, _, code := runCLI(t, "competition", "create", "GetCompJSON", "--quiet")
+	if code != 0 {
+		t.Fatalf("create competition failed")
+	}
+	id := strings.TrimSpace(stdout)
+
+	var co map[string]any
+	runCLIJSON(t, &co, "competition", "get", id, "--json")
+	if co["id"] == nil {
+		t.Error("JSON competition get missing 'id' field")
+	}
+}
+
+func TestCLICompetitionDelete(t *testing.T) {
+	stdout, _, code := runCLI(t, "competition", "create", "DeleteComp", "--quiet")
+	if code != 0 {
+		t.Fatalf("create competition failed")
+	}
+	id := strings.TrimSpace(stdout)
+
+	out, stderr, code := runCLI(t, "competition", "delete", id)
+	assertSuccess(t, out, stderr, code)
+}
+
+func TestCLICompetitionAddRemoveChallenge(t *testing.T) {
+	compOut, _, code := runCLI(t, "competition", "create", "AddRemoveComp", "--quiet")
+	if code != 0 {
+		t.Fatalf("create competition failed")
+	}
+	compID := strings.TrimSpace(compOut)
+
+	chOut, _, code := runCLI(t,
+		"challenge", "create",
+		"--title", "CompChallenge",
+		"--category", "misc",
+		"--difficulty", "easy",
+		"--points", "100",
+		"--quiet",
+	)
+	if code != 0 {
+		t.Fatalf("create challenge failed")
+	}
+	chID := strings.TrimSpace(chOut)
+
+	out, stderr, code := runCLI(t, "competition", "add-challenge", compID, chID)
+	assertSuccess(t, out, stderr, code)
+
+	out, stderr, code = runCLI(t, "competition", "remove-challenge", compID, chID)
+	assertSuccess(t, out, stderr, code)
+}
+
+func TestCLICompetitionFreezeUnfreeze(t *testing.T) {
+	stdout, _, code := runCLI(t, "competition", "create", "FreezeComp", "--quiet")
+	if code != 0 {
+		t.Fatalf("create competition failed")
+	}
+	id := strings.TrimSpace(stdout)
+
+	out, stderr, code := runCLI(t, "competition", "freeze", id)
+	assertSuccess(t, out, stderr, code)
+
+	out, stderr, code = runCLI(t, "competition", "unfreeze", id)
+	assertSuccess(t, out, stderr, code)
+}
+
+func TestCLICompetitionRegister(t *testing.T) {
+	// Create and start a competition.
+	stdout, _, code := runCLI(t, "competition", "create", "RegisterComp", "--quiet")
+	if code != 0 {
+		t.Fatalf("create competition failed")
+	}
+	compID := strings.TrimSpace(stdout)
+
+	_, _, _ = runCLI(t, "competition", "start", compID)
+
+	// Create a team for admin.
+	_, _, _ = runCLI(t, "team", "create", "RegisterTeam", "--quiet")
+	defer leaveTeam(t)
+
+	out, stderr, code := runCLI(t, "competition", "register", compID)
+	assertSuccess(t, out, stderr, code)
+}
+
 // createTestUser registers a user via the API and returns their ID.
 func createTestUser(t *testing.T, email, password string) string {
 	t.Helper()
