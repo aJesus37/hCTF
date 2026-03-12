@@ -293,6 +293,48 @@ func runSubmitLoop(c *client.Client, challengeID string) error {
 			}
 		}
 
+		// Offer hints if any are available.
+		hints, err := c.GetHints(questionID)
+		if err == nil && len(hints) > 0 {
+			var viewHints bool
+			_ = huh.NewForm(huh.NewGroup(
+				huh.NewConfirm().
+					Title(fmt.Sprintf("View hints? (%d available)", len(hints))).
+					Value(&viewHints),
+			)).Run()
+			if viewHints {
+				for _, h := range hints {
+					if h.Unlocked {
+						fmt.Fprintf(os.Stdout, "  Hint %d (-%d pts): %s\n", h.Order, h.Cost, h.Content)
+					} else {
+						fmt.Fprintf(os.Stdout, "  Hint %d (-%d pts): [locked]\n", h.Order, h.Cost)
+						var unlock bool
+						_ = huh.NewForm(huh.NewGroup(
+							huh.NewConfirm().
+								Title(fmt.Sprintf("Unlock hint %d for %d points?", h.Order, h.Cost)).
+								Value(&unlock),
+						)).Run()
+						if unlock {
+							if err := c.UnlockHint(h.ID); err != nil {
+								fmt.Fprintln(os.Stderr, tui.ErrorStyle.Render(fmt.Sprintf("Unlock error: %v", err)))
+							} else {
+								// Re-fetch to get the content.
+								refreshed, rerr := c.GetHints(questionID)
+								if rerr == nil {
+									for _, rh := range refreshed {
+										if rh.ID == h.ID {
+											fmt.Fprintf(os.Stdout, "  Hint %d: %s\n", rh.Order, rh.Content)
+											break
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
 		// Already solved: show actual flag read-only, don't allow re-submission.
 		if questionSolved {
 			flag, err := c.GetQuestionSolution(questionID)
