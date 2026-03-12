@@ -6,7 +6,9 @@ import (
 	"os"
 
 	"github.com/ajesus37/hCTF2/internal/tui"
+	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var teamCmd = &cobra.Command{Use: "team", Short: "Team management"}
@@ -14,10 +16,12 @@ var teamListCmd = &cobra.Command{Use: "list", Short: "List all teams", RunE: run
 var teamGetCmd = &cobra.Command{Use: "get <id>", Short: "Show team details", Args: cobra.ExactArgs(1), RunE: runTeamGet}
 var teamCreateCmd = &cobra.Command{Use: "create <name>", Short: "Create a team", Args: cobra.ExactArgs(1), RunE: runTeamCreate}
 var teamJoinCmd = &cobra.Command{Use: "join <invite-code>", Short: "Join a team by invite code", Args: cobra.ExactArgs(1), RunE: runTeamJoin}
+var teamLeaveCmd = &cobra.Command{Use: "leave", Short: "Leave your current team", RunE: runTeamLeave}
+var teamDisbandCmd = &cobra.Command{Use: "disband", Short: "Disband your team (owner only)", RunE: runTeamDisband}
 
 func init() {
 	rootCmd.AddCommand(teamCmd)
-	teamCmd.AddCommand(teamListCmd, teamGetCmd, teamCreateCmd, teamJoinCmd)
+	teamCmd.AddCommand(teamListCmd, teamGetCmd, teamCreateCmd, teamJoinCmd, teamLeaveCmd, teamDisbandCmd)
 }
 
 func runTeamList(_ *cobra.Command, _ []string) error {
@@ -90,6 +94,45 @@ func runTeamJoin(_ *cobra.Command, args []string) error {
 	}
 	if !quietOutput {
 		fmt.Fprintln(os.Stdout, "Joined team")
+	}
+	return nil
+}
+
+func runTeamLeave(_ *cobra.Command, _ []string) error {
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	if err := c.LeaveTeam(); err != nil {
+		return err
+	}
+	if !quietOutput {
+		fmt.Fprintln(os.Stdout, "Left team.")
+	}
+	return nil
+}
+
+func runTeamDisband(_ *cobra.Command, _ []string) error {
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		var confirm bool
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewConfirm().Title("Disband your team? This cannot be undone.").Value(&confirm),
+		)).Run(); err != nil {
+			return err
+		}
+		if !confirm {
+			return nil
+		}
+	}
+	if err := c.DisbandTeam(); err != nil {
+		return err
+	}
+	if !quietOutput {
+		fmt.Fprintln(os.Stdout, "Team disbanded.")
 	}
 	return nil
 }

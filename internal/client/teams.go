@@ -64,3 +64,29 @@ func (c *Client) JoinTeam(inviteCode string) error {
 	}
 	return nil
 }
+
+func (c *Client) LeaveTeam() error {
+	req, _ := http.NewRequest("POST", c.ServerURL+"/api/teams/leave", nil)
+	resp, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func (c *Client) DisbandTeam() error {
+	req, _ := http.NewRequest("POST", c.ServerURL+"/api/teams/disband", nil)
+	resp, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	return nil
+}
