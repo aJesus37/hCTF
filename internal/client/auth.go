@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -71,11 +70,9 @@ func (c *Client) Login(email, password string) (*LoginResponse, error) {
 }
 
 func (c *Client) Register(email, name, password string) error {
-	body, _ := json.Marshal(map[string]string{
-		"email": email, "name": name, "password": password,
-	})
-	req, _ := http.NewRequest("POST", c.ServerURL+"/api/auth/register", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
+	form := url.Values{"email": {email}, "name": {name}, "password": {password}}
+	req, _ := http.NewRequest("POST", c.ServerURL+"/api/auth/register", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := c.Do(req)
 	if err != nil {
 		return err

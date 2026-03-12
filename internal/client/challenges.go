@@ -144,8 +144,20 @@ func (c *Client) UpdateChallenge(id, title, category, difficulty, description st
 	if err != nil {
 		return nil, err
 	}
-	var out Challenge
-	return &out, decodeJSON(resp, &out)
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	// Server returns plain text "Challenge updated" on success; synthesise a
+	// minimal Challenge with the supplied values so callers can display them.
+	return &Challenge{
+		ID:            id,
+		Title:         title,
+		Category:      category,
+		Difficulty:    difficulty,
+		Description:   description,
+		InitialPoints: points,
+	}, nil
 }
 
 func (c *Client) DeleteChallenge(id string) error {
