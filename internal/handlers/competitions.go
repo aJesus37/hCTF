@@ -542,6 +542,14 @@ func (h *CompetitionHandler) GetSubmissionFeed(w http.ResponseWriter, r *http.Re
 		http.Error(w, "Failed to fetch submissions", http.StatusInternalServerError)
 		return
 	}
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		if subs == nil {
+			subs = []database.CompetitionSubmission{}
+		}
+		json.NewEncoder(w).Encode(subs)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html")
 	renderSubmissionFeed(w, subs, isAdmin)
 }
@@ -558,6 +566,14 @@ func (h *CompetitionHandler) GetGlobalSubmissionFeed(w http.ResponseWriter, r *h
 	subs, err := h.db.GetGlobalRecentSubmissions(100, isAdmin)
 	if err != nil {
 		http.Error(w, "Failed to fetch submissions", http.StatusInternalServerError)
+		return
+	}
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		if subs == nil {
+			subs = []database.CompetitionSubmission{}
+		}
+		json.NewEncoder(w).Encode(subs)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html")

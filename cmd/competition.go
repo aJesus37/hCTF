@@ -24,11 +24,22 @@ var compAddChallengeCmd = &cobra.Command{Use: "add-challenge <comp-id> <challeng
 var compRemoveChallengeCmd = &cobra.Command{Use: "remove-challenge <comp-id> <challenge-id>", Short: "Remove challenge from competition (admin)", Args: cobra.ExactArgs(2), RunE: runCompRemoveChallenge}
 var compFreezeCmd = &cobra.Command{Use: "freeze <id>", Short: "Freeze competition scoreboard (admin)", Args: cobra.ExactArgs(1), RunE: runCompFreeze}
 var compUnfreezeCmd = &cobra.Command{Use: "unfreeze <id>", Short: "Unfreeze competition scoreboard (admin)", Args: cobra.ExactArgs(1), RunE: runCompUnfreeze}
+var compBlackoutCmd = &cobra.Command{Use: "blackout <id>", Short: "Enable scoreboard blackout for competition (admin)", Args: cobra.ExactArgs(1), RunE: runCompBlackout}
+var compUnblackoutCmd = &cobra.Command{Use: "unblackout <id>", Short: "Disable scoreboard blackout for competition (admin)", Args: cobra.ExactArgs(1), RunE: runCompUnblackout}
+var compUpdateCmd = &cobra.Command{Use: "update <id>", Short: "Update a competition (admin)", Args: cobra.ExactArgs(1), RunE: runCompUpdate}
+var compTeamsCmd = &cobra.Command{Use: "teams <id>", Short: "List teams registered for a competition (admin)", Args: cobra.ExactArgs(1), RunE: runCompTeams}
+var compScoreboardCmd = &cobra.Command{Use: "scoreboard <id>", Short: "Show scoreboard for a competition", Args: cobra.ExactArgs(1), RunE: runCompScoreboard}
+
+var updateCompName string
+var updateCompDescription string
 
 func init() {
 	rootCmd.AddCommand(competitionCmd)
 	competitionCmd.AddCommand(compListCmd, compCreateCmd, compStartCmd, compEndCmd, compRegisterCmd, compDeleteCmd,
-		compGetCmd, compAddChallengeCmd, compRemoveChallengeCmd, compFreezeCmd, compUnfreezeCmd)
+		compGetCmd, compAddChallengeCmd, compRemoveChallengeCmd, compFreezeCmd, compUnfreezeCmd,
+		compBlackoutCmd, compUnblackoutCmd, compUpdateCmd, compTeamsCmd, compScoreboardCmd)
+	compUpdateCmd.Flags().StringVar(&updateCompName, "name", "", "Competition name")
+	compUpdateCmd.Flags().StringVar(&updateCompDescription, "description", "", "Competition description")
 }
 
 func runCompList(_ *cobra.Command, _ []string) error {
@@ -265,5 +276,150 @@ func runCompUnfreeze(_ *cobra.Command, args []string) error {
 	if !quietOutput {
 		fmt.Fprintf(os.Stdout, "Unfroze scoreboard for competition %d\n", id)
 	}
+	return nil
+}
+
+func runCompBlackout(_ *cobra.Command, args []string) error {
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid competition id: %s", args[0])
+	}
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	if err := c.SetCompetitionBlackout(id, true); err != nil {
+		return err
+	}
+	if !quietOutput {
+		fmt.Fprintf(os.Stdout, "Enabled scoreboard blackout for competition %d\n", id)
+	}
+	return nil
+}
+
+func runCompUnblackout(_ *cobra.Command, args []string) error {
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid competition id: %s", args[0])
+	}
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	if err := c.SetCompetitionBlackout(id, false); err != nil {
+		return err
+	}
+	if !quietOutput {
+		fmt.Fprintf(os.Stdout, "Disabled scoreboard blackout for competition %d\n", id)
+	}
+	return nil
+}
+
+func runCompUpdate(_ *cobra.Command, args []string) error {
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid competition id: %s", args[0])
+	}
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+
+	if term.IsTerminal(int(os.Stdin.Fd())) && updateCompName == "" {
+		co, err := c.GetCompetition(id)
+		if err != nil {
+			return err
+		}
+		updateCompName = co.Name
+		updateCompDescription = co.Description
+
+		if err := huh.NewForm(
+			huh.NewGroup(huh.NewInput().Title("Name").Value(&updateCompName)),
+			huh.NewGroup(huh.NewText().Title("Description").Value(&updateCompDescription)),
+		).Run(); err != nil {
+			return err
+		}
+	}
+
+	co, err := c.UpdateCompetition(id, updateCompName, updateCompDescription)
+	if err != nil {
+		return err
+	}
+	if quietOutput {
+		fmt.Fprintln(os.Stdout, co.ID)
+		return nil
+	}
+	fmt.Fprintf(os.Stdout, "Updated competition %q (id: %d)\n", co.Name, co.ID)
+	return nil
+}
+
+func runCompTeams(_ *cobra.Command, args []string) error {
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid competition id: %s", args[0])
+	}
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	teams, err := c.ListCompetitionTeams(id)
+	if err != nil {
+		return err
+	}
+	if jsonOutput {
+		return json.NewEncoder(os.Stdout).Encode(teams)
+	}
+	cols := []tui.Column{
+		{Header: "ID", Width: 10},
+		{Header: "NAME", Width: 30},
+	}
+	var rows [][]string
+	for _, t := range teams {
+		shortID := t.ID
+		if len(shortID) > 8 {
+			shortID = shortID[:8]
+		}
+		rows = append(rows, []string{shortID, t.Name})
+	}
+	tui.PrintTable(os.Stdout, cols, rows)
+	return nil
+}
+
+func runCompScoreboard(_ *cobra.Command, args []string) error {
+	id, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid competition id: %s", args[0])
+	}
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	entries, err := c.GetCompetitionScoreboard(id)
+	if err != nil {
+		return err
+	}
+	if jsonOutput {
+		return json.NewEncoder(os.Stdout).Encode(entries)
+	}
+	if len(entries) == 0 {
+		fmt.Println("No scoreboard entries found.")
+		return nil
+	}
+	cols := []tui.Column{
+		{Header: "RANK", Width: 6},
+		{Header: "TEAM", Width: 30},
+		{Header: "SCORE", Width: 8},
+		{Header: "SOLVES", Width: 7},
+	}
+	var rows [][]string
+	for _, e := range entries {
+		rows = append(rows, []string{
+			strconv.Itoa(e.Rank),
+			e.TeamName,
+			strconv.Itoa(e.Score),
+			strconv.Itoa(e.SolveCount),
+		})
+	}
+	tui.PrintTable(os.Stdout, cols, rows)
 	return nil
 }

@@ -15,9 +15,12 @@ var scoreboardCmd = &cobra.Command{
 	Short: "Show the current scoreboard",
 	RunE:  runScoreboard,
 }
+var scoreboardFreezeCmd = &cobra.Command{Use: "freeze", Short: "Freeze the global scoreboard (admin)", RunE: runScoreboardFreeze}
+var scoreboardUnfreezeCmd = &cobra.Command{Use: "unfreeze", Short: "Unfreeze the global scoreboard (admin)", RunE: runScoreboardUnfreeze}
 
 func init() {
 	rootCmd.AddCommand(scoreboardCmd)
+	scoreboardCmd.AddCommand(scoreboardFreezeCmd, scoreboardUnfreezeCmd)
 }
 
 func runScoreboard(_ *cobra.Command, _ []string) error {
@@ -58,5 +61,33 @@ func runScoreboard(_ *cobra.Command, _ []string) error {
 		})
 	}
 	tui.PrintTable(os.Stdout, cols, rows)
+	return nil
+}
+
+func runScoreboardFreeze(_ *cobra.Command, _ []string) error {
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	if err := c.SetScoreboardFreeze(true); err != nil {
+		return err
+	}
+	if !quietOutput {
+		fmt.Fprintln(os.Stdout, "Scoreboard frozen")
+	}
+	return nil
+}
+
+func runScoreboardUnfreeze(_ *cobra.Command, _ []string) error {
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	if err := c.SetScoreboardFreeze(false); err != nil {
+		return err
+	}
+	if !quietOutput {
+		fmt.Fprintln(os.Stdout, "Scoreboard unfrozen")
+	}
 	return nil
 }

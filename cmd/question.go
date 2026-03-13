@@ -16,21 +16,31 @@ var questionCmd = &cobra.Command{Use: "question", Short: "Manage challenge quest
 var questionListCmd = &cobra.Command{Use: "list <challenge-id>", Short: "List questions for a challenge", Args: cobra.ExactArgs(1), RunE: runQuestionList}
 var questionCreateCmd = &cobra.Command{Use: "create", Short: "Create a question (admin)", RunE: runQuestionCreate}
 var questionDeleteCmd = &cobra.Command{Use: "delete <id>", Short: "Delete a question (admin)", Args: cobra.ExactArgs(1), RunE: runQuestionDelete}
+var questionUpdateCmd = &cobra.Command{Use: "update <id>", Short: "Update a question (admin)", Args: cobra.ExactArgs(1), RunE: runQuestionUpdate}
 
 var (
-	qChallengeID string
-	qName        string
-	qFlag        string
-	qPoints      int
+	qChallengeID  string
+	qName         string
+	qFlag         string
+	qPoints       int
+	quName        string
+	quFlag        string
+	quPoints      int
+	quCaseSensitive bool
 )
 
 func init() {
 	rootCmd.AddCommand(questionCmd)
-	questionCmd.AddCommand(questionListCmd, questionCreateCmd, questionDeleteCmd)
+	questionCmd.AddCommand(questionListCmd, questionCreateCmd, questionDeleteCmd, questionUpdateCmd)
 	questionCreateCmd.Flags().StringVar(&qChallengeID, "challenge", "", "Challenge ID")
 	questionCreateCmd.Flags().StringVar(&qName, "name", "", "Question name")
 	questionCreateCmd.Flags().StringVar(&qFlag, "flag", "", "Flag value")
 	questionCreateCmd.Flags().IntVar(&qPoints, "points", 100, "Point value")
+
+	questionUpdateCmd.Flags().StringVar(&quName, "name", "", "Question name")
+	questionUpdateCmd.Flags().StringVar(&quFlag, "flag", "", "Flag value")
+	questionUpdateCmd.Flags().IntVar(&quPoints, "points", 0, "Point value")
+	questionUpdateCmd.Flags().BoolVar(&quCaseSensitive, "case-sensitive", false, "Case-sensitive flag matching")
 }
 
 func runQuestionList(_ *cobra.Command, args []string) error {
@@ -114,3 +124,52 @@ func runQuestionDelete(_ *cobra.Command, args []string) error {
 	}
 	return nil
 }
+
+func buildQuestionGroups(name, flag, pointsStr *string, caseSensitive *bool) []*huh.Group {
+	return []*huh.Group{
+		huh.NewGroup(huh.NewInput().Title("Name").Value(name)),
+		huh.NewGroup(huh.NewInput().Title("Flag").Value(flag)),
+		huh.NewGroup(huh.NewInput().Title("Points").Value(pointsStr)),
+		huh.NewGroup(huh.NewConfirm().Title("Case-sensitive flag?").Value(caseSensitive)),
+	}
+}
+
+func runQuestionUpdate(_ *cobra.Command, args []string) error {
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	id := args[0]
+
+	if term.IsTerminal(int(os.Stdin.Fd())) && quName == "" {
+		q, err := c.GetQuestion(id)
+		if err != nil {
+			return err
+		}
+		quName = q.Name
+		quCaseSensitive = q.CaseSensitive
+		if quPoints == 0 {
+			quPoints = q.Points
+		}
+
+		pointsStr := strconv.Itoa(quPoints)
+		groups := buildQuestionGroups(&quName, &quFlag, &pointsStr, &quCaseSensitive)
+		if err := huh.NewForm(groups...).Run(); err != nil {
+			return err
+		}
+		if p, err := strconv.Atoi(pointsStr); err == nil {
+			quPoints = p
+		}
+	}
+
+	if err := c.UpdateQuestion(id, quName, quFlag, quPoints, quCaseSensitive); err != nil {
+		return err
+	}
+	if quietOutput {
+		fmt.Fprintln(os.Stdout, id)
+		return nil
+	}
+	fmt.Fprintf(os.Stdout, "Updated question %s\n", id)
+	return nil
+}
+

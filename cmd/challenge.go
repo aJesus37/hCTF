@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 
@@ -20,6 +21,10 @@ var challengeGetCmd = &cobra.Command{Use: "get <id>", Short: "Show challenge det
 var challengeCreateCmd = &cobra.Command{Use: "create", Short: "Create a challenge (admin)", RunE: runChallengeCreate}
 var challengeDeleteCmd = &cobra.Command{Use: "delete <id>", Short: "Delete a challenge (admin)", Args: cobra.ExactArgs(1), RunE: runChallengeDelete}
 var challengeUpdateCmd = &cobra.Command{Use: "update <id>", Short: "Update a challenge (admin)", Args: cobra.ExactArgs(1), RunE: runChallengeUpdate}
+var challengeExportCmd = &cobra.Command{Use: "export", Short: "Export all challenges to JSON (admin)", RunE: runChallengeExport}
+var challengeImportCmd = &cobra.Command{Use: "import <file.json>", Short: "Import challenges from JSON file (admin)", Args: cobra.ExactArgs(1), RunE: runChallengeImport}
+
+var exportOutput string
 
 var (
 	createTitle       string
@@ -27,28 +32,41 @@ var (
 	createDifficulty  string
 	createDescription string
 	createPoints      int
+	createVisible     bool
+	createMinPoints   int
+	createDecay       int
 
 	updateTitle       string
 	updateCategory    string
 	updateDifficulty  string
 	updateDescription string
 	updatePoints      int
+	updateVisible     bool
+	updateMinPoints   int
+	updateDecay       int
 )
 
 func init() {
 	rootCmd.AddCommand(challengeCmd)
-	challengeCmd.AddCommand(challengeListCmd, challengeGetCmd, challengeCreateCmd, challengeDeleteCmd, challengeBrowseCmd, challengeUpdateCmd)
+	challengeCmd.AddCommand(challengeListCmd, challengeGetCmd, challengeCreateCmd, challengeDeleteCmd, challengeBrowseCmd, challengeUpdateCmd, challengeExportCmd, challengeImportCmd)
+	challengeExportCmd.Flags().StringVar(&exportOutput, "output", "", "Write JSON to file instead of stdout")
 	challengeCreateCmd.Flags().StringVar(&createTitle, "title", "", "Challenge title")
 	challengeCreateCmd.Flags().StringVar(&createCategory, "category", "", "Category")
 	challengeCreateCmd.Flags().StringVar(&createDifficulty, "difficulty", "", "Difficulty")
 	challengeCreateCmd.Flags().StringVar(&createDescription, "description", "", "Description (markdown)")
 	challengeCreateCmd.Flags().IntVar(&createPoints, "points", 100, "Point value")
+	challengeCreateCmd.Flags().BoolVar(&createVisible, "visible", false, "Make challenge visible")
+	challengeCreateCmd.Flags().IntVar(&createMinPoints, "min-points", 0, "Minimum points (0 = disabled)")
+	challengeCreateCmd.Flags().IntVar(&createDecay, "decay", 0, "Decay threshold (0 = disabled)")
 
 	challengeUpdateCmd.Flags().StringVar(&updateTitle, "title", "", "Challenge title")
 	challengeUpdateCmd.Flags().StringVar(&updateCategory, "category", "", "Category")
 	challengeUpdateCmd.Flags().StringVar(&updateDifficulty, "difficulty", "", "Difficulty")
 	challengeUpdateCmd.Flags().StringVar(&updateDescription, "description", "", "Description (markdown)")
 	challengeUpdateCmd.Flags().IntVar(&updatePoints, "points", 0, "Point value")
+	challengeUpdateCmd.Flags().BoolVar(&updateVisible, "visible", false, "Make challenge visible")
+	challengeUpdateCmd.Flags().IntVar(&updateMinPoints, "min-points", 0, "Minimum points (0 = disabled)")
+	challengeUpdateCmd.Flags().IntVar(&updateDecay, "decay", 0, "Decay threshold (0 = disabled)")
 }
 
 func runChallengeList(_ *cobra.Command, _ []string) error {
@@ -64,19 +82,21 @@ func runChallengeList(_ *cobra.Command, _ []string) error {
 		return json.NewEncoder(os.Stdout).Encode(challenges)
 	}
 	cols := []tui.Column{
-		{Header: "ID", Width: 10},
+		{Header: "ID", Width: 38},
 		{Header: "TITLE", Width: 30},
-		{Header: "CATEGORY", Width: 15},
+		{Header: "CATEGORY", Width: 16},
 		{Header: "DIFF", Width: 12},
 		{Header: "PTS", Width: 6},
 	}
 	var rows [][]string
 	for _, ch := range challenges {
-		id := ch.ID
-		if len(id) > 8 {
-			id = id[:8] + "..."
-		}
-		rows = append(rows, []string{id, ch.Title, ch.Category, ch.Difficulty, strconv.Itoa(ch.InitialPoints)})
+		rows = append(rows, []string{
+			ch.ID,
+			tui.Truncate(ch.Title, 29),
+			tui.Truncate(ch.Category, 15),
+			tui.Truncate(ch.Difficulty, 11),
+			strconv.Itoa(ch.InitialPoints),
+		})
 	}
 	tui.PrintTable(os.Stdout, cols, rows)
 	return nil
@@ -105,7 +125,48 @@ func runChallengeGet(_ *cobra.Command, args []string) error {
 	return nil
 }
 
-const customSentinel = "__custom__"
+// catDiffDesc returns a suggestion string like "(e.g. web, crypto, pwn)" from server options.
+func catDiffDesc(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	s := "Options: "
+	for i, n := range names {
+		if i > 0 {
+			s += ", "
+		}
+		s += n
+	}
+	return s
+}
+
+// buildChallengeGroups constructs one huh group per field so each gets its own page
+// (label always visible) and back-navigation works within the single form.
+func buildChallengeGroups(
+	cats []client.Category, diffs []client.Difficulty,
+	title, category, difficulty, description, pointsStr *string,
+	visible *bool, minPointsStr, decayStr *string,
+) []*huh.Group {
+	catNames := make([]string, len(cats))
+	for i, c := range cats {
+		catNames[i] = c.Name
+	}
+	diffNames := make([]string, len(diffs))
+	for i, d := range diffs {
+		diffNames[i] = d.Name
+	}
+
+	return []*huh.Group{
+		huh.NewGroup(huh.NewInput().Title("Title").Value(title)),
+		huh.NewGroup(huh.NewInput().Title("Category").Description(catDiffDesc(catNames)).Value(category)),
+		huh.NewGroup(huh.NewInput().Title("Difficulty").Description(catDiffDesc(diffNames)).Value(difficulty)),
+		huh.NewGroup(huh.NewInput().Title("Points").Value(pointsStr)),
+		huh.NewGroup(huh.NewText().Title("Description (markdown)").Value(description)),
+		huh.NewGroup(huh.NewConfirm().Title("Visible?").Value(visible)),
+		huh.NewGroup(huh.NewInput().Title("Minimum points (0 = disabled)").Value(minPointsStr)),
+		huh.NewGroup(huh.NewInput().Title("Decay threshold (0 = disabled)").Value(decayStr)),
+	}
+}
 
 func runChallengeCreate(_ *cobra.Command, _ []string) error {
 	c, err := newClient()
@@ -114,99 +175,30 @@ func runChallengeCreate(_ *cobra.Command, _ []string) error {
 	}
 	if term.IsTerminal(int(os.Stdin.Fd())) && (createTitle == "" || createCategory == "") {
 		pointsStr := strconv.Itoa(createPoints)
-
-		// Fetch categories and difficulties for the pickers (best-effort).
+		minPointsStr := strconv.Itoa(createMinPoints)
+		decayStr := strconv.Itoa(createDecay)
 		cats, _ := c.ListCategories()
 		diffs, _ := c.ListDifficulties()
 
-		// One field per page so labels always fit regardless of terminal height.
+		groups := buildChallengeGroups(cats, diffs,
+			&createTitle, &createCategory, &createDifficulty, &createDescription, &pointsStr,
+			&createVisible, &minPointsStr, &decayStr)
 
-		// Title
-		if err := huh.NewForm(huh.NewGroup(
-			huh.NewInput().Title("Title").Value(&createTitle),
-		)).Run(); err != nil {
-			return err
-		}
-
-		// Category
-		if len(cats) > 0 {
-			var catSelection string
-			opts := make([]huh.Option[string], len(cats)+1)
-			for i, cat := range cats {
-				opts[i] = huh.NewOption(cat.Name, cat.Name)
-			}
-			opts[len(cats)] = huh.NewOption("Other (type custom)…", customSentinel)
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewSelect[string]().Title("Category").Options(opts...).Value(&catSelection),
-			)).Run(); err != nil {
-				return err
-			}
-			if catSelection == customSentinel {
-				if err := huh.NewForm(huh.NewGroup(
-					huh.NewInput().Title("Custom category").Value(&createCategory),
-				)).Run(); err != nil {
-					return err
-				}
-			} else {
-				createCategory = catSelection
-			}
-		} else {
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewInput().Title("Category").Value(&createCategory),
-			)).Run(); err != nil {
-				return err
-			}
-		}
-
-		// Difficulty
-		if len(diffs) > 0 {
-			var diffSelection string
-			opts := make([]huh.Option[string], len(diffs)+1)
-			for i, d := range diffs {
-				opts[i] = huh.NewOption(d.Name, d.Name)
-			}
-			opts[len(diffs)] = huh.NewOption("Other (type custom)…", customSentinel)
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewSelect[string]().Title("Difficulty").Options(opts...).Value(&diffSelection),
-			)).Run(); err != nil {
-				return err
-			}
-			if diffSelection == customSentinel {
-				if err := huh.NewForm(huh.NewGroup(
-					huh.NewInput().Title("Custom difficulty").Value(&createDifficulty),
-				)).Run(); err != nil {
-					return err
-				}
-			} else {
-				createDifficulty = diffSelection
-			}
-		} else {
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewInput().Title("Difficulty").Value(&createDifficulty),
-			)).Run(); err != nil {
-				return err
-			}
-		}
-
-		// Points
-		if err := huh.NewForm(huh.NewGroup(
-			huh.NewInput().Title("Points").Value(&pointsStr),
-		)).Run(); err != nil {
-			return err
-		}
-
-		// Description
-		if err := huh.NewForm(huh.NewGroup(
-			huh.NewText().Title("Description (markdown)").Value(&createDescription),
-		)).Run(); err != nil {
+		if err := huh.NewForm(groups...).Run(); err != nil {
 			return err
 		}
 
 		if p, err := strconv.Atoi(pointsStr); err == nil {
 			createPoints = p
 		}
+		if mp, err := strconv.Atoi(minPointsStr); err == nil {
+			createMinPoints = mp
+		}
+		if d, err := strconv.Atoi(decayStr); err == nil {
+			createDecay = d
+		}
 	}
-	ch, err := c.CreateChallenge(createTitle, createCategory, createDifficulty, createDescription, createPoints)
+	ch, err := c.CreateChallenge(createTitle, createCategory, createDifficulty, createDescription, createPoints, createVisible, createMinPoints, createDecay)
 	if err != nil {
 		return err
 	}
@@ -238,99 +230,40 @@ func runChallengeUpdate(_ *cobra.Command, args []string) error {
 		if updatePoints == 0 {
 			updatePoints = ch.InitialPoints
 		}
+		updateVisible = ch.Visible
+		if updateMinPoints == 0 {
+			updateMinPoints = ch.MinimumPoints
+		}
+		if updateDecay == 0 {
+			updateDecay = ch.DecayThreshold
+		}
 
 		cats, _ := c.ListCategories()
 		diffs, _ := c.ListDifficulties()
 
-		// One field per page so labels always fit regardless of terminal height.
-
-		// Title
-		if err := huh.NewForm(huh.NewGroup(
-			huh.NewInput().Title("Title").Value(&updateTitle),
-		)).Run(); err != nil {
-			return err
-		}
-
-		// Category
-		if len(cats) > 0 {
-			var catSelection string
-			opts := make([]huh.Option[string], len(cats)+1)
-			for i, cat := range cats {
-				opts[i] = huh.NewOption(cat.Name, cat.Name)
-			}
-			opts[len(cats)] = huh.NewOption("Other (type custom)…", customSentinel)
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewSelect[string]().Title("Category").Options(opts...).Value(&catSelection),
-			)).Run(); err != nil {
-				return err
-			}
-			if catSelection == customSentinel {
-				if err := huh.NewForm(huh.NewGroup(
-					huh.NewInput().Title("Custom category").Value(&updateCategory),
-				)).Run(); err != nil {
-					return err
-				}
-			} else {
-				updateCategory = catSelection
-			}
-		} else {
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewInput().Title("Category").Value(&updateCategory),
-			)).Run(); err != nil {
-				return err
-			}
-		}
-
-		// Difficulty
-		if len(diffs) > 0 {
-			var diffSelection string
-			opts := make([]huh.Option[string], len(diffs)+1)
-			for i, d := range diffs {
-				opts[i] = huh.NewOption(d.Name, d.Name)
-			}
-			opts[len(diffs)] = huh.NewOption("Other (type custom)…", customSentinel)
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewSelect[string]().Title("Difficulty").Options(opts...).Value(&diffSelection),
-			)).Run(); err != nil {
-				return err
-			}
-			if diffSelection == customSentinel {
-				if err := huh.NewForm(huh.NewGroup(
-					huh.NewInput().Title("Custom difficulty").Value(&updateDifficulty),
-				)).Run(); err != nil {
-					return err
-				}
-			} else {
-				updateDifficulty = diffSelection
-			}
-		} else {
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewInput().Title("Difficulty").Value(&updateDifficulty),
-			)).Run(); err != nil {
-				return err
-			}
-		}
-
-		// Points
 		pointsStr := strconv.Itoa(updatePoints)
-		if err := huh.NewForm(huh.NewGroup(
-			huh.NewInput().Title("Points").Value(&pointsStr),
-		)).Run(); err != nil {
+		minPointsStr := strconv.Itoa(updateMinPoints)
+		decayStr := strconv.Itoa(updateDecay)
+		groups := buildChallengeGroups(cats, diffs,
+			&updateTitle, &updateCategory, &updateDifficulty, &updateDescription, &pointsStr,
+			&updateVisible, &minPointsStr, &decayStr)
+
+		if err := huh.NewForm(groups...).Run(); err != nil {
 			return err
 		}
+
 		if p, err := strconv.Atoi(pointsStr); err == nil {
 			updatePoints = p
 		}
-
-		// Description
-		if err := huh.NewForm(huh.NewGroup(
-			huh.NewText().Title("Description (markdown)").Value(&updateDescription),
-		)).Run(); err != nil {
-			return err
+		if mp, err := strconv.Atoi(minPointsStr); err == nil {
+			updateMinPoints = mp
+		}
+		if d, err := strconv.Atoi(decayStr); err == nil {
+			updateDecay = d
 		}
 	}
 
-	ch, err := c.UpdateChallenge(id, updateTitle, updateCategory, updateDifficulty, updateDescription, updatePoints)
+	ch, err := c.UpdateChallenge(id, updateTitle, updateCategory, updateDifficulty, updateDescription, updatePoints, updateVisible, updateMinPoints, updateDecay)
 	if err != nil {
 		return err
 	}
@@ -396,6 +329,63 @@ func runChallengeBrowse(_ *cobra.Command, _ []string) error {
 	return runSubmitLoop(c, id)
 }
 
+func runChallengeExport(_ *cobra.Command, _ []string) error {
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	data, err := c.ExportChallenges()
+	if err != nil {
+		return err
+	}
+	if exportOutput != "" {
+		if err := os.WriteFile(exportOutput, data, 0644); err != nil {
+			return err
+		}
+		if !quietOutput {
+			// Count challenges by parsing the JSON array.
+			var items []json.RawMessage
+			_ = json.Unmarshal(data, &items)
+			fmt.Fprintf(os.Stderr, "Exported %d challenges to %s\n", len(items), exportOutput)
+		}
+		return nil
+	}
+	// Print to stdout (pipeable).
+	_, err = os.Stdout.Write(data)
+	if err != nil {
+		return err
+	}
+	if !quietOutput {
+		var items []json.RawMessage
+		_ = json.Unmarshal(data, &items)
+		fmt.Fprintf(os.Stderr, "Exported %d challenges\n", len(items))
+	}
+	return nil
+}
+
+func runChallengeImport(_ *cobra.Command, args []string) error {
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	var data []byte
+	if args[0] == "-" {
+		data, err = io.ReadAll(os.Stdin)
+	} else {
+		data, err = os.ReadFile(args[0])
+	}
+	if err != nil {
+		return err
+	}
+	if err := c.ImportChallenges(data); err != nil {
+		return err
+	}
+	if !quietOutput {
+		fmt.Fprintln(os.Stdout, "Imported successfully")
+	}
+	return nil
+}
+
 // runSubmitLoop prompts the user to pick a question and submit a flag,
 // looping until they decline. Silently returns if stdin is not a TTY.
 func runSubmitLoop(c *client.Client, challengeID string) error {
@@ -416,6 +406,7 @@ func runSubmitLoop(c *client.Client, challengeID string) error {
 		// Pick a question (skip picker if only one).
 		questionID := questions[0].ID
 		questionName := questions[0].Name
+		questionFlagMask := questions[0].FlagMask
 		questionSolved := questions[0].Solved
 		if len(questions) > 1 {
 			opts := make([]huh.Option[string], len(questions))
@@ -438,6 +429,7 @@ func runSubmitLoop(c *client.Client, challengeID string) error {
 			for _, q := range questions {
 				if q.ID == questionID {
 					questionName = q.Name
+					questionFlagMask = q.FlagMask
 					questionSolved = q.Solved
 					break
 				}
@@ -511,7 +503,7 @@ func runSubmitLoop(c *client.Client, challengeID string) error {
 		if err := huh.NewForm(huh.NewGroup(
 			huh.NewInput().
 				Title(fmt.Sprintf("Flag for %q", questionName)).
-				Placeholder("flag{...}").
+				Placeholder(questionFlagMask).
 				Value(&flag),
 		)).Run(); err != nil {
 			return err
@@ -527,6 +519,10 @@ func runSubmitLoop(c *client.Client, challengeID string) error {
 			fmt.Fprintln(os.Stderr, tui.ErrorStyle.Render(fmt.Sprintf("Submit error: %v", err)))
 		} else if result.Correct {
 			fmt.Fprintln(os.Stdout, tui.SuccessStyle.Render("✓ Correct!"))
+			// Refresh questions so the solved indicator updates on the next loop.
+			if _, refreshed, rerr := c.GetChallengeWithQuestions(challengeID); rerr == nil {
+				questions = refreshed
+			}
 		} else {
 			fmt.Fprintln(os.Stdout, tui.ErrorStyle.Render("✗ Incorrect, try again"))
 		}

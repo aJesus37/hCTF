@@ -12,6 +12,18 @@ type Column struct {
 	Width  int
 }
 
+// Truncate clips s to maxLen runes, appending "…" if it was longer.
+func Truncate(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	if maxLen <= 1 {
+		return "…"
+	}
+	return string(runes[:maxLen-1]) + "…"
+}
+
 // PrintTable writes a lipgloss-styled table to w.
 func PrintTable(w io.Writer, cols []Column, rows [][]string) {
 	// Header

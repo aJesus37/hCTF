@@ -51,9 +51,19 @@ tasks:
       - task: build
 
   test:
-    desc: Run all tests with verbose output
+    desc: Run all tests (unit + integration) with verbose output
     cmds:
-      - go test ./... -v
+      - go test -timeout 120s ./... -v
+
+  test-unit:
+    desc: Run unit tests only (excludes CLI integration tests)
+    cmds:
+      - go test -timeout 30s ./internal/... -v
+
+  test-integration:
+    desc: Run CLI integration tests (builds binary, starts real server)
+    cmds:
+      - go test -timeout 120s -run TestCLI -v .
 
   deps:
     desc: Install dependencies

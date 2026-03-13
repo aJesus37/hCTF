@@ -12,12 +12,14 @@ import (
 
 type Challenge struct {
 	ID             string `json:"id"`
-	Title          string `json:"name"`      // server field is "name"
+	Title          string `json:"name"`           // server field is "name"
 	Category       string `json:"category"`
 	Difficulty     string `json:"difficulty"`
 	InitialPoints  int    `json:"initial_points"` // server field is "initial_points"
 	Description    string `json:"description"`
 	Visible        bool   `json:"visible"`
+	MinimumPoints  int    `json:"minimum_points"`
+	DecayThreshold int    `json:"decay_threshold"`
 }
 
 type Question struct {
@@ -118,10 +120,11 @@ func (c *Client) GetQuestionSolution(questionID string) (string, error) {
 	return out.Flag, nil
 }
 
-func (c *Client) CreateChallenge(title, category, difficulty, description string, points int) (*Challenge, error) {
+func (c *Client) CreateChallenge(title, category, difficulty, description string, points int, visible bool, minPoints, decay int) (*Challenge, error) {
 	body, _ := json.Marshal(map[string]any{
 		"name": title, "category": category, "difficulty": difficulty,
 		"description": description, "initial_points": points,
+		"visible": visible, "minimum_points": minPoints, "decay_threshold": decay,
 	})
 	req, _ := http.NewRequest("POST", c.ServerURL+"/api/admin/challenges", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -133,10 +136,11 @@ func (c *Client) CreateChallenge(title, category, difficulty, description string
 	return &out, decodeJSON(resp, &out)
 }
 
-func (c *Client) UpdateChallenge(id, title, category, difficulty, description string, points int) (*Challenge, error) {
+func (c *Client) UpdateChallenge(id, title, category, difficulty, description string, points int, visible bool, minPoints, decay int) (*Challenge, error) {
 	body, _ := json.Marshal(map[string]any{
 		"name": title, "category": category, "difficulty": difficulty,
 		"description": description, "initial_points": points,
+		"visible": visible, "minimum_points": minPoints, "decay_threshold": decay,
 	})
 	req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/admin/challenges/%s", c.ServerURL, id), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -151,13 +155,43 @@ func (c *Client) UpdateChallenge(id, title, category, difficulty, description st
 	// Server returns plain text "Challenge updated" on success; synthesise a
 	// minimal Challenge with the supplied values so callers can display them.
 	return &Challenge{
-		ID:            id,
-		Title:         title,
-		Category:      category,
-		Difficulty:    difficulty,
-		Description:   description,
-		InitialPoints: points,
+		ID:             id,
+		Title:          title,
+		Category:       category,
+		Difficulty:     difficulty,
+		Description:    description,
+		InitialPoints:  points,
+		Visible:        visible,
+		MinimumPoints:  minPoints,
+		DecayThreshold: decay,
 	}, nil
+}
+
+func (c *Client) ExportChallenges() ([]byte, error) {
+	req, _ := http.NewRequest("GET", c.ServerURL+"/api/admin/export", nil)
+	resp, err := c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+func (c *Client) ImportChallenges(data []byte) error {
+	req, _ := http.NewRequest("POST", c.ServerURL+"/api/admin/import", bytes.NewReader(data))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func (c *Client) DeleteChallenge(id string) error {
