@@ -1289,18 +1289,19 @@ func (db *DB) GetNextHintOrder(questionID string) (int, error) {
 
 // Profile queries
 type UserStats struct {
-	UserID          string
-	Name            string
-	Email           string
-	AvatarURL       *string
-	TeamID          *string
-	TeamName        *string
-	CreatedAt       time.Time
-	TotalPoints     int
-	SolvedCount     int
-	TotalSubmissions int
-	HintsCost       int
-	HintsUnlocked   int
+	UserID           string    `json:"user_id"`
+	Name             string    `json:"name"`
+	Email            string    `json:"email,omitempty"`
+	AvatarURL        *string   `json:"avatar_url,omitempty"`
+	TeamID           *string   `json:"team_id,omitempty"`
+	TeamName         *string   `json:"team_name,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+	Rank             int       `json:"rank"`
+	TotalPoints      int       `json:"total_points"`
+	SolvedCount      int       `json:"solved_count"`
+	TotalSubmissions int       `json:"total_submissions"`
+	HintsCost        int       `json:"hints_cost"`
+	HintsUnlocked    int       `json:"hints_unlocked"`
 }
 
 func (db *DB) GetUserStats(userID string) (*UserStats, error) {
@@ -1355,6 +1356,29 @@ func (db *DB) GetUserStats(userID string) (*UserStats, error) {
 	if teamName.Valid {
 		stats.TeamName = &teamName.String
 	}
+
+	// Compute rank: number of users with strictly more points, plus 1.
+	// Uses the same points formula (correct submissions minus hint costs) as GetScoreboard.
+	rankQuery := `
+		SELECT COUNT(*) + 1
+		FROM (
+			SELECT
+				u2.id,
+				COALESCE(SUM(q2.points), 0) - COALESCE(hc2.total_cost, 0) as pts
+			FROM users u2
+			LEFT JOIN submissions s2 ON u2.id = s2.user_id AND s2.is_correct = 1
+			LEFT JOIN questions q2 ON s2.question_id = q2.id
+			LEFT JOIN (
+				SELECT hu2.user_id, SUM(h2.cost) as total_cost
+				FROM hint_unlocks hu2
+				JOIN hints h2 ON hu2.hint_id = h2.id
+				GROUP BY hu2.user_id
+			) hc2 ON u2.id = hc2.user_id
+			GROUP BY u2.id
+		) scores
+		WHERE scores.pts > ?
+	`
+	_ = db.QueryRow(rankQuery, stats.TotalPoints).Scan(&stats.Rank)
 
 	return &stats, nil
 }
@@ -2657,15 +2681,15 @@ func (db *DB) GetCompetitionScoreEvolution(compID int64) ([]ScoreEvolutionSeries
 
 // CompetitionSubmission represents a single submission event for the live feed.
 type CompetitionSubmission struct {
-	ChallengeID   string
-	QuestionID    string
-	TeamName      string
-	UserName      string
-	ChallengeName string
-	QuestionName  string
-	IsCorrect     bool
-	SubmittedFlag string // only populated for admin view
-	SubmittedAt   time.Time
+	ChallengeID   string    `json:"challenge_id"`
+	QuestionID    string    `json:"question_id"`
+	TeamName      string    `json:"team_name"`
+	UserName      string    `json:"user_name"`
+	ChallengeName string    `json:"challenge_name"`
+	QuestionName  string    `json:"question_name"`
+	IsCorrect     bool      `json:"is_correct"`
+	SubmittedFlag string    `json:"submitted_flag,omitempty"` // only populated for admin view
+	SubmittedAt   time.Time `json:"submitted_at"`
 }
 
 // GetCompetitionRecentSubmissions returns the latest submissions for a competition.

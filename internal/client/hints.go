@@ -28,6 +28,38 @@ func (c *Client) GetHints(questionID string) ([]Hint, error) {
 	return out, decodeJSON(resp, &out)
 }
 
+// GetHint returns a hint by ID (admin only).
+func (c *Client) GetHint(id string) (*Hint, error) {
+	req, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/admin/hints/%s", c.ServerURL, id), nil)
+	req.Header.Set("Accept", "application/json")
+	resp, err := c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	var out Hint
+	return &out, decodeJSON(resp, &out)
+}
+
+// UpdateHint updates an existing hint (admin only).
+func (c *Client) UpdateHint(id, content string, cost, order int) error {
+	body, _ := json.Marshal(map[string]any{
+		"content": content,
+		"cost":    cost,
+		"order":   order,
+	})
+	req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/admin/hints/%s", c.ServerURL, id), bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	return nil
+}
+
 // CreateHint creates a new hint for a question (admin only).
 func (c *Client) CreateHint(questionID, content string, cost int) (*Hint, error) {
 	body, _ := json.Marshal(map[string]any{

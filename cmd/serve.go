@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -465,9 +466,11 @@ func runServe(_ *cobra.Command, _ []string) error {
 		r.Post("/api/admin/challenges/{id}/files/batch", s.ChallengeFileH.BatchUpload)
 		r.Delete("/api/admin/challenge-files/{file_id}", s.ChallengeFileH.DeleteFile)
 		r.Post("/api/admin/questions", s.ChallengeH.CreateQuestion)
+		r.Get("/api/admin/questions/{id}", s.ChallengeH.GetQuestion)
 		r.Put("/api/admin/questions/{id}", s.ChallengeH.UpdateQuestion)
 		r.Delete("/api/admin/questions/{id}", s.ChallengeH.DeleteQuestion)
 		r.Post("/api/admin/hints", s.ChallengeH.CreateHint)
+		r.Get("/api/admin/hints/{id}", s.ChallengeH.GetHint)
 		r.Put("/api/admin/hints/{id}", s.ChallengeH.UpdateHint)
 		r.Delete("/api/admin/hints/{id}", s.ChallengeH.DeleteHint)
 		r.Post("/api/admin/categories", s.SettingsH.CreateCategory)
@@ -514,6 +517,8 @@ func runServe(_ *cobra.Command, _ []string) error {
 	r.Get("/api/competitions/{id}/scoreboard/evolution", s.CompetitionH.GetCompetitionScoreEvolution)
 	r.Get("/api/competitions/submissions", s.CompetitionH.GetGlobalSubmissionFeed)
 	r.Get("/api/competitions/{id}/submissions", s.CompetitionH.GetSubmissionFeed)
+	r.Get("/api/users/me/profile", s.HandleAPIUserProfile)
+	r.Get("/api/users/{id}/profile", s.HandleAPIUserProfile)
 
 	r.NotFound(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.RenderError(w, 404, "Page Not Found", "The page you're looking for doesn't exist.")
@@ -1367,6 +1372,41 @@ func (s *Server) HandleUserProfile(w http.ResponseWriter, r *http.Request) {
 		"CustomCode":        customCode,
 	}
 	s.Render(w, "base.html", data)
+}
+
+// HandleAPIUserProfile godoc
+// @Summary Get user profile stats as JSON
+// @Tags Users
+// @Security CookieAuth
+// @Param id path string true "User ID (or 'me' for current user)"
+// @Success 200 {object} database.UserStats
+// @Failure 401 {object} object{error=string}
+// @Failure 404 {object} object{error=string}
+// @Router /api/users/{id}/profile [get]
+func (s *Server) HandleAPIUserProfile(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetUserFromContext(r.Context())
+	idParam := chi.URLParam(r, "id")
+	var userID string
+	if idParam == "" || idParam == "me" {
+		if claims == nil {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+		userID = claims.UserID
+	} else {
+		userID = idParam
+	}
+	stats, err := s.DB.GetUserStats(userID)
+	if err != nil {
+		http.Error(w, `{"error":"not found"}`, http.StatusNotFound)
+		return
+	}
+	// Hide email for non-owners and non-admins
+	if claims == nil || (claims.UserID != userID && !claims.IsAdmin) {
+		stats.Email = ""
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
 }
 
 func (s *Server) HandleTeamProfile(w http.ResponseWriter, r *http.Request) {

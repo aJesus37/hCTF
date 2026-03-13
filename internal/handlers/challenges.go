@@ -928,6 +928,26 @@ func (h *ChallengeHandler) DeleteQuestion(w http.ResponseWriter, r *http.Request
 	w.Write([]byte(""))
 }
 
+// GetQuestion godoc
+// @Summary Get a question by ID (admin only)
+// @Tags Admin
+// @Produce json
+// @Security CookieAuth
+// @Param id path string true "Question ID"
+// @Success 200 {object} models.Question
+// @Failure 404 {object} object{error=string}
+// @Router /admin/questions/{id} [get]
+func (h *ChallengeHandler) GetQuestion(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	q, err := h.db.GetQuestionByID(id)
+	if err != nil {
+		http.Error(w, "Question not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(q)
+}
+
 // Hint handlers
 
 type CreateHintRequest struct {
@@ -1144,6 +1164,26 @@ func (h *ChallengeHandler) DeleteHint(w http.ResponseWriter, r *http.Request) {
 	// For HTMX, return empty response (element will be removed by hx-swap)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(""))
+}
+
+// GetHint godoc
+// @Summary Get a hint by ID (admin only)
+// @Tags Admin
+// @Produce json
+// @Security CookieAuth
+// @Param id path string true "Hint ID"
+// @Success 200 {object} models.Hint
+// @Failure 404 {object} object{error=string}
+// @Router /admin/hints/{id} [get]
+func (h *ChallengeHandler) GetHint(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	hint, err := h.db.GetHintByID(id)
+	if err != nil {
+		http.Error(w, "Hint not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(hint)
 }
 
 // GetChallengesDropdown godoc
