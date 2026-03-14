@@ -24,11 +24,12 @@ type Challenge struct {
 }
 
 type Question struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	FlagMask string `json:"flag_mask"`
-	Points   int    `json:"points"`
-	Solved   bool   `json:"solved"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	FlagMask  string `json:"flag_mask"`
+	Points    int    `json:"points"`
+	Solved    bool   `json:"solved"`
+	HintCount int    `json:"hint_count"`
 }
 
 type SubmitResult struct {
