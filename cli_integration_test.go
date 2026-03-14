@@ -1755,3 +1755,250 @@ func TestCLIHintUpdateMissingArg(t *testing.T) {
 		t.Fatal("expected error for missing arg")
 	}
 }
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+func createTestCompetition(t *testing.T, name string) string {
+	t.Helper()
+	out, stderr, code := runCLI(t, "competition", "create", name, "--quiet")
+	if code != 0 {
+		t.Fatalf("createTestCompetition: code=%d stderr=%s", code, stderr)
+	}
+	return strings.TrimSpace(out)
+}
+
+func runCLIWithErrorAndNoAuth(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	tmpCfg, err := os.CreateTemp("", "hctf2-noauth-*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpCfg.Name())
+	fmt.Fprintf(tmpCfg, "server: %s\n", cliServer)
+	tmpCfg.Close()
+
+	cmd := exec.Command(cliBinary, args...)
+	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg.Name())
+	var outBuf, errBuf strings.Builder
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	rerr := cmd.Run()
+	combined := outBuf.String() + errBuf.String()
+	if rerr != nil {
+		return combined, rerr
+	}
+	return combined, nil
+}
+
+// ── Task 5: competition update / teams / blackout / scoreboard ────────────────
+
+func TestCLICompetitionUpdate(t *testing.T) {
+	compID := createTestCompetition(t, "UpdateComp")
+	out, stderr, code := runCLI(t, "competition", "update", compID,
+		"--name", "UpdatedComp", "--description", "new desc")
+	assertSuccess(t, out, stderr, code)
+	if !strings.Contains(out, "Updated") {
+		t.Fatalf("expected 'Updated', got: %s", out)
+	}
+}
+
+func TestCLICompetitionUpdateMissingArg(t *testing.T) {
+	_, _, code := runCLI(t, "competition", "update")
+	if code == 0 {
+		t.Fatal("expected error")
+	}
+}
+
+func TestCLICompetitionTeams(t *testing.T) {
+	compID := createTestCompetition(t, "TeamsComp")
+	_, stderr, code := runCLI(t, "competition", "teams", compID)
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+}
+
+func TestCLICompetitionTeamsJSON(t *testing.T) {
+	compID := createTestCompetition(t, "TeamsJSONComp")
+	out, stderr, code := runCLI(t, "competition", "teams", "--json", compID)
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal([]byte(out), &items); err != nil {
+		t.Fatalf("expected JSON array, got: %s err: %v", out, err)
+	}
+}
+
+func TestCLICompetitionBlackout(t *testing.T) {
+	compID := createTestCompetition(t, "BlackoutComp")
+	out, stderr, code := runCLI(t, "competition", "blackout", compID)
+	if code != 0 {
+		t.Fatalf("blackout failed code=%d stderr=%s", code, stderr)
+	}
+	if !strings.Contains(strings.ToLower(out), "blackout") {
+		t.Fatalf("expected blackout confirmation, got: %s", out)
+	}
+	out2, stderr2, code2 := runCLI(t, "competition", "unblackout", compID)
+	if code2 != 0 {
+		t.Fatalf("unblackout failed code=%d stderr=%s", code2, stderr2)
+	}
+	if !strings.Contains(strings.ToLower(out2), "blackout") {
+		t.Fatalf("expected blackout confirmation, got: %s", out2)
+	}
+}
+
+func TestCLICompetitionScoreboard(t *testing.T) {
+	compID := createTestCompetition(t, "SBComp")
+	_, stderr, code := runCLI(t, "competition", "scoreboard", compID)
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+}
+
+func TestCLICompetitionScoreboardJSON(t *testing.T) {
+	compID := createTestCompetition(t, "SBJSONComp")
+	out, stderr, code := runCLI(t, "competition", "scoreboard", "--json", compID)
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal([]byte(out), &items); err != nil {
+		t.Fatalf("expected JSON array, got: %s err: %v", out, err)
+	}
+}
+
+// ── Task 6: scoreboard freeze / unfreeze ─────────────────────────────────────
+
+func TestCLIScoreboardFreeze(t *testing.T) {
+	out, stderr, code := runCLI(t, "scoreboard", "freeze")
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+	if !strings.Contains(strings.ToLower(out), "frozen") && !strings.Contains(strings.ToLower(out), "freeze") {
+		t.Fatalf("expected freeze confirmation, got: %s", out)
+	}
+	// cleanup
+	runCLI(t, "scoreboard", "unfreeze")
+}
+
+func TestCLIScoreboardUnfreeze(t *testing.T) {
+	runCLI(t, "scoreboard", "freeze")
+	out, stderr, code := runCLI(t, "scoreboard", "unfreeze")
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+	if !strings.Contains(strings.ToLower(out), "frozen") && !strings.Contains(strings.ToLower(out), "unfreeze") {
+		t.Fatalf("expected unfreeze confirmation, got: %s", out)
+	}
+}
+
+// ── Task 7: submissions feed ─────────────────────────────────────────────────
+
+func TestCLISubmissions(t *testing.T) {
+	chID := createTestChallenge(t, "SubFeedCh")
+	qID := createTestQuestion(t, chID, "SubQ", "flag{sub_test}", 100)
+	// submit the correct flag
+	runCLI(t, "flag", "submit", qID, "flag{sub_test}")
+
+	out, stderr, code := runCLI(t, "submissions")
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+	if !strings.Contains(out, "SubFeedCh") && !strings.Contains(out, "SubQ") {
+		t.Fatalf("expected submission in feed, got: %s", out)
+	}
+}
+
+func TestCLISubmissionsJSON(t *testing.T) {
+	out, stderr, code := runCLI(t, "submissions", "--json")
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal([]byte(out), &items); err != nil {
+		t.Fatalf("expected JSON array, got: %s err: %v", out, err)
+	}
+}
+
+func TestCLISubmissionsCompetitionFilter(t *testing.T) {
+	compID := createTestCompetition(t, "SubCompFilter")
+	_, stderr, code := runCLI(t, "submissions", "--competition", compID)
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+}
+
+func TestCLISubmissionsCompetitionFilterJSON(t *testing.T) {
+	compID := createTestCompetition(t, "SubCompFilterJSON")
+	out, stderr, code := runCLI(t, "submissions", "--competition", compID, "--json")
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal([]byte(out), &items); err != nil {
+		t.Fatalf("expected JSON array, got: %s err: %v", out, err)
+	}
+}
+
+// ── Task 8: user profile ──────────────────────────────────────────────────────
+
+func TestCLIUserProfile(t *testing.T) {
+	out, stderr, code := runCLI(t, "user", "profile")
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+	if !strings.Contains(out, "Admin") {
+		t.Fatalf("expected admin name in profile, got: %s", out)
+	}
+	if !strings.Contains(strings.ToLower(out), "rank") {
+		t.Fatalf("expected 'rank' in output, got: %s", out)
+	}
+}
+
+func TestCLIUserProfileJSON(t *testing.T) {
+	out, stderr, code := runCLI(t, "user", "profile", "--json")
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+	var m map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &m); err != nil {
+		t.Fatalf("expected JSON object, got: %s err: %v", out, err)
+	}
+	if _, ok := m["name"]; !ok {
+		t.Fatalf("expected 'name' field in JSON, got keys: %v", m)
+	}
+}
+
+func TestCLIUserProfileByID(t *testing.T) {
+	// Get admin user ID from user list
+	var users []struct {
+		ID    string `json:"id"`
+		Email string `json:"email"`
+	}
+	runCLIJSON(t, &users, "user", "list", "--json")
+	var adminID string
+	for _, u := range users {
+		if u.Email == adminEmail {
+			adminID = u.ID
+			break
+		}
+	}
+	if adminID == "" {
+		t.Skip("could not find admin user ID")
+	}
+
+	out, stderr, code := runCLI(t, "user", "profile", adminID)
+	if code != 0 {
+		t.Fatalf("expected success, got code=%d stderr=%s", code, stderr)
+	}
+	if !strings.Contains(out, "Admin") {
+		t.Fatalf("expected name in profile by ID, got: %s", out)
+	}
+}
+
+func TestCLIUserProfileMissingAuth(t *testing.T) {
+	_, err := runCLIWithErrorAndNoAuth(t, "user", "profile")
+	if err == nil {
+		t.Fatal("expected error without auth")
+	}
+}
