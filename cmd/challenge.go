@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/ajesus37/hCTF2/internal/client"
 	"github.com/ajesus37/hCTF2/internal/tui"
@@ -13,6 +15,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	"gopkg.in/yaml.v3"
 )
 
 var challengeCmd = &cobra.Command{Use: "challenge", Short: "Manage and browse challenges", Aliases: []string{"ch"}}
@@ -21,10 +24,11 @@ var challengeGetCmd = &cobra.Command{Use: "get <id>", Short: "Show challenge det
 var challengeCreateCmd = &cobra.Command{Use: "create", Short: "Create a challenge (admin)", RunE: runChallengeCreate}
 var challengeDeleteCmd = &cobra.Command{Use: "delete <id>", Short: "Delete a challenge (admin)", Args: cobra.ExactArgs(1), RunE: runChallengeDelete}
 var challengeUpdateCmd = &cobra.Command{Use: "update <id>", Short: "Update a challenge (admin)", Args: cobra.ExactArgs(1), RunE: runChallengeUpdate}
-var challengeExportCmd = &cobra.Command{Use: "export", Short: "Export all challenges to JSON (admin)", RunE: runChallengeExport}
-var challengeImportCmd = &cobra.Command{Use: "import <file.json>", Short: "Import challenges from JSON file (admin)", Args: cobra.ExactArgs(1), RunE: runChallengeImport}
+var challengeExportCmd = &cobra.Command{Use: "export", Short: "Export all challenges to JSON or YAML (admin)", RunE: runChallengeExport}
+var challengeImportCmd = &cobra.Command{Use: "import <file>", Short: "Import challenges from JSON or YAML file (admin)", Args: cobra.ExactArgs(1), RunE: runChallengeImport}
 
 var exportOutput string
+var exportFormat string
 
 var (
 	createTitle       string
@@ -49,7 +53,8 @@ var (
 func init() {
 	rootCmd.AddCommand(challengeCmd)
 	challengeCmd.AddCommand(challengeListCmd, challengeGetCmd, challengeCreateCmd, challengeDeleteCmd, challengeBrowseCmd, challengeUpdateCmd, challengeExportCmd, challengeImportCmd)
-	challengeExportCmd.Flags().StringVar(&exportOutput, "output", "", "Write JSON to file instead of stdout")
+	challengeExportCmd.Flags().StringVar(&exportOutput, "output", "", "Write to file instead of stdout")
+	challengeExportCmd.Flags().StringVar(&exportFormat, "format", "json", "Output format: json or yaml")
 	challengeCreateCmd.Flags().StringVar(&createTitle, "title", "", "Challenge title")
 	challengeCreateCmd.Flags().StringVar(&createCategory, "category", "", "Category")
 	challengeCreateCmd.Flags().StringVar(&createDifficulty, "difficulty", "", "Difficulty")
@@ -342,20 +347,46 @@ func runChallengeExport(_ *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	data, err := c.ExportChallenges()
+	jsonData, err := c.ExportChallenges()
 	if err != nil {
 		return err
 	}
+
+	// Determine output format: flag takes precedence; fall back to file extension.
+	format := strings.ToLower(exportFormat)
+	if exportOutput != "" && format == "json" {
+		ext := strings.ToLower(filepath.Ext(exportOutput))
+		if ext == ".yaml" || ext == ".yml" {
+			format = "yaml"
+		}
+	}
+
+	// Convert to YAML if requested.
+	var out []byte
+	if format == "yaml" {
+		var v any
+		if err := json.Unmarshal(jsonData, &v); err != nil {
+			return err
+		}
+		out, err = yaml.Marshal(v)
+		if err != nil {
+			return err
+		}
+	} else {
+		out = jsonData
+	}
+
 	// Count challenges in the export bundle.
 	countExported := func() int {
 		var bundle struct {
 			Challenges []json.RawMessage `json:"challenges"`
 		}
-		_ = json.Unmarshal(data, &bundle)
+		_ = json.Unmarshal(jsonData, &bundle)
 		return len(bundle.Challenges)
 	}
+
 	if exportOutput != "" {
-		if err := os.WriteFile(exportOutput, data, 0644); err != nil {
+		if err := os.WriteFile(exportOutput, out, 0644); err != nil {
 			return err
 		}
 		if !quietOutput {
@@ -364,8 +395,7 @@ func runChallengeExport(_ *cobra.Command, _ []string) error {
 		return nil
 	}
 	// Print to stdout (pipeable).
-	_, err = os.Stdout.Write(data)
-	if err != nil {
+	if _, err = os.Stdout.Write(out); err != nil {
 		return err
 	}
 	if !quietOutput {
@@ -379,15 +409,30 @@ func runChallengeImport(_ *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	var data []byte
+	var raw []byte
 	if args[0] == "-" {
-		data, err = io.ReadAll(os.Stdin)
+		raw, err = io.ReadAll(os.Stdin)
 	} else {
-		data, err = os.ReadFile(args[0])
+		raw, err = os.ReadFile(args[0])
 	}
 	if err != nil {
 		return err
 	}
+
+	// Auto-detect YAML by file extension and convert to JSON for the API.
+	data := raw
+	ext := strings.ToLower(filepath.Ext(args[0]))
+	if ext == ".yaml" || ext == ".yml" {
+		var v any
+		if err := yaml.Unmarshal(raw, &v); err != nil {
+			return fmt.Errorf("invalid YAML: %w", err)
+		}
+		data, err = json.Marshal(v)
+		if err != nil {
+			return err
+		}
+	}
+
 	if err := c.ImportChallenges(data); err != nil {
 		return err
 	}
