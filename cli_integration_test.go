@@ -2073,3 +2073,30 @@ func TestCLISubmissionsInvalidCompetition(t *testing.T) {
 		t.Fatal("expected error for invalid competition ID")
 	}
 }
+
+func TestCLIChallengeGetHintCount(t *testing.T) {
+	chID := createTestChallenge(t, "HintCountCh")
+	qID := createTestQuestion(t, chID, "HintCountQ", "flag{hc}", 100)
+	createTestHint(t, qID, "hint one", 0)
+	createTestHint(t, qID, "hint two", 10)
+
+	resp, err := http.Get(cliServer + "/api/challenges/" + chID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var env struct {
+		Questions []struct {
+			HintCount int `json:"hint_count"`
+		} `json:"questions"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+		t.Fatal(err)
+	}
+	if len(env.Questions) == 0 {
+		t.Fatal("no questions")
+	}
+	if env.Questions[0].HintCount != 2 {
+		t.Fatalf("expected hint_count=2, got %d", env.Questions[0].HintCount)
+	}
+}

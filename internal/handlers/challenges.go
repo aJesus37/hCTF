@@ -79,7 +79,8 @@ func (h *ChallengeHandler) GetChallenge(w http.ResponseWriter, r *http.Request) 
 	claims := auth.GetUserFromContext(r.Context())
 	type questionWithSolved struct {
 		*models.Question
-		Solved bool `json:"solved"`
+		Solved    bool `json:"solved"`
+		HintCount int  `json:"hint_count"`
 	}
 	questionsOut := make([]questionWithSolved, len(questions))
 	for i := range questions {
@@ -90,7 +91,8 @@ func (h *ChallengeHandler) GetChallenge(w http.ResponseWriter, r *http.Request) 
 		if claims != nil {
 			solved, _ = h.db.HasUserSolved(questions[i].ID, claims.UserID)
 		}
-		questionsOut[i] = questionWithSolved{Question: &questions[i], Solved: solved}
+		hints, _ := h.db.GetHintsByQuestionID(questions[i].ID)
+		questionsOut[i] = questionWithSolved{Question: &questions[i], Solved: solved, HintCount: len(hints)}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1012,6 +1014,13 @@ func (h *ChallengeHandler) CreateHint(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(`<div class="text-red-400">Missing required fields</div>`))
 		}
 		return
+	}
+
+	// Auto-assign order when not specified (order == 0 means "next available").
+	if req.Order == 0 {
+		if next, err := h.db.GetNextHintOrder(req.QuestionID); err == nil {
+			req.Order = next
+		}
 	}
 
 	// Check if hint with this order already exists for this question
