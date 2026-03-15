@@ -488,6 +488,8 @@ func runServe(_ *cobra.Command, _ []string) error {
 		r.Post("/api/admin/settings/admin-visibility", s.SettingsH.SetAdminVisibility)
 		r.Get("/api/admin/export", s.ImportExportH.ExportChallenges)
 		r.Post("/api/admin/import", s.ImportExportH.ImportChallenges)
+		r.Get("/api/admin/config/export", s.ImportExportH.ExportConfig)
+		r.Post("/api/admin/config/import", s.ImportExportH.ImportConfig)
 		r.Post("/api/admin/scoreboard/force-record", s.ScoreboardH.ForceScoreRecord)
 		r.Post("/api/admin/competitions", s.CompetitionH.CreateCompetition)
 		r.Put("/api/admin/competitions/{id}", s.CompetitionH.UpdateCompetition)
