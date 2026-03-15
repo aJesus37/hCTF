@@ -9,8 +9,11 @@ package main
 // config.  The suite is self-contained; no mock servers needed.
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"os"
@@ -2064,6 +2067,79 @@ func TestCLIChallengeImportBadFile(t *testing.T) {
 	_, _, code := runCLI(t, "challenge", "import", "/nonexistent/path.json")
 	if code == 0 {
 		t.Fatal("expected error for missing file")
+	}
+}
+
+func TestCLIConfigExportImport(t *testing.T) {
+	// Setup: create category, difficulty, challenge, competition
+	chID := createTestChallenge(t, "ConfigExportCh")
+	createTestQuestion(t, chID, "ConfigQ", "flag{cfg}", 100)
+
+	// Export config via API (authenticated)
+	token := adminToken(t)
+	exportReq, _ := http.NewRequest("GET", cliServer+"/api/admin/config/export", nil)
+	exportReq.AddCookie(&http.Cookie{Name: "auth_token", Value: token})
+	resp, err := http.DefaultClient.Do(exportReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("export status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var bundle struct {
+		Version    int `json:"version"`
+		Challenges []struct {
+			Name string `json:"name"`
+		} `json:"challenges"`
+		Competitions []struct {
+			Name string `json:"name"`
+		} `json:"competitions"`
+		SiteSettings map[string]string `json:"site_settings"`
+	}
+	if err := json.Unmarshal(body, &bundle); err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Version != 2 {
+		t.Fatalf("expected version=2, got %d", bundle.Version)
+	}
+	found := false
+	for _, ch := range bundle.Challenges {
+		if ch.Name == "ConfigExportCh" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("challenge not found in config export")
+	}
+	if bundle.SiteSettings == nil {
+		t.Fatal("site_settings missing from config export")
+	}
+
+	// Import via API (round-trip, authenticated)
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, _ := mw.CreateFormFile("file", "config.json")
+	fw.Write(body)
+	mw.Close()
+	importReq, _ := http.NewRequest("POST", cliServer+"/api/admin/config/import", &buf)
+	importReq.Header.Set("Content-Type", mw.FormDataContentType())
+	importReq.AddCookie(&http.Cookie{Name: "auth_token", Value: token})
+	resp2, err := http.DefaultClient.Do(importReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp2.Body.Close()
+	if resp2.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp2.Body)
+		t.Fatalf("import status %d: %s", resp2.StatusCode, b)
 	}
 }
 

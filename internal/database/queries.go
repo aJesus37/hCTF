@@ -2846,3 +2846,170 @@ func (db *DB) TickCompetitionLifecycle() {
 	// running → ended when end_at arrives; auto-freeze
 	db.Exec(`UPDATE competitions SET status='ended', scoreboard_frozen=1, updated_at=datetime('now') WHERE status='running' AND end_at IS NOT NULL AND end_at <= ?`, now) //nolint:errcheck
 }
+
+// configSettingsKeys are the site_settings keys included in a config backup.
+// Operational keys (freeze_enabled, freeze_at, admin_visible_in_scoreboard) are excluded.
+var configSettingsKeys = []string{
+	"custom_head_html",
+	"custom_body_end_html",
+	"custom_code_pages",
+	"motd",
+}
+
+// ExportConfig builds a full platform configuration backup.
+func (db *DB) ExportConfig() (*models.ConfigBundle, error) {
+	bundle := &models.ConfigBundle{
+		Version:      2,
+		ExportedAt:   time.Now(),
+		SiteSettings: make(map[string]string),
+	}
+
+	// Categories with sort order
+	cats, _ := db.GetAllCategories()
+	for _, c := range cats {
+		bundle.Categories = append(bundle.Categories, models.ExportCategory{
+			Name:      c.Name,
+			SortOrder: c.SortOrder,
+		})
+	}
+
+	// Difficulties with sort order
+	diffs, _ := db.GetAllDifficulties()
+	for _, d := range diffs {
+		bundle.Difficulties = append(bundle.Difficulties, models.ExportDifficulty{
+			Name:      d.Name,
+			SortOrder: d.SortOrder,
+		})
+	}
+
+	// Challenges (reuse existing export logic)
+	base, err := db.ExportBundle()
+	if err != nil {
+		return nil, err
+	}
+	bundle.Challenges = base.Challenges
+
+	// Competitions (structure only)
+	comps, err := db.ListCompetitions()
+	if err != nil {
+		return nil, err
+	}
+	for _, comp := range comps {
+		ec := models.ExportCompetition{
+			Name:              comp.Name,
+			Description:       comp.Description,
+			RulesHTML:         comp.RulesHTML,
+			StartAt:           comp.StartAt,
+			EndAt:             comp.EndAt,
+			RegistrationStart: comp.RegistrationStart,
+			RegistrationEnd:   comp.RegistrationEnd,
+			FreezeAt:          comp.FreezeAt,
+		}
+		// Linked challenge names
+		rows, err := db.Query(`
+			SELECT c.name FROM challenges c
+			JOIN competition_challenges cc ON cc.challenge_id = c.id
+			WHERE cc.competition_id = ?`, comp.ID)
+		if err == nil {
+			for rows.Next() {
+				var name string
+				if rows.Scan(&name) == nil {
+					ec.ChallengeNames = append(ec.ChallengeNames, name)
+				}
+			}
+			rows.Close()
+		}
+		bundle.Competitions = append(bundle.Competitions, ec)
+	}
+
+	// Site settings (customization keys only)
+	for _, key := range configSettingsKeys {
+		val, _ := db.GetSetting(key)
+		bundle.SiteSettings[key] = val
+	}
+
+	return bundle, nil
+}
+
+// ImportConfig restores a platform configuration from a ConfigBundle.
+// Challenges are upserted (renamed on conflict). Competitions are created if
+// they don't exist by name. Site settings are applied directly.
+func (db *DB) ImportConfig(bundle *models.ConfigBundle) (*models.ConfigImportResult, error) {
+	result := &models.ConfigImportResult{}
+
+	// Build category/difficulty name lists for ImportBundle.
+	catNames := make([]string, len(bundle.Categories))
+	for i, c := range bundle.Categories {
+		catNames[i] = c.Name
+	}
+	diffNames := make([]string, len(bundle.Difficulties))
+	for i, d := range bundle.Difficulties {
+		diffNames[i] = d.Name
+	}
+
+	// Import challenges (reuse existing logic).
+	ir, err := db.ImportBundle(catNames, diffNames, bundle.Challenges)
+	if err != nil {
+		return nil, err
+	}
+	result.ChallengesImported = ir.Imported
+	result.Renamed = ir.Renamed
+	result.Errors = ir.Errors
+
+	// Import competitions.
+	for _, ec := range bundle.Competitions {
+		// Skip if competition with same name already exists.
+		var existingID int64
+		err := db.QueryRow(`SELECT id FROM competitions WHERE name = ?`, ec.Name).Scan(&existingID)
+		if err == nil {
+			continue // already exists
+		}
+		_, err = db.Exec(`
+			INSERT INTO competitions (name, description, rules_html, start_at, end_at,
+			  registration_start, registration_end, freeze_at, status)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft')`,
+			ec.Name, ec.Description, ec.RulesHTML,
+			ec.StartAt, ec.EndAt, ec.RegistrationStart, ec.RegistrationEnd, ec.FreezeAt,
+		)
+		if err != nil {
+			result.Errors = append(result.Errors, "competition "+ec.Name+": "+err.Error())
+			continue
+		}
+		var compID int64
+		if err := db.QueryRow(`SELECT id FROM competitions WHERE name = ?`, ec.Name).Scan(&compID); err != nil {
+			result.Errors = append(result.Errors, "failed to retrieve competition '"+ec.Name+"' after creation: "+err.Error())
+			continue
+		}
+		result.CompetitionsCreated++
+
+		// Link challenges by name.
+		for _, chName := range ec.ChallengeNames {
+			var chID string
+			if err := db.QueryRow(`SELECT id FROM challenges WHERE name = ?`, chName).Scan(&chID); err != nil {
+				continue // challenge not found — skip silently
+			}
+			if _, err := db.Exec(`INSERT OR IGNORE INTO competition_challenges (competition_id, challenge_id) VALUES (?, ?)`, compID, chID); err != nil {
+				result.Errors = append(result.Errors, fmt.Sprintf("failed to link '%s' to competition '%s': %v", chName, ec.Name, err))
+			}
+		}
+	}
+
+	// Apply site settings.
+	for key, val := range bundle.SiteSettings {
+		// Only apply known customization keys (safety guard).
+		allowed := false
+		for _, k := range configSettingsKeys {
+			if k == key {
+				allowed = true
+				break
+			}
+		}
+		if allowed {
+			if err := db.SetSetting(key, val); err != nil {
+				result.Errors = append(result.Errors, "failed to apply setting "+key+": "+err.Error())
+			}
+		}
+	}
+
+	return result, nil
+}
