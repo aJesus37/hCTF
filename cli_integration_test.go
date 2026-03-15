@@ -2129,7 +2129,7 @@ func TestCLIConfigExportImport(t *testing.T) {
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	fw, _ := mw.CreateFormFile("file", "config.json")
-	fw.Write(body)
+	_, _ = fw.Write(body)
 	mw.Close()
 	importReq, _ := http.NewRequest("POST", cliServer+"/api/admin/config/import", &buf)
 	importReq.Header.Set("Content-Type", mw.FormDataContentType())
