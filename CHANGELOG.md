@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-03-15
+
+### Added
+- Admin dashboard Questions list now shows Challenge name instead of Challenge ID for each question
+- Admin dashboard Hints list now shows which Challenge → Question each hint belongs to, both in view and edit mode
+
 ## [0.8.4] - 2026-03-15
 
 ### Fixed
