@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-03-15
+
+### Changed
+- `docker-compose.yml` now uses the pre-built `ghcr.io/ajesus37/hctf2:latest` image instead of building from source; `docker compose up -d` works out of the box without requiring Go or a local build
+
 ## [0.8.4] - 2026-03-15
 
 ### Fixed
