@@ -282,6 +282,13 @@ func (db *DB) HasUserSolved(questionID, userID string) (bool, error) {
 	return count > 0, err
 }
 
+// GetUserCorrectSubmittedFlag returns the flag the user submitted correctly for a question, or "" if not solved.
+func (db *DB) GetUserCorrectSubmittedFlag(questionID, userID string) string {
+	var flag string
+	_ = db.QueryRow("SELECT submitted_flag FROM submissions WHERE question_id = ? AND user_id = ? AND is_correct = 1 LIMIT 1", questionID, userID).Scan(&flag)
+	return flag
+}
+
 func (db *DB) GetScoreboard(limit int) ([]models.ScoreboardEntry, error) {
 	// SQLite doesn't support ROW_NUMBER() in the same way, so we calculate rank in Go
 	freezeCond := ""
@@ -1095,6 +1102,29 @@ func (db *DB) IsHintUnlocked(hintID, userID string) (bool, error) {
 	return count > 0, err
 }
 
+// GetPreviousHint returns the hint with the largest "order" strictly less than the given hint's order
+// for the same question. Returns nil, nil if the hint is already the first one.
+func (db *DB) GetPreviousHint(hintID string) (*models.Hint, error) {
+	query := `
+		SELECT prev.id, prev.question_id, prev.content, prev.cost, prev."order", prev.created_at
+		FROM hints prev
+		JOIN hints target ON prev.question_id = target.question_id AND prev."order" < target."order"
+		WHERE target.id = ?
+		ORDER BY prev."order" DESC
+		LIMIT 1
+	`
+	var h models.Hint
+	var createdAt string
+	err := db.QueryRow(query, hintID).Scan(&h.ID, &h.QuestionID, &h.Content, &h.Cost, &h.Order, &createdAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &h, nil
+}
+
 // GetUserUnlockedHints returns all hint IDs unlocked by a user for a specific question
 func (db *DB) GetUserUnlockedHints(userID, questionID string) ([]string, error) {
 	query := `SELECT hu.hint_id FROM hint_unlocks hu
@@ -1212,6 +1242,61 @@ func (db *DB) GetAllQuestionsWithChallenge() ([]models.QuestionWithChallenge, er
 		questions = append(questions, q)
 	}
 	return questions, nil
+}
+
+// GetHintWithContext returns a single hint with its question and challenge names.
+func (db *DB) GetHintWithContext(hintID string) (*models.HintWithContext, error) {
+	query := `
+		SELECT h.id, h.question_id, q.name, c.name, h.content, h.cost, h."order", h.created_at
+		FROM hints h
+		JOIN questions q ON h.question_id = q.id
+		JOIN challenges c ON q.challenge_id = c.id
+		WHERE h.id = ?
+	`
+	var h models.HintWithContext
+	var createdAt string
+	err := db.QueryRow(query, hintID).Scan(&h.ID, &h.QuestionID, &h.QuestionName, &h.ChallengeName, &h.Content, &h.Cost, &h.Order, &createdAt)
+	if err != nil {
+		return nil, err
+	}
+	h.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+	return &h, nil
+}
+
+// GetAllHintsWithContext returns all hints joined with their question and challenge names for admin display
+func (db *DB) GetAllHintsWithContext() ([]models.HintWithContext, error) {
+	query := `
+		SELECT
+			h.id,
+			h.question_id,
+			q.name as question_name,
+			c.name as challenge_name,
+			h.content,
+			h.cost,
+			h."order",
+			h.created_at
+		FROM hints h
+		JOIN questions q ON h.question_id = q.id
+		JOIN challenges c ON q.challenge_id = c.id
+		ORDER BY c.name, q.name, h."order"
+	`
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var hints []models.HintWithContext
+	for rows.Next() {
+		var h models.HintWithContext
+		var createdAt string
+		if err := rows.Scan(&h.ID, &h.QuestionID, &h.QuestionName, &h.ChallengeName, &h.Content, &h.Cost, &h.Order, &createdAt); err != nil {
+			return nil, err
+		}
+		h.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAt)
+		hints = append(hints, h)
+	}
+	return hints, rows.Err()
 }
 
 // GetNextHintOrder returns the next order number for a question's hints
@@ -1681,12 +1766,12 @@ func (db *DB) GetCustomCode(page string) (*models.CustomCode, error) {
 // GetTeamSolvedChallenges returns challenges that have been solved by team members (all activity)
 func (db *DB) GetTeamSolvedChallenges(teamID string) ([]ChallengeSummary, error) {
 	query := `
-		SELECT 
+		SELECT
 			c.id,
 			c.name,
 			c.category,
 			c.difficulty,
-			COUNT(DISTINCT q.id) as total_questions,
+			(SELECT COUNT(*) FROM questions WHERE challenge_id = c.id) as total_questions,
 			COUNT(DISTINCT s.question_id) as solved_questions
 		FROM challenges c
 		JOIN questions q ON c.id = q.challenge_id

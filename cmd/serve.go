@@ -708,12 +708,12 @@ func (s *Server) HandleChallengeDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	solvedQuestions := make(map[string]bool)
+	// solvedQuestions maps question ID to the flag the user submitted correctly (empty string if not solved)
+	solvedQuestions := make(map[string]string)
 	if claims != nil {
 		for _, q := range questions {
-			solved, _ := s.DB.HasUserSolved(q.ID, claims.UserID)
-			if solved {
-				solvedQuestions[q.ID] = true
+			if flag := s.DB.GetUserCorrectSubmittedFlag(q.ID, claims.UserID); flag != "" {
+				solvedQuestions[q.ID] = flag
 			}
 		}
 	}
@@ -977,12 +977,10 @@ func (s *Server) HandleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var hints []models.Hint
-	for _, q := range questionsWithChallenge {
-		qHints, err := s.DB.GetHintsByQuestionID(q.ID)
-		if err == nil {
-			hints = append(hints, qHints...)
-		}
+	hintsWithContext, err := s.DB.GetAllHintsWithContext()
+	if err != nil {
+		http.Error(w, "Failed to fetch hints", http.StatusInternalServerError)
+		return
 	}
 
 	categories, _ := s.DB.GetAllCategories()
@@ -1005,7 +1003,7 @@ func (s *Server) HandleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		"User":                     claims,
 		"Challenges":               challenges,
 		"Questions":                questionsWithChallenge,
-		"Hints":                    hints,
+		"Hints":                    hintsWithContext,
 		"Categories":               categories,
 		"Difficulties":             difficulties,
 		"Users":                    users,
