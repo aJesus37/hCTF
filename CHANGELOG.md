@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Competition scoreboard chart toggle no longer resets to "Show Chart" when no evolution data is available yet; chart button is hidden instead
 - Evolution API now returns empty arrays `[]` instead of `null` for intervals and series when no data exists
 
+### Fixed
+- Solved questions now display the previously submitted correct flag in the (disabled) input field when revisiting a challenge
+
 
 ## [0.8.4] - 2026-03-15
 
