@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-03-15
+
+### Added
+- Team profile scoring tab now shows "Available Challenges" section listing challenges with unsolved questions the team can still gain points from
+- Teams page now shows a "View Team Profile" button next to your team's name, and highlights your team with a "My Team" badge in the All Teams list
+
 ## [0.8.4] - 2026-03-15
 
 ### Fixed
