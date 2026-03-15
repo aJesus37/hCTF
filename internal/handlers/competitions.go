@@ -7,6 +7,7 @@ import (
 	"html"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -482,7 +483,7 @@ func formatCompetitionEvolutionForChart(series []database.ScoreEvolutionSeries) 
 		intervals = append(intervals, t)
 	}
 	// Sort chronologically (format MM/DD HH:MM sorts lexicographically)
-	sortStrings(intervals)
+	sort.Strings(intervals)
 
 	var chartSeries []map[string]interface{}
 	for i, s := range series {
@@ -515,14 +516,6 @@ func formatCompetitionEvolutionForChart(series []database.ScoreEvolutionSeries) 
 	return map[string]interface{}{
 		"intervals": intervals,
 		"series":    chartSeries,
-	}
-}
-
-func sortStrings(ss []string) {
-	for i := 1; i < len(ss); i++ {
-		for j := i; j > 0 && ss[j] < ss[j-1]; j-- {
-			ss[j], ss[j-1] = ss[j-1], ss[j]
-		}
 	}
 }
 

@@ -444,6 +444,45 @@ func (h *SettingsHandler) UpdateCustomCode(w http.ResponseWriter, r *http.Reques
 	w.Write([]byte("Settings updated successfully"))
 }
 
+// renderUserHTML returns the HTML fragment for a user row in the admin user management panel.
+func renderUserHTML(w http.ResponseWriter, u models.User) {
+	adminBadge := `<span class="px-2 py-1 text-xs rounded bg-purple-600 text-white">Admin</span>`
+	userBadge := `<span class="px-2 py-1 text-xs rounded bg-gray-600 text-gray-300">User</span>`
+	badge := userBadge
+	btnClass := "bg-purple-600 hover:bg-purple-700"
+	btnText := "Promote"
+	if u.IsAdmin {
+		badge = adminBadge
+		btnClass = "bg-yellow-600 hover:bg-yellow-700"
+		btnText = "Demote"
+	}
+
+	fmt.Fprintf(w, `<div id="user-%s" class="bg-dark-surface border border-dark-border rounded-lg p-4">
+		<div class="flex justify-between items-center">
+			<div>
+				<h4 class="font-bold text-white">%s</h4>
+				<p class="text-sm text-gray-400">%s</p>
+				<p class="text-xs text-gray-500 mt-1">Joined: %s</p>
+			</div>
+			<div class="flex items-center gap-3">
+				%s
+				<button hx-put="/api/admin/users/%s/admin" hx-target="#user-%s" hx-swap="outerHTML"
+					class="px-3 py-1 %s text-white rounded text-sm font-medium transition">
+					%s
+				</button>
+				<button hx-delete="/api/admin/users/%s" hx-target="#user-%s" hx-swap="outerHTML swap:0.5s"
+					hx-confirm="Delete user '%s'? This action cannot be undone."
+					class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition">
+					Delete
+				</button>
+			</div>
+		</div>
+	</div>`,
+		u.ID, html.EscapeString(u.Name), html.EscapeString(u.Email),
+		u.CreatedAt.Format("2006-01-02"), badge, u.ID, u.ID,
+		btnClass, btnText, u.ID, u.ID, html.EscapeString(u.Name))
+}
+
 // ListUsers godoc
 // @Summary List all users (admin only)
 // @Tags Admin
@@ -468,41 +507,7 @@ func (h *SettingsHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html")
 	for _, u := range users {
-		adminBadge := `<span class="px-2 py-1 text-xs rounded bg-purple-600 text-white">Admin</span>`
-		userBadge := `<span class="px-2 py-1 text-xs rounded bg-gray-600 text-gray-300">User</span>`
-		badge := userBadge
-		btnClass := "bg-purple-600 hover:bg-purple-700"
-		btnText := "Promote"
-		if u.IsAdmin {
-			badge = adminBadge
-			btnClass = "bg-yellow-600 hover:bg-yellow-700"
-			btnText = "Demote"
-		}
-
-		fmt.Fprintf(w, `<div id="user-%s" class="bg-dark-surface border border-dark-border rounded-lg p-4">
-			<div class="flex justify-between items-center">
-				<div>
-					<h4 class="font-bold text-white">%s</h4>
-					<p class="text-sm text-gray-400">%s</p>
-					<p class="text-xs text-gray-500 mt-1">Joined: %s</p>
-				</div>
-				<div class="flex items-center gap-3">
-					%s
-					<button hx-put="/api/admin/users/%s/admin" hx-target="#user-%s" hx-swap="outerHTML"
-						class="px-3 py-1 %s text-white rounded text-sm font-medium transition">
-						%s
-					</button>
-					<button hx-delete="/api/admin/users/%s" hx-target="#user-%s" hx-swap="outerHTML swap:0.5s"
-						hx-confirm="Delete user '%s'? This action cannot be undone."
-						class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition">
-						Delete
-					</button>
-				</div>
-			</div>
-		</div>`,
-			u.ID, html.EscapeString(u.Name), html.EscapeString(u.Email),
-			u.CreatedAt.Format("2006-01-02"), badge, u.ID, u.ID,
-			btnClass, btnText, u.ID, u.ID, html.EscapeString(u.Name))
+		renderUserHTML(w, u)
 	}
 
 	if len(users) == 0 {
@@ -546,42 +551,9 @@ func (h *SettingsHandler) UpdateUserAdmin(w http.ResponseWriter, r *http.Request
 	}
 
 	// Return updated user HTML
+	user.IsAdmin = newStatus
 	w.Header().Set("Content-Type", "text/html")
-	adminBadge := `<span class="px-2 py-1 text-xs rounded bg-purple-600 text-white">Admin</span>`
-	userBadge := `<span class="px-2 py-1 text-xs rounded bg-gray-600 text-gray-300">User</span>`
-	badge := userBadge
-	btnClass := "bg-purple-600 hover:bg-purple-700"
-	btnText := "Promote"
-	if newStatus {
-		badge = adminBadge
-		btnClass = "bg-yellow-600 hover:bg-yellow-700"
-		btnText = "Demote"
-	}
-
-	fmt.Fprintf(w, `<div id="user-%s" class="bg-dark-surface border border-dark-border rounded-lg p-4">
-		<div class="flex justify-between items-center">
-			<div>
-				<h4 class="font-bold text-white">%s</h4>
-				<p class="text-sm text-gray-400">%s</p>
-				<p class="text-xs text-gray-500 mt-1">Joined: %s</p>
-			</div>
-			<div class="flex items-center gap-3">
-				%s
-				<button hx-put="/api/admin/users/%s/admin" hx-target="#user-%s" hx-swap="outerHTML"
-					class="px-3 py-1 %s text-white rounded text-sm font-medium transition">
-					%s
-				</button>
-				<button hx-delete="/api/admin/users/%s" hx-target="#user-%s" hx-swap="outerHTML swap:0.5s"
-					hx-confirm="Delete user '%s'? This action cannot be undone."
-					class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition">
-					Delete
-				</button>
-			</div>
-		</div>
-	</div>`,
-		user.ID, html.EscapeString(user.Name), html.EscapeString(user.Email),
-		user.CreatedAt.Format("2006-01-02"), badge, user.ID, user.ID,
-		btnClass, btnText, user.ID, user.ID, html.EscapeString(user.Name))
+	renderUserHTML(w, *user)
 }
 
 // DeleteUser godoc
