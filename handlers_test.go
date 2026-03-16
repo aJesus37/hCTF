@@ -38,7 +38,7 @@ func TestPageContent(t *testing.T) {
 			method: "GET",
 			path:   "/",
 			contentMust: []string{
-				"Welcome to hCTF2",
+				"Welcome to hCTF",
 				"Browse Challenges",
 				"View Rankings",
 				"Try SQL",
