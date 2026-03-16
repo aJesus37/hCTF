@@ -15,11 +15,11 @@ type Config struct {
 }
 
 func path() string {
-	if p := os.Getenv("HCTF2_CONFIG"); p != "" {
+	if p := os.Getenv("HCTF_CONFIG"); p != "" {
 		return p
 	}
 	dir, _ := os.UserConfigDir()
-	return filepath.Join(dir, "hctf2", "config.yaml")
+	return filepath.Join(dir, "hctf", "config.yaml")
 }
 
 func Load() (*Config, error) {

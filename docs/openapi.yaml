@@ -230,7 +230,7 @@ info:
   contact: {}
   description: Self-hosted CTF platform API. Most write endpoints require authentication
     via JWT cookie (auth_token).
-  title: hCTF2 API
+  title: hCTF API
   version: 1.0.0
 paths:
   /admin/categories:

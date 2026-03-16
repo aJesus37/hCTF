@@ -10,11 +10,11 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/ajesus37/hCTF2/internal/auth"
-	"github.com/ajesus37/hCTF2/internal/database"
-	"github.com/ajesus37/hCTF2/internal/models"
-	"github.com/ajesus37/hCTF2/internal/ratelimit"
-	"github.com/ajesus37/hCTF2/internal/storage"
+	"github.com/ajesus37/hCTF/internal/auth"
+	"github.com/ajesus37/hCTF/internal/database"
+	"github.com/ajesus37/hCTF/internal/models"
+	"github.com/ajesus37/hCTF/internal/ratelimit"
+	"github.com/ajesus37/hCTF/internal/storage"
 )
 
 type ChallengeHandler struct {

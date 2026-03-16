@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/ajesus37/hCTF2/internal/database"
-	"github.com/ajesus37/hCTF2/internal/storage"
+	"github.com/ajesus37/hCTF/internal/database"
+	"github.com/ajesus37/hCTF/internal/storage"
 )
 
 type ChallengeFileHandler struct {

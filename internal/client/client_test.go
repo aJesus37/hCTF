@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ajesus37/hCTF2/internal/client"
+	"github.com/ajesus37/hCTF/internal/client"
 )
 
 func TestDoSetsAuthCookie(t *testing.T) {

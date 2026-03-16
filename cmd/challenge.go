@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ajesus37/hCTF2/internal/client"
-	"github.com/ajesus37/hCTF2/internal/tui"
+	"github.com/ajesus37/hCTF/internal/client"
+	"github.com/ajesus37/hCTF/internal/tui"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"

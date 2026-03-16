@@ -1,7 +1,7 @@
 version: '3'
 
 vars:
-  BINARY_NAME: hctf2
+  BINARY_NAME: hctf
   MAIN_PATH: main.go
   VERSION:
     sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
@@ -121,7 +121,7 @@ tasks:
   db-reset:
     desc: Reset the database
     cmds:
-      - rm -f hctf2.db hctf2.db-shm hctf2.db-wal
+      - rm -f hctf.db hctf.db-shm hctf.db-wal
       - echo "Database reset. Run 'task run' to recreate."
 
   install:
@@ -173,7 +173,7 @@ tasks:
   help:
     desc: Show help information
     cmds:
-      - echo "hCTF2 - Modern CTF Platform"
+      - echo "hCTF - Modern CTF Platform"
       - echo ""
       - echo "Available tasks:"
       - task --list

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ajesus37/hCTF2/internal/tui"
+	"github.com/ajesus37/hCTF/internal/tui"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )

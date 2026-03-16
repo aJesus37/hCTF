@@ -76,7 +76,7 @@ func (c *Client) UnlockHint(hintID string) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 401 {
-		return fmt.Errorf("not authenticated — run 'hctf2 login'")
+		return fmt.Errorf("not authenticated — run 'hctf login'")
 	}
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("server returned %d", resp.StatusCode)

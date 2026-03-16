@@ -2,7 +2,7 @@
 // Swagger 2.0 natively. The Swagger UI at /api/openapi renders it correctly.
 // Cookie-based auth (CookieAuth) is documented here despite being a 3.0 feature;
 // swaggo emits it as an extension and Swagger UI displays it correctly.
-// @title hCTF2 API
+// @title hCTF API
 // @version 1.0.0
 // @description Self-hosted CTF platform API. Most write endpoints require authentication via JWT cookie (auth_token).
 // @host localhost:8090
@@ -32,7 +32,7 @@ import (
 	"io/fs"
 	"log"
 
-	"github.com/ajesus37/hCTF2/cmd"
+	"github.com/ajesus37/hCTF/cmd"
 )
 
 // Server is a type alias to cmd.Server so that tests in package main continue to work.

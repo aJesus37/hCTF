@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ajesus37/hCTF2/internal/client"
-	"github.com/ajesus37/hCTF2/internal/config"
+	"github.com/ajesus37/hCTF/internal/client"
+	"github.com/ajesus37/hCTF/internal/config"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -17,7 +17,7 @@ import (
 
 var loginCmd = &cobra.Command{
 	Use:   "login",
-	Short: "Log in to an hCTF2 server",
+	Short: "Log in to an hCTF server",
 	RunE:  runLogin,
 }
 
@@ -84,7 +84,7 @@ func runRegister(_ *cobra.Command, _ []string) error {
 		serverURL = cfg.Server
 	}
 	if serverURL == "" {
-		return fmt.Errorf("server URL required (use --server or run 'hctf2 login' first)")
+		return fmt.Errorf("server URL required (use --server or run 'hctf login' first)")
 	}
 
 	c := client.New(serverURL, "")
@@ -175,7 +175,7 @@ func runStatus(_ *cobra.Command, _ []string) error {
 	if cfg.Token == "" {
 		fmt.Fprintln(os.Stdout, "Auth:    not logged in")
 	} else if time.Now().After(cfg.TokenExpires) {
-		fmt.Fprintln(os.Stdout, "Auth:    session expired — run 'hctf2 login'")
+		fmt.Fprintln(os.Stdout, "Auth:    session expired — run 'hctf login'")
 	} else {
 		user := jwtSubject(cfg.Token)
 		fmt.Fprintf(os.Stdout, "Auth:    %s (expires %s)\n", user, cfg.TokenExpires.Format(time.RFC3339))

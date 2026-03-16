@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ajesus37/hCTF2/internal/database"
-	"github.com/ajesus37/hCTF2/internal/models"
+	"github.com/ajesus37/hCTF/internal/database"
+	"github.com/ajesus37/hCTF/internal/models"
 )
 
 type ImportExportHandler struct {
@@ -28,7 +28,7 @@ func (h *ImportExportHandler) ExportChallenges(w http.ResponseWriter, r *http.Re
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="hctf2-export-%s.json"`, time.Now().Format("2006-01-02")))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="hctf-export-%s.json"`, time.Now().Format("2006-01-02")))
 	json.NewEncoder(w).Encode(bundle)
 }
 

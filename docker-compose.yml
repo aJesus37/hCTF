@@ -1,18 +1,18 @@
 services:
-  hctf2:
-    image: ghcr.io/ajesus37/hctf2:latest
-    container_name: hctf2
+  hctf:
+    image: ghcr.io/ajesus37/hctf:latest
+    container_name: hctf
     ports:
       - "8090:8090"
     volumes:
       # Persist database
-      - hctf2-data:/data
+      - hctf-data:/data
     command:
       - serve
       - --port
       - "8090"
       - --db
-      - /data/hctf2.db
+      - /data/hctf.db
       # Uncomment to create admin user on first run
       # - --admin-email
       # - admin@hctf.local
@@ -31,18 +31,18 @@ services:
       - UMAMI_WEBSITE_ID=${UMAMI_WEBSITE_ID:-}
     restart: unless-stopped
     healthcheck:
-      test: ["/hctf2", "healthcheck", "--port", "8090"]
+      test: ["/hctf", "healthcheck", "--port", "8090"]
       interval: 30s
       timeout: 5s
       start_period: 10s
       retries: 3
     networks:
-      - hctf2-network
+      - hctf-network
 
 volumes:
-  hctf2-data:
+  hctf-data:
     driver: local
 
 networks:
-  hctf2-network:
+  hctf-network:
     driver: bridge

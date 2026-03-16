@@ -20,16 +20,16 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/spf13/cobra"
 
-	"github.com/ajesus37/hCTF2/internal/auth"
-	"github.com/ajesus37/hCTF2/internal/database"
-	"github.com/ajesus37/hCTF2/internal/email"
-	"github.com/ajesus37/hCTF2/internal/handlers"
-	"github.com/ajesus37/hCTF2/internal/models"
-	"github.com/ajesus37/hCTF2/internal/ratelimit"
-	"github.com/ajesus37/hCTF2/internal/scorerecorder"
-	"github.com/ajesus37/hCTF2/internal/storage"
-	"github.com/ajesus37/hCTF2/internal/telemetry"
-	"github.com/ajesus37/hCTF2/internal/utils"
+	"github.com/ajesus37/hCTF/internal/auth"
+	"github.com/ajesus37/hCTF/internal/database"
+	"github.com/ajesus37/hCTF/internal/email"
+	"github.com/ajesus37/hCTF/internal/handlers"
+	"github.com/ajesus37/hCTF/internal/models"
+	"github.com/ajesus37/hCTF/internal/ratelimit"
+	"github.com/ajesus37/hCTF/internal/scorerecorder"
+	"github.com/ajesus37/hCTF/internal/storage"
+	"github.com/ajesus37/hCTF/internal/telemetry"
+	"github.com/ajesus37/hCTF/internal/utils"
 )
 
 // Assets holds the embedded file systems that must be provided by main
@@ -73,15 +73,15 @@ var (
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Start the hCTF2 HTTP server",
-	Long:  "Start the hCTF2 HTTP server with all configured options.",
+	Short: "Start the hCTF HTTP server",
+	Long:  "Start the hCTF HTTP server with all configured options.",
 	RunE:  runServe,
 }
 
 func init() {
 	f := serveCmd.Flags()
 	f.IntVar(&servePort, "port", 8090, "Server port")
-	f.StringVar(&serveDB, "db", "./hctf2.db", "Database path")
+	f.StringVar(&serveDB, "db", "./hctf.db", "Database path")
 	f.StringVar(&serveAdminEmail, "admin-email", "", "Admin email for first-time setup")
 	f.StringVar(&serveAdminPass, "admin-password", "", "Admin password for first-time setup")
 	f.StringVar(&serveMOTD, "motd", "", "Message of the Day displayed below login form")
@@ -228,7 +228,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 
 	// Telemetry
 	cleanupTelemetry, err := telemetry.Init(telemetry.Config{
-		ServiceName:          "hctf2",
+		ServiceName:          "hctf",
 		ServiceVersion:       "0.5.0",
 		Environment:          os.Getenv("ENVIRONMENT"),
 		EnableStdoutExporter: os.Getenv("OTEL_EXPORTER_STDOUT") == "true",

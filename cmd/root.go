@@ -15,9 +15,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:               "hctf2",
-	Short:             "hCTF2 — self-hosted CTF platform",
-	Long:              "hCTF2 is a self-hosted CTF platform. Run 'hctf2 serve' to start the server.",
+	Use:               "hctf",
+	Short:             "hCTF — self-hosted CTF platform",
+	Long:              "hCTF is a self-hosted CTF platform. Run 'hctf serve' to start the server.",
 	CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
 }
 
@@ -41,7 +41,7 @@ var infoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Print build information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("hCTF2 %s\n", rootCmd.Version)
+		fmt.Printf("hCTF %s\n", rootCmd.Version)
 		fmt.Printf("  go:      %s\n", runtime.Version())
 		fmt.Printf("  os/arch: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 		fmt.Printf("  cpus:    %d\n", runtime.NumCPU())

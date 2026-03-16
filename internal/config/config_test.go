@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ajesus37/hCTF2/internal/config"
+	"github.com/ajesus37/hCTF/internal/config"
 )
 
 func TestSaveLoad(t *testing.T) {

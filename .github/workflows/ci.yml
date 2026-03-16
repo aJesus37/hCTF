@@ -58,13 +58,13 @@ jobs:
         cache: true
 
     - name: Build
-      run: CGO_ENABLED=0 go build -ldflags="-s -w" -o hctf2 .
+      run: CGO_ENABLED=0 go build -ldflags="-s -w" -o hctf .
 
     - name: Upload binary
       uses: actions/upload-artifact@v4
       with:
-        name: hctf2-linux-amd64
-        path: hctf2
+        name: hctf-linux-amd64
+        path: hctf
         retention-days: 1
 
   smoke-test:
@@ -77,12 +77,12 @@ jobs:
     - name: Download binary
       uses: actions/download-artifact@v4
       with:
-        name: hctf2-linux-amd64
+        name: hctf-linux-amd64
 
     - name: Start server
       run: |
-        chmod +x hctf2
-        ./hctf2 serve --port 8090 --dev --db /tmp/smoke-test.db \
+        chmod +x hctf
+        ./hctf serve --port 8090 --dev --db /tmp/smoke-test.db \
           --admin-email admin@test.com --admin-password testpass123 &
         for i in $(seq 1 20); do
           curl -sf http://localhost:8090/healthz && break

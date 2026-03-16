@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ajesus37/hCTF2/internal/models"
+	"github.com/ajesus37/hCTF/internal/models"
 )
 
 // Ping checks database connectivity

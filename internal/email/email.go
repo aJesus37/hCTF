@@ -53,7 +53,7 @@ func (s *Service) buildResetEmail(to, resetURL string) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("To: %s\r\n", to))
 	b.WriteString(fmt.Sprintf("From: %s\r\n", s.config.From))
-	b.WriteString("Subject: Password Reset - hCTF2\r\n")
+	b.WriteString("Subject: Password Reset - hCTF\r\n")
 	b.WriteString("MIME-Version: 1.0\r\n")
 	b.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 	b.WriteString("\r\n")
@@ -71,7 +71,7 @@ func (s *Service) buildResetEmail(to, resetURL string) string {
           <tr>
             <td style="padding: 30px;">
               <h2 style="color: #a55eea; margin-top: 0;">Password Reset</h2>
-              <p style="color: #e0e0e0;">You requested a password reset for your hCTF2 account (%s).</p>
+              <p style="color: #e0e0e0;">You requested a password reset for your hCTF account (%s).</p>
               <p style="color: #e0e0e0;">Click the link below to reset your password. This link expires in 30 minutes.</p>
               <table width="100%%" border="0" cellpadding="0" cellspacing="0">
                 <tr>
