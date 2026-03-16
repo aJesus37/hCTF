@@ -1,9 +1,9 @@
 services:
-  hctf2:
+  hctf:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: hctf2-dev
+    container_name: hctf-dev
     ports:
       - "8090:8090"
     volumes:
@@ -14,7 +14,7 @@ services:
       - --port
       - "8090"
       - --db
-      - /data/hctf2.db
+      - /data/hctf.db
       - --dev
       - --admin-email
       - admin@hctf.local
@@ -33,8 +33,8 @@ services:
       - UMAMI_WEBSITE_ID=${UMAMI_WEBSITE_ID:-}
     restart: on-failure
     networks:
-      - hctf2-network
+      - hctf-network
 
 networks:
-  hctf2-network:
+  hctf-network:
     driver: bridge

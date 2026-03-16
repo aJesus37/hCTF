@@ -39,7 +39,7 @@ func decodeJSON(resp *http.Response, v any) error {
 		return fmt.Errorf("admin privileges required")
 	}
 	if resp.StatusCode == http.StatusUnauthorized {
-		return fmt.Errorf("not authenticated — run 'hctf2 login'")
+		return fmt.Errorf("not authenticated — run 'hctf login'")
 	}
 	if resp.StatusCode >= 400 {
 		b, _ := io.ReadAll(resp.Body)

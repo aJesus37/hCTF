@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/ajesus37/hCTF2/internal/client"
-	"github.com/ajesus37/hCTF2/internal/config"
+	"github.com/ajesus37/hCTF/internal/client"
+	"github.com/ajesus37/hCTF/internal/config"
 )
 
 func newClient() (*client.Client, error) {
@@ -16,7 +16,7 @@ func newClient() (*client.Client, error) {
 		cfg.Server = serverOverride
 	}
 	if cfg.Token == "" {
-		return nil, fmt.Errorf("not logged in — run 'hctf2 login'")
+		return nil, fmt.Errorf("not logged in — run 'hctf login'")
 	}
 	return client.New(cfg.Server, cfg.Token), nil
 }

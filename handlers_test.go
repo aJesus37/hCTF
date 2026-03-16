@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ajesus37/hCTF2/internal/database"
-	"github.com/ajesus37/hCTF2/internal/email"
-	"github.com/ajesus37/hCTF2/internal/handlers"
+	"github.com/ajesus37/hCTF/internal/database"
+	"github.com/ajesus37/hCTF/internal/email"
+	"github.com/ajesus37/hCTF/internal/handlers"
 )
 
 // TestPageContent validates that each page renders with correct content
@@ -38,7 +38,7 @@ func TestPageContent(t *testing.T) {
 			method: "GET",
 			path:   "/",
 			contentMust: []string{
-				"Welcome to hCTF2",
+				"Welcome to hCTF",
 				"Browse Challenges",
 				"View Rankings",
 				"Try SQL",

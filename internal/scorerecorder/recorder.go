@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/ajesus37/hCTF2/internal/database"
+	"github.com/ajesus37/hCTF/internal/database"
 )
 
 // Recorder periodically records score snapshots

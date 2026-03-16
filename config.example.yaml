@@ -1,4 +1,4 @@
-# hCTF2 Configuration File
+# hCTF Configuration File
 #
 # This file documents all available configuration options.
 # Copy this file to config.yaml and adjust as needed.
@@ -24,8 +24,8 @@ server:
 database:
   # Path to the SQLite database file.
   # The directory must exist. Relative paths are resolved from the working directory.
-  # CLI: --db | Default: ./hctf2.db
-  path: ./hctf2.db
+  # CLI: --db | Default: ./hctf.db
+  path: ./hctf.db
 
 auth:
   # JWT signing secret (REQUIRED - no default).
@@ -56,9 +56,9 @@ motd: ""
 
 telemetry:
   # Service name used in OpenTelemetry traces.
-  # Hardcoded to "hctf2" in main.go; not runtime-configurable.
-  # Default: hctf2
-  service_name: hctf2
+  # Hardcoded to "hctf" in main.go; not runtime-configurable.
+  # Default: hctf
+  service_name: hctf
 
   # Service version reported in telemetry.
   # Hardcoded in main.go; not runtime-configurable.

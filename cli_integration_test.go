@@ -2,10 +2,10 @@ package main
 
 // CLI integration tests — exercise every command, subcommand, and flag.
 //
-// Strategy: TestMain builds the binary once, starts hctf2 serve as a
+// Strategy: TestMain builds the binary once, starts hctf serve as a
 // subprocess on a free port, logs in as admin, and stores the server URL
 // and config-file path in package-level variables.  Each test then calls
-// runCLI() which execs the binary with HCTF2_CONFIG pointing at the temp
+// runCLI() which execs the binary with HCTF_CONFIG pointing at the temp
 // config.  The suite is self-contained; no mock servers needed.
 
 import (
@@ -32,7 +32,7 @@ import (
 var (
 	cliBinary  string // path to built binary
 	cliServer  string // e.g. "http://localhost:54321"
-	cliConfig  string // path to HCTF2_CONFIG file pre-loaded with admin token
+	cliConfig  string // path to HCTF_CONFIG file pre-loaded with admin token
 	serverProc *exec.Cmd
 )
 
@@ -45,15 +45,15 @@ const (
 
 func TestMain(m *testing.M) {
 	code := func() int {
-		// 1. Build binary into a temp dir so we don't clobber ./hctf2.
-		tmpDir, err := os.MkdirTemp("", "hctf2-cli-test-*")
+		// 1. Build binary into a temp dir so we don't clobber ./hctf.
+		tmpDir, err := os.MkdirTemp("", "hctf-cli-test-*")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "TestMain: MkdirTemp: %v\n", err)
 			return 1
 		}
 		defer os.RemoveAll(tmpDir)
 
-		cliBinary = filepath.Join(tmpDir, "hctf2-test")
+		cliBinary = filepath.Join(tmpDir, "hctf-test")
 		build := exec.Command("go", "build", "-o", cliBinary, ".")
 		build.Stdout = os.Stdout
 		build.Stderr = os.Stderr
@@ -116,7 +116,7 @@ func TestMain(m *testing.M) {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-// runCLI runs the CLI binary with the pre-configured HCTF2_CONFIG and returns
+// runCLI runs the CLI binary with the pre-configured HCTF_CONFIG and returns
 // stdout, stderr, and exit code.  It automatically injects --server so tests
 // do not need to repeat it.
 func runCLI(t *testing.T, args ...string) (stdout, stderr string, exitCode int) {
@@ -127,7 +127,7 @@ func runCLI(t *testing.T, args ...string) (stdout, stderr string, exitCode int) 
 // runCLIRaw runs the binary without the test helper bookkeeping.
 func runCLIRaw(args ...string) (stdout, stderr string, exitCode int) {
 	cmd := exec.Command(cliBinary, args...)
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+cliConfig)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+cliConfig)
 	var outBuf, errBuf strings.Builder
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -228,13 +228,13 @@ func TestCLIVersion(t *testing.T) {
 func TestCLIVersionFlag(t *testing.T) {
 	stdout, stderr, code := runCLI(t, "--version")
 	assertSuccess(t, stdout, stderr, code)
-	assertContains(t, stdout, "hctf2")
+	assertContains(t, stdout, "hctf")
 }
 
 func TestCLIInfo(t *testing.T) {
 	stdout, stderr, code := runCLI(t, "info")
 	assertSuccess(t, stdout, stderr, code)
-	assertContains(t, stdout, "hCTF2")
+	assertContains(t, stdout, "hCTF")
 	assertContains(t, stdout, "go:")
 	assertContains(t, stdout, "os/arch:")
 	assertContains(t, stdout, "cpus:")
@@ -266,7 +266,7 @@ func TestCLILoginSuccess(t *testing.T) {
 		"--email", adminEmail,
 		"--password", adminPass,
 	)
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	var outBuf, errBuf strings.Builder
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -279,7 +279,7 @@ func TestCLILoginSuccess(t *testing.T) {
 func TestCLILoginMissingCredentials(t *testing.T) {
 	tmpCfg := t.TempDir() + "/cfg.yaml"
 	cmd := exec.Command(cliBinary, "login", "--server", cliServer)
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	err := cmd.Run()
 	if err == nil {
 		t.Fatal("expected error when email/password missing")
@@ -293,7 +293,7 @@ func TestCLILoginWrongPassword(t *testing.T) {
 		"--email", adminEmail,
 		"--password", "wrongpassword",
 	)
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	err := cmd.Run()
 	if err == nil {
 		t.Fatal("expected error on wrong password")
@@ -308,7 +308,7 @@ func TestCLILoginQuietFlag(t *testing.T) {
 		"--password", adminPass,
 		"--quiet",
 	)
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	var outBuf strings.Builder
 	cmd.Stdout = &outBuf
 	if err := cmd.Run(); err != nil {
@@ -347,13 +347,13 @@ func TestCLILogout(t *testing.T) {
 		"--email", adminEmail,
 		"--password", adminPass,
 	)
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("login failed: %v", err)
 	}
 	// Now logout.
 	cmd = exec.Command(cliBinary, "logout")
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	var outBuf strings.Builder
 	cmd.Stdout = &outBuf
 	if err := cmd.Run(); err != nil {
@@ -369,11 +369,11 @@ func TestCLILogoutQuietFlag(t *testing.T) {
 		"--email", adminEmail,
 		"--password", adminPass,
 	)
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	_ = cmd.Run()
 
 	cmd = exec.Command(cliBinary, "logout", "--quiet")
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	var outBuf strings.Builder
 	cmd.Stdout = &outBuf
 	if err := cmd.Run(); err != nil {
@@ -389,7 +389,7 @@ func TestCLILogoutQuietFlag(t *testing.T) {
 func TestCLIErrorNotLoggedIn(t *testing.T) {
 	tmpCfg := t.TempDir() + "/cfg.yaml"
 	cmd := exec.Command(cliBinary, "challenge", "list", "--server", cliServer)
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	err := cmd.Run()
 	if err == nil {
 		t.Fatal("expected error when not logged in")
@@ -1350,14 +1350,14 @@ func TestCLITeamLeave(t *testing.T) {
 		"--email", secondEmail,
 		"--password", secondPass,
 	)
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("login second user failed: %v", err)
 	}
 
 	// Second user creates a team.
 	cmd = exec.Command(cliBinary, "team", "create", "LeaveTeam", "--quiet")
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("second user create team failed: %v", err)
 	}
@@ -1367,7 +1367,7 @@ func TestCLITeamLeave(t *testing.T) {
 	// Let's have admin join the team by having second user regen invite, admin joins, then admin leaves.
 	var outBuf strings.Builder
 	cmd = exec.Command(cliBinary, "team", "invite-regen")
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	cmd.Stdout = &outBuf
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("regen invite failed: %v", err)
@@ -1384,7 +1384,7 @@ func TestCLITeamLeave(t *testing.T) {
 
 	// Cleanup: second user disbands team.
 	cmd = exec.Command(cliBinary, "team", "disband")
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg)
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg)
 	_ = cmd.Run()
 }
 
@@ -1778,7 +1778,7 @@ func createTestCompetition(t *testing.T, name string) string {
 
 func runCLIWithErrorAndNoAuth(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	tmpCfg, err := os.CreateTemp("", "hctf2-noauth-*.yaml")
+	tmpCfg, err := os.CreateTemp("", "hctf-noauth-*.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1787,7 +1787,7 @@ func runCLIWithErrorAndNoAuth(t *testing.T, args ...string) (string, error) {
 	tmpCfg.Close()
 
 	cmd := exec.Command(cliBinary, args...)
-	cmd.Env = append(os.Environ(), "HCTF2_CONFIG="+tmpCfg.Name())
+	cmd.Env = append(os.Environ(), "HCTF_CONFIG="+tmpCfg.Name())
 	var outBuf, errBuf strings.Builder
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
