@@ -99,7 +99,14 @@ func resolveChannel(flagBeta bool, cfgChannel string) bool {
 // downloadAndExtract downloads a .tar.gz from url, finds the binary entry
 // named "hctf" or "hctf.exe", and writes it to destPath with mode 0755.
 func downloadAndExtract(url, destPath string) error {
-	resp, err := http.Get(url) //nolint:gosec — URL comes from GitHub API
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil) //nolint:gosec — URL comes from GitHub API
+	if err != nil {
+		return fmt.Errorf("creating download request: %w", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("downloading: %w", err)
 	}
@@ -208,6 +215,10 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
+	}
+
+	if cfg.UpdateChannel != "" && cfg.UpdateChannel != "stable" && cfg.UpdateChannel != "beta" {
+		fmt.Fprintf(os.Stderr, "Warning: unrecognized update_channel %q in config, defaulting to stable\n", cfg.UpdateChannel)
 	}
 
 	beta := resolveChannel(updateFlagBeta, cfg.UpdateChannel)
