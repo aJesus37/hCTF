@@ -280,12 +280,3 @@ func channelName(beta bool) string {
 	}
 	return "stable"
 }
-
-// assetName returns the expected asset name for the running platform.
-func assetName() string {
-	ext := "tar.gz"
-	if runtime.GOOS == "windows" {
-		ext = "zip"
-	}
-	return fmt.Sprintf("hctf_%s_%s.%s", runtime.GOOS, runtime.GOARCH, ext)
-}
