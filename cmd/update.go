@@ -135,6 +135,26 @@ func downloadAndExtract(url, destPath string) error {
 	return fmt.Errorf("binary not found in archive")
 }
 
+// canWriteExec checks whether the process can open execPath for writing.
+func canWriteExec(execPath string) bool {
+	f, err := os.OpenFile(execPath, os.O_WRONLY, 0)
+	if err != nil {
+		return false
+	}
+	f.Close()
+	return true
+}
+
+// atomicReplace moves newPath over targetPath using os.Rename (atomic on
+// same filesystem). Cleans up newPath on failure.
+func atomicReplace(newPath, targetPath string) error {
+	if err := os.Rename(newPath, targetPath); err != nil {
+		os.Remove(newPath)
+		return fmt.Errorf("replacing binary: %w", err)
+	}
+	return nil
+}
+
 // assetName returns the expected asset name for the running platform.
 func assetName() string {
 	ext := "tar.gz"

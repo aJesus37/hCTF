@@ -131,3 +131,33 @@ func TestDownloadAndExtract(t *testing.T) {
 		t.Errorf("expected mode 0755, got %v", info.Mode().Perm())
 	}
 }
+
+func TestAtomicReplace(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "hctf")
+	newBin := filepath.Join(dir, "hctf.new")
+
+	os.WriteFile(target, []byte("old"), 0755)
+	os.WriteFile(newBin, []byte("new"), 0755)
+
+	if err := atomicReplace(newBin, target); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got, _ := os.ReadFile(target)
+	if string(got) != "new" {
+		t.Errorf("expected new content, got %q", got)
+	}
+	// newBin should be gone after rename
+	if _, err := os.Stat(newBin); !os.IsNotExist(err) {
+		t.Error("temp file should be gone after replace")
+	}
+}
+
+func TestCanWriteExec(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hctf")
+	os.WriteFile(path, []byte("x"), 0755)
+	if !canWriteExec(path) {
+		t.Error("expected writable file to return true")
+	}
+}
