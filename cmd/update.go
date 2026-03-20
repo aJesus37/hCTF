@@ -1,10 +1,15 @@
 package cmd
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 )
@@ -82,6 +87,51 @@ func resolveChannel(flagBeta bool, cfgChannel string) bool {
 		return true
 	}
 	return cfgChannel == "beta"
+}
+
+// downloadAndExtract downloads a .tar.gz from url, finds the binary entry
+// named "hctf" or "hctf.exe", and writes it to destPath with mode 0755.
+func downloadAndExtract(url, destPath string) error {
+	resp, err := http.Get(url) //nolint:gosec — URL comes from GitHub API
+	if err != nil {
+		return fmt.Errorf("downloading: %w", err)
+	}
+	defer resp.Body.Close()
+
+	gr, err := gzip.NewReader(resp.Body)
+	if err != nil {
+		return fmt.Errorf("gzip: %w", err)
+	}
+	defer gr.Close()
+
+	tr := tar.NewReader(gr)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("tar: %w", err)
+		}
+		if hdr.Typeflag != tar.TypeReg {
+			continue
+		}
+		base := filepath.Base(hdr.Name)
+		if base != "hctf" && base != "hctf.exe" {
+			continue
+		}
+
+		f, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+		if err != nil {
+			return fmt.Errorf("creating dest: %w", err)
+		}
+		if _, err := io.Copy(f, tr); err != nil {
+			f.Close()
+			return fmt.Errorf("writing: %w", err)
+		}
+		return f.Close()
+	}
+	return fmt.Errorf("binary not found in archive")
 }
 
 // assetName returns the expected asset name for the running platform.

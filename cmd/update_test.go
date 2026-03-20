@@ -1,9 +1,14 @@
 package cmd
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -81,5 +86,40 @@ func TestResolveChannel(t *testing.T) {
 	}
 	if resolveChannel(false, "") != false {
 		t.Error("empty config should default to stable")
+	}
+}
+
+func makeTarGz(t *testing.T, content []byte) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+	_ = tw.WriteHeader(&tar.Header{Name: "hctf", Size: int64(len(content)), Mode: 0755})
+	tw.Write(content)
+	tw.Close()
+	gw.Close()
+	return buf.Bytes()
+}
+
+func TestDownloadAndExtract(t *testing.T) {
+	want := []byte("fake-binary-content")
+	tarball := makeTarGz(t, want)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(tarball)
+	}))
+	defer srv.Close()
+
+	dest := filepath.Join(t.TempDir(), "hctf-new")
+	if err := downloadAndExtract(srv.URL, dest); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("reading dest: %v", err)
+	}
+	if !bytes.Equal(got, want) {
+		t.Errorf("content mismatch: got %q want %q", got, want)
 	}
 }
