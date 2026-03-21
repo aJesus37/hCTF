@@ -162,7 +162,9 @@ func TestAtomicReplace(t *testing.T) {
 func TestCanWriteExec(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hctf")
-	os.WriteFile(path, []byte("x"), 0755)
+	if err := os.WriteFile(path, []byte("x"), 0755); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
 	if !canWriteExec(path) {
 		t.Error("expected writable file to return true")
 	}
