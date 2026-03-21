@@ -149,13 +149,17 @@ func downloadAndExtract(url, destPath string) error {
 	return fmt.Errorf("binary not found in archive")
 }
 
-// canWriteExec checks whether the process can open execPath for writing.
+// canWriteExec checks whether the process has write access to the directory
+// containing execPath. We probe via a temp file because the running binary
+// itself cannot be opened for writing (Linux returns ETXTBSY).
 func canWriteExec(execPath string) bool {
-	f, err := os.OpenFile(execPath, os.O_WRONLY, 0)
+	dir := filepath.Dir(execPath)
+	f, err := os.CreateTemp(dir, ".hctf-update-check-*")
 	if err != nil {
 		return false
 	}
 	f.Close()
+	os.Remove(f.Name())
 	return true
 }
 
