@@ -51,17 +51,43 @@ var registerCmd = &cobra.Command{
 	RunE:  runRegister,
 }
 
+var (
+	forgotEmail string
+)
+
+var forgotPasswordCmd = &cobra.Command{
+	Use:   "forgot-password",
+	Short: "Request a password reset link for an email",
+	RunE:  runForgotPassword,
+}
+
+var (
+	resetToken    string
+	resetPassword string
+)
+
+var resetPasswordCmd = &cobra.Command{
+	Use:   "reset-password",
+	Short: "Reset a password using a reset token",
+	RunE:  runResetPassword,
+}
+
 func init() {
 	rootCmd.AddCommand(loginCmd)
 	rootCmd.AddCommand(logoutCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(registerCmd)
+	rootCmd.AddCommand(forgotPasswordCmd)
+	rootCmd.AddCommand(resetPasswordCmd)
 	loginCmd.Flags().StringVar(&loginEmail, "email", "", "Email address")
 	loginCmd.Flags().StringVar(&loginPassword, "password", "", "Password")
 	loginCmd.Flags().StringVar(&loginServer, "server", "", "Server URL (e.g. http://localhost:8090)")
 	registerCmd.Flags().StringVar(&registerEmail, "email", "", "Email address")
 	registerCmd.Flags().StringVar(&registerName, "name", "", "Display name")
 	registerCmd.Flags().StringVar(&registerPassword, "password", "", "Password")
+	forgotPasswordCmd.Flags().StringVar(&forgotEmail, "email", "", "Email address")
+	resetPasswordCmd.Flags().StringVar(&resetToken, "token", "", "Password reset token")
+	resetPasswordCmd.Flags().StringVar(&resetPassword, "password", "", "New password")
 }
 
 func runRegister(_ *cobra.Command, _ []string) error {
@@ -93,6 +119,75 @@ func runRegister(_ *cobra.Command, _ []string) error {
 	}
 	if !quietOutput {
 		fmt.Fprintf(os.Stdout, "Registered as %s\n", registerEmail)
+	}
+	return nil
+}
+
+func runForgotPassword(_ *cobra.Command, _ []string) error {
+	if term.IsTerminal(int(os.Stdin.Fd())) && forgotEmail == "" {
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewInput().Title("Email").Value(&forgotEmail),
+		)).Run(); err != nil {
+			return err
+		}
+	}
+	if forgotEmail == "" {
+		return fmt.Errorf("--email required")
+	}
+
+	serverURL := serverOverride
+	if serverURL == "" {
+		cfg, _ := config.Load()
+		serverURL = cfg.Server
+	}
+	if serverURL == "" {
+		return fmt.Errorf("server URL required (use --server or run 'hctf login' first)")
+	}
+
+	c := client.New(serverURL, "")
+	if err := c.ForgotPassword(forgotEmail); err != nil {
+		return err
+	}
+	if !quietOutput {
+		fmt.Fprintln(os.Stdout, "If the account exists, a password reset link has been sent.")
+	}
+	return nil
+}
+
+func runResetPassword(_ *cobra.Command, _ []string) error {
+	if term.IsTerminal(int(os.Stdin.Fd())) && (resetToken == "" || resetPassword == "") {
+		var fields []huh.Field
+		if resetToken == "" {
+			fields = append(fields, huh.NewInput().Title("Reset token").Value(&resetToken))
+		}
+		if resetPassword == "" {
+			fields = append(fields, huh.NewInput().Title("New password").EchoMode(huh.EchoModePassword).Value(&resetPassword))
+		}
+		if len(fields) > 0 {
+			if err := huh.NewForm(huh.NewGroup(fields...)).Run(); err != nil {
+				return err
+			}
+		}
+	}
+	if resetToken == "" || resetPassword == "" {
+		return fmt.Errorf("--token and --password required")
+	}
+
+	serverURL := serverOverride
+	if serverURL == "" {
+		cfg, _ := config.Load()
+		serverURL = cfg.Server
+	}
+	if serverURL == "" {
+		return fmt.Errorf("server URL required (use --server or run 'hctf login' first)")
+	}
+
+	c := client.New(serverURL, "")
+	if err := c.ResetPassword(resetToken, resetPassword); err != nil {
+		return err
+	}
+	if !quietOutput {
+		fmt.Fprintln(os.Stdout, "Password reset successfully. You can now log in.")
 	}
 	return nil
 }

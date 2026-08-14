@@ -2826,3 +2826,19 @@ func TestCLITeamInvitePermission(t *testing.T) {
 		t.Fatal("expected error for invalid permission value")
 	}
 }
+
+// ── auth: password reset (public endpoints, no login required) ────────────────
+
+func TestCLIForgotPassword(t *testing.T) {
+	// must work without being logged in: use a public client via --server
+	out, stderr, code := runCLI(t, "forgot-password", "--email", "nobody@example.com", "--server", cliServer)
+	assertSuccess(t, out, stderr, code)
+	assertContains(t, out, "reset")
+}
+
+func TestCLIResetPasswordBadToken(t *testing.T) {
+	_, _, code := runCLI(t, "reset-password", "--token", "bogus-token", "--password", "newpass123", "--server", cliServer)
+	if code == 0 {
+		t.Fatal("expected failure for invalid reset token")
+	}
+}
