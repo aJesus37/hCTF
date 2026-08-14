@@ -322,8 +322,8 @@ func TestNoPageCollision(t *testing.T) {
 		{
 			page: "/login",
 			mustNot: []string{
-				"Solve challenges to earn points",  // From challenges page content
-				"Top ranked by points",    // From scoreboard page content
+				"Solve challenges to earn points", // From challenges page content
+				"Top ranked by points",            // From scoreboard page content
 				"Already have an account?",        // From register page content
 			},
 		},
@@ -331,15 +331,15 @@ func TestNoPageCollision(t *testing.T) {
 			page: "/register",
 			mustNot: []string{
 				"Solve challenges to earn points", // From challenges page content
-				"Top ranked by points",   // From scoreboard page content
-				"Don't have an account?",         // From login page content
+				"Top ranked by points",            // From scoreboard page content
+				"Don't have an account?",          // From login page content
 			},
 		},
 		{
 			page: "/challenges",
 			mustNot: []string{
 				"Query CTF data using SQL", // From SQL page content
-				"Top ranked by points",       // From scoreboard page content
+				"Top ranked by points",     // From scoreboard page content
 			},
 		},
 	}
@@ -435,11 +435,16 @@ func newTestServer(db *database.DB) *Server {
 // Helper: Create templates from filesystem with all required template functions
 func createTemplates() (*template.Template, error) {
 	return template.New("").Funcs(template.FuncMap{
-		"markdown":        func(s string) template.HTML { return template.HTML(s) },
-		"stripMarkdown":   func(s string) string { return s },
-		"safeHTML":        func(s string) template.HTML { return template.HTML(s) },
-		"mul":             func(a, b int) int { return a * b },
-		"div":             func(a, b int) int { if b == 0 { return 0 }; return a / b },
+		"markdown":      func(s string) template.HTML { return template.HTML(s) },
+		"stripMarkdown": func(s string) string { return s },
+		"safeHTML":      func(s string) template.HTML { return template.HTML(s) },
+		"mul":           func(a, b int) int { return a * b },
+		"div": func(a, b int) int {
+			if b == 0 {
+				return 0
+			}
+			return a / b
+		},
 		"sub":             func(a, b int) int { return a - b },
 		"difficultyColor": func(name string) string { return "text-gray-400" },
 		"difficultyBadge": func(name string) string { return "bg-gray-600 text-gray-100" },
@@ -618,5 +623,48 @@ func TestImportRestoresSQLFields(t *testing.T) {
 	}
 	if *c.SQLSchemaHint != "SELECT * FROM dataset" {
 		t.Errorf("SQLSchemaHint: got %q, want %q", *c.SQLSchemaHint, "SELECT * FROM dataset")
+	}
+}
+
+func TestExportIncludesTags(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+	tags := "web,crypto"
+	if _, err := db.CreateChallenge("C", "d", "web", "easy", &tags, true, false, nil, nil, false, 100, 0, 0, nil); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	bundle, err := db.ExportBundle()
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	if len(bundle.Challenges) != 1 {
+		t.Fatalf("got %d challenges", len(bundle.Challenges))
+	}
+	if bundle.Challenges[0].Tags != tags {
+		t.Errorf("tags: got %q want %q", bundle.Challenges[0].Tags, tags)
+	}
+}
+
+func TestImportRestoresTags(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+	challenges := []models.ExportChallenge{{
+		Name: "C", Description: "d", Category: "web", Difficulty: "easy", Tags: "web,crypto",
+	}}
+	if _, err := db.ImportBundle([]string{"web"}, []string{"easy"}, challenges); err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	got, err := db.GetChallenges(false)
+	if err != nil || len(got) != 1 {
+		t.Fatalf("get: %v (len %d)", err, len(got))
+	}
+	if got[0].Tags == nil || *got[0].Tags != "web,crypto" {
+		t.Errorf("tags: got %v", got[0].Tags)
 	}
 }

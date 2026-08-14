@@ -41,6 +41,7 @@ var (
 	hintQuestionID string
 	hintContent    string
 	hintCost       int
+	hintOrder      int
 	huContent      string
 	huCost         int
 	huOrder        int
@@ -52,6 +53,7 @@ func init() {
 	hintCreateCmd.Flags().StringVar(&hintQuestionID, "question", "", "Question ID")
 	hintCreateCmd.Flags().StringVar(&hintContent, "content", "", "Hint content")
 	hintCreateCmd.Flags().IntVar(&hintCost, "cost", 0, "Point cost to unlock")
+	hintCreateCmd.Flags().IntVar(&hintOrder, "order", 0, "Display order")
 
 	hintUpdateCmd.Flags().StringVar(&huContent, "content", "", "Hint content")
 	hintUpdateCmd.Flags().IntVar(&huCost, "cost", -1, "Point cost to unlock")
@@ -98,21 +100,26 @@ func runHintCreate(_ *cobra.Command, _ []string) error {
 	}
 	if term.IsTerminal(int(os.Stdin.Fd())) && hintContent == "" {
 		costStr := strconv.Itoa(hintCost)
+		orderStr := strconv.Itoa(hintOrder)
 		if err := huh.NewForm(
 			huh.NewGroup(huh.NewInput().Title("Question ID").Value(&hintQuestionID)),
 			huh.NewGroup(huh.NewText().Title("Hint content").Value(&hintContent)),
 			huh.NewGroup(huh.NewInput().Title("Point cost").Value(&costStr)),
+			huh.NewGroup(huh.NewInput().Title("Order").Value(&orderStr)),
 		).Run(); err != nil {
 			return err
 		}
 		if p, err := strconv.Atoi(costStr); err == nil {
 			hintCost = p
 		}
+		if o, err := strconv.Atoi(orderStr); err == nil {
+			hintOrder = o
+		}
 	}
 	if hintQuestionID == "" || hintContent == "" {
 		return fmt.Errorf("--question and --content are required")
 	}
-	h, err := c.CreateHint(hintQuestionID, hintContent, hintCost)
+	h, err := c.CreateHint(hintQuestionID, hintContent, hintCost, hintOrder)
 	if err != nil {
 		return err
 	}

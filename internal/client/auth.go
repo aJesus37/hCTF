@@ -83,3 +83,37 @@ func (c *Client) Register(email, name, password string) error {
 	}
 	return nil
 }
+
+// ForgotPassword requests a password reset token for the given email. The
+// endpoint is public and always returns success so user existence is not leaked.
+func (c *Client) ForgotPassword(email string) error {
+	form := url.Values{"email": {email}}
+	req, _ := http.NewRequest("POST", c.ServerURL+"/api/auth/forgot-password", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// ResetPassword resets a user's password using a valid reset token. The
+// endpoint is public; the confirm_password field is set to match password.
+func (c *Client) ResetPassword(token, password string) error {
+	form := url.Values{"token": {token}, "password": {password}, "confirm_password": {password}}
+	req, _ := http.NewRequest("POST", c.ServerURL+"/api/auth/reset-password", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	return nil
+}

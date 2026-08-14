@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/ajesus37/hCTF/internal/auth"
 	"github.com/ajesus37/hCTF/internal/database"
 	"github.com/ajesus37/hCTF/internal/models"
+	"github.com/go-chi/chi/v5"
 )
 
 type CompetitionHandler struct {
@@ -198,27 +198,43 @@ func (h *CompetitionHandler) UpdateCompetition(w http.ResponseWriter, r *http.Re
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
-	status := r.FormValue("status")
-	if status == "" {
-		// Preserve existing status rather than defaulting to draft
-		existing, err := h.db.GetCompetitionByID(id)
-		if err != nil {
-			http.Error(w, "Competition not found", http.StatusNotFound)
-			return
-		}
-		status = existing.Status
+	existing, err := h.db.GetCompetitionByID(id)
+	if err != nil {
+		http.Error(w, "Competition not found", http.StatusNotFound)
+		return
 	}
-	if err := h.db.UpdateCompetition(
-		id,
-		r.FormValue("name"),
-		r.FormValue("description"),
-		r.FormValue("rules_html"),
-		parseOptionalTime(r.FormValue("start_at")),
-		parseOptionalTime(r.FormValue("end_at")),
-		parseOptionalTime(r.FormValue("registration_start")),
-		parseOptionalTime(r.FormValue("registration_end")),
-		status,
-	); err != nil {
+
+	name, description, rulesHTML := existing.Name, existing.Description, existing.RulesHTML
+	startAt, endAt := existing.StartAt, existing.EndAt
+	regStart, regEnd := existing.RegistrationStart, existing.RegistrationEnd
+	status := existing.Status
+
+	if r.Form.Has("name") {
+		name = r.FormValue("name")
+	}
+	if r.Form.Has("description") {
+		description = r.FormValue("description")
+	}
+	if r.Form.Has("rules_html") {
+		rulesHTML = r.FormValue("rules_html")
+	}
+	if r.Form.Has("start_at") {
+		startAt = parseOptionalTime(r.FormValue("start_at"))
+	}
+	if r.Form.Has("end_at") {
+		endAt = parseOptionalTime(r.FormValue("end_at"))
+	}
+	if r.Form.Has("registration_start") {
+		regStart = parseOptionalTime(r.FormValue("registration_start"))
+	}
+	if r.Form.Has("registration_end") {
+		regEnd = parseOptionalTime(r.FormValue("registration_end"))
+	}
+	if r.Form.Has("status") {
+		status = r.FormValue("status")
+	}
+
+	if err := h.db.UpdateCompetition(id, name, description, rulesHTML, startAt, endAt, regStart, regEnd, status); err != nil {
 		http.Error(w, "Failed to update", http.StatusInternalServerError)
 		return
 	}

@@ -10,10 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `healthcheck` CLI subcommand — hits `/healthz` and exits 0/1; used by Docker `HEALTHCHECK` in scratch images where no shell or wget is available
 - `HEALTHCHECK` directive added to `Dockerfile` (uses `hctf healthcheck`) and `Dockerfile.demo` (uses `wget`); both `docker-compose.yml` files updated with corresponding `healthcheck:` blocks
+- CLI parity with the web UI: new flags on create/update for questions (`--description`, `--flag-mask`, `--case-sensitive`), challenges (`--tags`, `--dynamic-scoring`, `--sql-enabled`, `--sql-dataset-url`, `--sql-schema-hint`), competitions (`--rules-html`, `--start`, `--end`, `--registration-start`, `--registration-end`), hints (`--order` on create), and difficulties (`--color`, `--text-color`); `challenge create` default points raised to 1000 to match the web form
+- New CLI commands: `category update`, `difficulty update`, `question get`, `team invite-permission`, `forgot-password`, `reset-password`, `custom-code get/set`, `scoreboard teams`, `scoreboard evolution`, `scoreboard admin-visibility`, `scoreboard force-record`, and `ctftime`
+- Challenge export/import (and `config` export/import) now round-trip challenge `tags`
 
 ### Fixed
 - Set `db.SetMaxOpenConns(1)` on the SQLite connection pool — prevents `SQLITE_BUSY` errors that caused intermittent 500 responses on flag submissions and hint unlocks when the background score-recorder goroutine wrote to the DB concurrently
 - Demo seed: corrected `unlock_hint` to call `/api/hints/{id}/unlock` (was missing the `/api` prefix), fixing all hint unlock 500 errors during demo seeding; hint penalties now appear correctly in the SQL Playground
+- Destructive CLI updates: `question update`, `challenge update`, `hint update`, and `competition update` previously wiped fields omitted from the command line (e.g. the flag, dynamic-scoring/SQL settings, or `rules_html`/timings). Server PUT handlers now apply only the fields the caller provides (partial-update semantics); the web UI is unaffected because its forms always submit complete payloads
+- Web admin edit forms no longer wipe a challenge's `tags` or a question's `file_url` (the forms never sent those fields)
 
 ## [0.8.6] - 2026-03-15
 

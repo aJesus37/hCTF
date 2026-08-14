@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/ajesus37/hCTF/internal/auth"
 	"github.com/ajesus37/hCTF/internal/database"
 	"github.com/ajesus37/hCTF/internal/models"
+	"github.com/go-chi/chi/v5"
 )
 
 type TeamHandler struct {
@@ -538,4 +538,3 @@ func (h *TeamHandler) UpdateInvitePermission(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"message":"Permission updated successfully"}`))
 }
-

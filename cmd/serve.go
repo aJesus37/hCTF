@@ -49,26 +49,26 @@ func SetAssets(a Assets) {
 
 // serve flags
 var (
-	servePort             int
-	serveDB               string
-	serveAdminEmail       string
-	serveAdminPass        string
-	serveMOTD             string
-	servePrometheus       bool
-	serveOTLP             string
-	serveSMTPHost         string
-	serveSMTPPort         int
-	serveSMTPFrom         string
-	serveSMTPUser         string
-	serveSMTPPass         string
-	serveBaseURL          string
-	serveJWTSecret        string
-	serveDev              bool
-	serveCORSOrigins      string
-	serveSubmitRateLimit  int
-	serveUploadDir        string
-	serveUmamiScriptURL   string
-	serveUmamiWebsiteID   string
+	servePort            int
+	serveDB              string
+	serveAdminEmail      string
+	serveAdminPass       string
+	serveMOTD            string
+	servePrometheus      bool
+	serveOTLP            string
+	serveSMTPHost        string
+	serveSMTPPort        int
+	serveSMTPFrom        string
+	serveSMTPUser        string
+	serveSMTPPass        string
+	serveBaseURL         string
+	serveJWTSecret       string
+	serveDev             bool
+	serveCORSOrigins     string
+	serveSubmitRateLimit int
+	serveUploadDir       string
+	serveUmamiScriptURL  string
+	serveUmamiWebsiteID  string
 )
 
 var serveCmd = &cobra.Command{
@@ -138,12 +138,12 @@ type Server struct {
 	SettingsH      *handlers.SettingsHandler
 	ImportExportH  *handlers.ImportExportHandler
 	CompetitionH   *handlers.CompetitionHandler
-	Motd            string
-	SubmitLimiter   *ratelimit.Limiter
-	Storage         storage.Storage
-	ScoreRecorder   *scorerecorder.Recorder
-	UmamiScriptURL  string
-	UmamiWebsiteID  string
+	Motd           string
+	SubmitLimiter  *ratelimit.Limiter
+	Storage        storage.Storage
+	ScoreRecorder  *scorerecorder.Recorder
+	UmamiScriptURL string
+	UmamiWebsiteID string
 }
 
 // customFileHandler wraps the file server to set proper content types for WASM and workers.
@@ -260,7 +260,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 		"safeHTML":      func(s string) template.HTML { return template.HTML(s) },
 		"mul":           func(a, b int) int { return a * b },
 		"sub":           func(a, b int) int { return a - b },
-		"div":           func(a, b int) int {
+		"div": func(a, b int) int {
 			if b == 0 {
 				return 0
 			}
@@ -1472,19 +1472,19 @@ func (s *Server) HandleTeamProfile(w http.ResponseWriter, r *http.Request) {
 	customCode, _ := s.DB.GetCustomCode("team")
 
 	data := map[string]interface{}{
-		"Title":               team.Name + " - Team Profile",
-		"Page":                "team-profile",
-		"User":                claims,
-		"Team":                team,
-		"Members":             members,
-		"Owner":               owner,
-		"Stats":               teamStats,
-		"SolvedChallenges":    solvedChallenges,
-		"ScoringChallenges":   scoringChallenges,
-		"UnsolvedChallenges":  unsolvedChallenges,
-		"RecentSubmissions":   recentSubmissions,
-		"ScoringSubmissions":  scoringSubmissions,
-		"CustomCode":          customCode,
+		"Title":              team.Name + " - Team Profile",
+		"Page":               "team-profile",
+		"User":               claims,
+		"Team":               team,
+		"Members":            members,
+		"Owner":              owner,
+		"Stats":              teamStats,
+		"SolvedChallenges":   solvedChallenges,
+		"ScoringChallenges":  scoringChallenges,
+		"UnsolvedChallenges": unsolvedChallenges,
+		"RecentSubmissions":  recentSubmissions,
+		"ScoringSubmissions": scoringSubmissions,
+		"CustomCode":         customCode,
 	}
 	s.Render(w, "base.html", data)
 }

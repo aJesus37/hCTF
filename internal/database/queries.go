@@ -355,7 +355,7 @@ func (db *DB) GetScoreboard(limit int) ([]models.ScoreboardEntry, error) {
 			parsedTime = time.Now()
 		}
 		e.LastSolve = parsedTime
-		
+
 		// Apply standard competition ranking (1224 rule)
 		// Same score = same rank, next rank skips
 		if len(entries) > 0 && e.Points < prevPoints {
@@ -363,7 +363,7 @@ func (db *DB) GetScoreboard(limit int) ([]models.ScoreboardEntry, error) {
 		}
 		e.Rank = rank
 		prevPoints = e.Points
-		
+
 		entries = append(entries, e)
 	}
 	return entries, nil
@@ -1013,7 +1013,7 @@ func (db *DB) GetTeamScoreboard(limit int) ([]models.ScoreboardEntry, error) {
 			parsedTime = time.Now()
 		}
 		e.LastSolve = parsedTime
-		
+
 		// Apply standard competition ranking (1224 rule)
 		// Same score = same rank, next rank skips
 		if len(entries) > 0 && e.Points < prevPoints {
@@ -1021,7 +1021,7 @@ func (db *DB) GetTeamScoreboard(limit int) ([]models.ScoreboardEntry, error) {
 		}
 		e.Rank = rank
 		prevPoints = e.Points
-		
+
 		entries = append(entries, e)
 	}
 	return entries, nil
@@ -1499,12 +1499,12 @@ func (db *DB) GetUserRecentSubmissions(userID string, limit int) ([]SubmissionHi
 }
 
 type ChallengeSummary struct {
-	ID               string
-	Name             string
-	Category         string
-	Difficulty       string
-	SolvedQuestions  int
-	TotalQuestions   int
+	ID              string
+	Name            string
+	Category        string
+	Difficulty      string
+	SolvedQuestions int
+	TotalQuestions  int
 }
 
 // ChallengeCompletion tracks completion status
@@ -1532,13 +1532,13 @@ type TeamSubmission struct {
 
 // TeamChallengeSummary represents a challenge solved by team with points earned
 type TeamChallengeSummary struct {
-	ID               string
-	Name             string
-	Category         string
-	Difficulty       string
-	SolvedQuestions  int
-	TotalQuestions   int
-	PointsEarned     int
+	ID              string
+	Name            string
+	Category        string
+	Difficulty      string
+	SolvedQuestions int
+	TotalQuestions  int
+	PointsEarned    int
 }
 
 // GetChallengeCompletionForUser returns completion status for all challenges for a user
@@ -2047,7 +2047,6 @@ func (db *DB) GetTeamScoringSubmissions(teamID string, limit int) ([]TeamSubmiss
 	return submissions, nil
 }
 
-
 // GetScoreFreeze returns whether the scoreboard is frozen and when.
 func (db *DB) GetScoreFreeze() (enabled bool, freezeAt *time.Time, err error) {
 	enabledStr, _ := db.GetSetting("freeze_enabled")
@@ -2141,6 +2140,9 @@ func (db *DB) ExportBundle() (*models.ExportBundle, error) {
 			MinimumPoints:  c.MinimumPoints,
 			DecayThreshold: c.DecayThreshold,
 		}
+		if c.Tags != nil {
+			ec.Tags = *c.Tags
+		}
 		if c.FileURL != nil {
 			ec.FileURL = *c.FileURL
 		}
@@ -2233,14 +2235,18 @@ func (db *DB) ImportBundle(categories, difficulties []string, challenges []model
 		if ec.SQLSchemaHint != "" {
 			sqlSchemaHint = ec.SQLSchemaHint
 		}
+		var tagsVal interface{}
+		if ec.Tags != "" {
+			tagsVal = ec.Tags
+		}
 		_, err := db.Exec(`
 			INSERT INTO challenges (id, name, description, category, difficulty, visible,
 				dynamic_scoring, initial_points, minimum_points, decay_threshold, file_url,
-				sql_enabled, sql_dataset_url, sql_schema_hint, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+				tags, sql_enabled, sql_dataset_url, sql_schema_hint, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 			cID, name, ec.Description, ec.Category, ec.Difficulty, ec.Visible,
 			ec.DynamicScoring, ec.InitialPoints, ec.MinimumPoints, ec.DecayThreshold, fileURL,
-			ec.SQLEnabled, sqlDatasetURL, sqlSchemaHint)
+			tagsVal, ec.SQLEnabled, sqlDatasetURL, sqlSchemaHint)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("Failed to import %q: %v", ec.Name, err))
 			continue

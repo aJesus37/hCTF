@@ -8,10 +8,11 @@ import (
 )
 
 type Team struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	InviteID string `json:"invite_id,omitempty"`
-	OwnerID  string `json:"owner_id,omitempty"`
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	InviteID         string `json:"invite_id,omitempty"`
+	InvitePermission string `json:"invite_permission,omitempty"`
+	OwnerID          string `json:"owner_id,omitempty"`
 }
 
 type Member struct {
@@ -50,6 +51,11 @@ func (c *Client) GetTeam(id string) (*Team, []Member, error) {
 func (c *Client) TransferOwnership(newOwnerID string) error {
 	body, _ := json.Marshal(map[string]string{"new_owner_id": newOwnerID})
 	return c.doStatus("POST", "/api/teams/transfer-ownership", bytes.NewReader(body))
+}
+
+func (c *Client) SetInvitePermission(permission string) error {
+	body, _ := json.Marshal(map[string]string{"permission": permission})
+	return c.doStatus("POST", "/api/teams/invite-permission", bytes.NewReader(body))
 }
 
 func (c *Client) RegenerateInvite() (string, error) {

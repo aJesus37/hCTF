@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"path/filepath"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/ajesus37/hCTF/internal/database"
 	"github.com/ajesus37/hCTF/internal/storage"
+	"github.com/go-chi/chi/v5"
 )
 
 type ChallengeFileHandler struct {

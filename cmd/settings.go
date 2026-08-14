@@ -41,6 +41,13 @@ var categoryDeleteCmd = &cobra.Command{
 	RunE:  runCategoryDelete,
 }
 
+var categoryUpdateCmd = &cobra.Command{
+	Use:   "update <id>",
+	Short: "Update a category (admin)",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCategoryUpdate,
+}
+
 var (
 	catName  string
 	catOrder int
@@ -74,21 +81,38 @@ var difficultyDeleteCmd = &cobra.Command{
 	RunE:  runDifficultyDelete,
 }
 
+var difficultyUpdateCmd = &cobra.Command{
+	Use:   "update <id>",
+	Short: "Update a difficulty (admin)",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runDifficultyUpdate,
+}
+
 var (
-	diffName  string
-	diffOrder int
+	diffName      string
+	diffOrder     int
+	diffColor     string
+	diffTextColor string
 )
 
 func init() {
 	rootCmd.AddCommand(categoryCmd)
-	categoryCmd.AddCommand(categoryListCmd, categoryCreateCmd, categoryDeleteCmd)
+	categoryCmd.AddCommand(categoryListCmd, categoryCreateCmd, categoryUpdateCmd, categoryDeleteCmd)
 	categoryCreateCmd.Flags().StringVar(&catName, "name", "", "Category name")
 	categoryCreateCmd.Flags().IntVar(&catOrder, "order", 0, "Sort order")
+	categoryUpdateCmd.Flags().StringVar(&catName, "name", "", "Category name")
+	categoryUpdateCmd.Flags().IntVar(&catOrder, "order", 0, "Sort order")
 
 	rootCmd.AddCommand(difficultyCmd)
-	difficultyCmd.AddCommand(difficultyListCmd, difficultyCreateCmd, difficultyDeleteCmd)
+	difficultyCmd.AddCommand(difficultyListCmd, difficultyCreateCmd, difficultyUpdateCmd, difficultyDeleteCmd)
 	difficultyCreateCmd.Flags().StringVar(&diffName, "name", "", "Difficulty name")
 	difficultyCreateCmd.Flags().IntVar(&diffOrder, "order", 0, "Sort order")
+	difficultyCreateCmd.Flags().StringVar(&diffColor, "color", "", "Badge color (Tailwind classes)")
+	difficultyCreateCmd.Flags().StringVar(&diffTextColor, "text-color", "", "Text color (Tailwind class)")
+	difficultyUpdateCmd.Flags().StringVar(&diffName, "name", "", "Difficulty name")
+	difficultyUpdateCmd.Flags().IntVar(&diffOrder, "order", 0, "Sort order")
+	difficultyUpdateCmd.Flags().StringVar(&diffColor, "color", "", "Badge color (Tailwind classes)")
+	difficultyUpdateCmd.Flags().StringVar(&diffTextColor, "text-color", "", "Text color (Tailwind class)")
 }
 
 // settingItem is a generic representation of a category or difficulty row.
@@ -143,7 +167,7 @@ func runSettingCreate(args []string, name *string, order *int, label string, cre
 	}
 	if term.IsTerminal(int(os.Stdin.Fd())) && *name == "" {
 		if err := huh.NewForm(huh.NewGroup(
-			huh.NewInput().Title(label+" name").Value(name),
+			huh.NewInput().Title(label + " name").Value(name),
 		)).Run(); err != nil {
 			return err
 		}
@@ -155,9 +179,11 @@ func runSettingCreate(args []string, name *string, order *int, label string, cre
 	if err != nil {
 		return err
 	}
-	if !quietOutput {
-		fmt.Fprintf(os.Stdout, "Created %s %q\n", label, item.Name)
+	if quietOutput {
+		fmt.Fprintln(os.Stdout, item.ID)
+		return nil
 	}
+	fmt.Fprintf(os.Stdout, "Created %s %q\n", label, item.Name)
 	return nil
 }
 
@@ -224,7 +250,7 @@ func runDifficultyList(_ *cobra.Command, _ []string) error {
 
 func runDifficultyCreate(_ *cobra.Command, args []string) error {
 	return runSettingCreate(args, &diffName, &diffOrder, "difficulty", func(c *client.Client, name string, order int) (settingItem, error) {
-		d, err := c.CreateDifficulty(name, order)
+		d, err := c.CreateDifficulty(name, order, diffColor, diffTextColor)
 		if err != nil {
 			return settingItem{}, err
 		}
@@ -236,4 +262,140 @@ func runDifficultyDelete(_ *cobra.Command, args []string) error {
 	return runSettingDelete(args, "difficulty", func(c *client.Client, id string) error {
 		return c.DeleteDifficulty(id)
 	})
+}
+
+// runCategoryUpdate updates a category. The server's update endpoint is a
+// full-replace form handler that requires a non-empty name, so the CLI always
+// sends a complete payload: on non-TTY it merges provided flags with the
+// current values; on TTY it pre-fills a form and sends all fields.
+func runCategoryUpdate(cmd *cobra.Command, args []string) error {
+	id := args[0]
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	cats, err := c.ListCategories()
+	if err != nil {
+		return err
+	}
+	var cur client.Category
+	found := false
+	for _, cat := range cats {
+		if cat.ID == id {
+			cur = cat
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("category %s not found", id)
+	}
+
+	// On TTY with no flags, pre-fill a form from the current values.
+	if term.IsTerminal(int(os.Stdin.Fd())) && !cmd.Flags().Changed("name") && !cmd.Flags().Changed("order") {
+		catName = cur.Name
+		catOrder = cur.SortOrder
+		orderStr := strconv.Itoa(catOrder)
+		if err := huh.NewForm(
+			huh.NewGroup(huh.NewInput().Title("Category name").Value(&catName)),
+			huh.NewGroup(huh.NewInput().Title("Sort order").Value(&orderStr)),
+		).Run(); err != nil {
+			return err
+		}
+		if v, err := strconv.Atoi(orderStr); err == nil {
+			catOrder = v
+		}
+	} else {
+		if !cmd.Flags().Changed("name") {
+			catName = cur.Name
+		}
+		if !cmd.Flags().Changed("order") {
+			catOrder = cur.SortOrder
+		}
+	}
+	if catName == "" {
+		return fmt.Errorf("--name is required")
+	}
+	cat, err := c.UpdateCategory(id, catName, catOrder)
+	if err != nil {
+		return err
+	}
+	if quietOutput {
+		fmt.Fprintln(os.Stdout, cat.ID)
+		return nil
+	}
+	fmt.Fprintf(os.Stdout, "Updated category %q (%s)\n", cat.Name, cat.ID)
+	return nil
+}
+
+// runDifficultyUpdate updates a difficulty. Same full-replace semantics as
+// runCategoryUpdate: always sends name, color, text_color, and sort_order.
+func runDifficultyUpdate(cmd *cobra.Command, args []string) error {
+	id := args[0]
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	diffs, err := c.ListDifficulties()
+	if err != nil {
+		return err
+	}
+	var cur client.Difficulty
+	found := false
+	for _, d := range diffs {
+		if d.ID == id {
+			cur = d
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("difficulty %s not found", id)
+	}
+
+	// On TTY with no flags, pre-fill a form from the current values.
+	if term.IsTerminal(int(os.Stdin.Fd())) && !cmd.Flags().Changed("name") && !cmd.Flags().Changed("order") && !cmd.Flags().Changed("color") && !cmd.Flags().Changed("text-color") {
+		diffName = cur.Name
+		diffColor = cur.Color
+		diffTextColor = cur.TextColor
+		diffOrder = cur.SortOrder
+		orderStr := strconv.Itoa(diffOrder)
+		if err := huh.NewForm(
+			huh.NewGroup(huh.NewInput().Title("Difficulty name").Value(&diffName)),
+			huh.NewGroup(huh.NewInput().Title("Badge color (Tailwind classes)").Value(&diffColor)),
+			huh.NewGroup(huh.NewInput().Title("Text color (Tailwind class)").Value(&diffTextColor)),
+			huh.NewGroup(huh.NewInput().Title("Sort order").Value(&orderStr)),
+		).Run(); err != nil {
+			return err
+		}
+		if v, err := strconv.Atoi(orderStr); err == nil {
+			diffOrder = v
+		}
+	} else {
+		if !cmd.Flags().Changed("name") {
+			diffName = cur.Name
+		}
+		if !cmd.Flags().Changed("color") {
+			diffColor = cur.Color
+		}
+		if !cmd.Flags().Changed("text-color") {
+			diffTextColor = cur.TextColor
+		}
+		if !cmd.Flags().Changed("order") {
+			diffOrder = cur.SortOrder
+		}
+	}
+	if diffName == "" {
+		return fmt.Errorf("--name is required")
+	}
+	d, err := c.UpdateDifficulty(id, diffName, diffColor, diffTextColor, diffOrder)
+	if err != nil {
+		return err
+	}
+	if quietOutput {
+		fmt.Fprintln(os.Stdout, d.ID)
+		return nil
+	}
+	fmt.Fprintf(os.Stdout, "Updated difficulty %q (%s)\n", d.Name, d.ID)
+	return nil
 }

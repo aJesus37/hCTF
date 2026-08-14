@@ -1557,11 +1557,19 @@ func createTestChallenge(t *testing.T, title string) string {
 }
 
 type apiChallengeDetail struct {
-	ID             string `json:"id"`
-	Visible        bool   `json:"visible"`
-	MinimumPoints  int    `json:"minimum_points"`
-	DecayThreshold int    `json:"decay_threshold"`
-	InitialPoints  int    `json:"initial_points"`
+	ID             string  `json:"id"`
+	Title          string  `json:"name"`
+	Category       string  `json:"category"`
+	Difficulty     string  `json:"difficulty"`
+	Visible        bool    `json:"visible"`
+	MinimumPoints  int     `json:"minimum_points"`
+	DecayThreshold int     `json:"decay_threshold"`
+	InitialPoints  int     `json:"initial_points"`
+	Tags           *string `json:"tags,omitempty"`
+	SQLEnabled     bool    `json:"sql_enabled"`
+	SQLDatasetURL  *string `json:"sql_dataset_url,omitempty"`
+	SQLSchemaHint  *string `json:"sql_schema_hint,omitempty"`
+	DynamicScoring bool    `json:"dynamic_scoring"`
 }
 
 func apiGetChallenge(t *testing.T, id string) apiChallengeDetail {
@@ -1595,10 +1603,15 @@ func createTestQuestion(t *testing.T, challengeID, name, flag string, points int
 }
 
 type apiQuestion struct {
-	Name string `json:"name"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	Flag          string `json:"flag"`
+	FlagMask      string `json:"flag_mask"`
+	CaseSensitive bool   `json:"case_sensitive"`
+	Points        int    `json:"points"`
 }
 
-func apiGetQuestion(t *testing.T, challengeID string) apiQuestion {
+func apiQuestions(t *testing.T, challengeID string) []apiQuestion {
 	t.Helper()
 	resp, err := http.Get(cliServer + "/api/challenges/" + challengeID)
 	if err != nil {
@@ -1611,10 +1624,16 @@ func apiGetQuestion(t *testing.T, challengeID string) apiQuestion {
 	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
 		t.Fatal(err)
 	}
-	if len(env.Questions) == 0 {
+	return env.Questions
+}
+
+func apiGetQuestion(t *testing.T, challengeID string) apiQuestion {
+	t.Helper()
+	qs := apiQuestions(t, challengeID)
+	if len(qs) == 0 {
 		t.Fatal("no questions found")
 	}
-	return env.Questions[0]
+	return qs[0]
 }
 
 func createTestHint(t *testing.T, questionID, content string, cost int) string {
@@ -1628,6 +1647,71 @@ func createTestHint(t *testing.T, questionID, content string, cost int) string {
 		t.Fatalf("createTestHint: code=%d stderr=%s", code, stderr)
 	}
 	return strings.TrimSpace(out)
+}
+
+type apiHint struct {
+	ID       string `json:"id"`
+	Order    int    `json:"order"`
+	Cost     int    `json:"cost"`
+	Unlocked bool   `json:"unlocked"`
+}
+
+func apiHints(t *testing.T, questionID string) []apiHint {
+	t.Helper()
+	req, _ := http.NewRequest("GET", cliServer+"/api/questions/"+questionID+"/hints", nil)
+	req.Header.Set("Accept", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out []apiHint
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+type apiDifficulty struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Color     string `json:"color"`
+	TextColor string `json:"text_color"`
+	SortOrder int    `json:"sort_order"`
+}
+
+func apiDifficulties(t *testing.T) []apiDifficulty {
+	t.Helper()
+	resp, err := http.Get(cliServer + "/api/difficulties")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out []apiDifficulty
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+type apiCategory struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	SortOrder int    `json:"sort_order"`
+}
+
+func apiCategories(t *testing.T) []apiCategory {
+	t.Helper()
+	resp, err := http.Get(cliServer + "/api/categories")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out []apiCategory
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 // ── Task 1: challenge update — visible, min-points, decay flags ───────────────
@@ -1656,6 +1740,68 @@ func TestCLIChallengeUpdateDynamicScoring(t *testing.T) {
 	}
 	if ch.DecayThreshold != 10 {
 		t.Fatalf("expected decay=10, got %d", ch.DecayThreshold)
+	}
+}
+
+func TestCLIChallengeUpdatePreservesAdvancedFields(t *testing.T) {
+	out, stderr, code := runCLI(t, "challenge", "create",
+		"--title", "Adv", "--category", "web", "--difficulty", "hard",
+		"--tags", "a,b", "--dynamic-scoring", "--sql-enabled",
+		"--sql-dataset-url", "https://example.com/d.csv", "--sql-schema-hint", "CREATE TABLE t;",
+		"--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+
+	out2, stderr2, code2 := runCLI(t, "challenge", "update", id, "--title", "Adv2")
+	assertSuccess(t, out2, stderr2, code2)
+
+	ch := apiGetChallenge(t, id)
+	if ch.Title != "Adv2" {
+		t.Errorf("title: got %q", ch.Title)
+	}
+	if ch.Category != "web" {
+		t.Errorf("category: got %q", ch.Category)
+	}
+	if ch.Difficulty != "hard" {
+		t.Errorf("difficulty: got %q", ch.Difficulty)
+	}
+	if ch.InitialPoints != 1000 {
+		t.Errorf("initial_points: got %d", ch.InitialPoints)
+	}
+	if ch.DynamicScoring != true {
+		t.Error("dynamic_scoring was wiped")
+	}
+	if ch.SQLEnabled != true {
+		t.Error("sql_enabled was wiped")
+	}
+	if ch.Tags == nil || *ch.Tags != "a,b" {
+		t.Error("tags were wiped")
+	}
+	if ch.SQLDatasetURL == nil || *ch.SQLDatasetURL != "https://example.com/d.csv" {
+		t.Error("sql_dataset_url was wiped")
+	}
+	if ch.SQLSchemaHint == nil || *ch.SQLSchemaHint != "CREATE TABLE t;" {
+		t.Error("sql_schema_hint was wiped")
+	}
+}
+
+func TestCLIChallengeUpdateSetsFields(t *testing.T) {
+	out, stderr, code := runCLI(t, "challenge", "create",
+		"--title", "SetFields", "--category", "web", "--difficulty", "easy",
+		"--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+
+	out2, stderr2, code2 := runCLI(t, "challenge", "update", id,
+		"--tags", "x,y", "--dynamic-scoring=false")
+	assertSuccess(t, out2, stderr2, code2)
+
+	ch := apiGetChallenge(t, id)
+	if ch.Tags == nil || *ch.Tags != "x,y" {
+		t.Errorf("tags: got %v", ch.Tags)
+	}
+	if ch.DynamicScoring != false {
+		t.Error("dynamic_scoring should stay false")
 	}
 }
 
@@ -2258,5 +2404,569 @@ func TestUpdateCheck(t *testing.T) {
 		!strings.Contains(combined, "Current:") &&
 		!strings.Contains(combined, "Checking") {
 		t.Errorf("unexpected output:\nstdout: %s\nstderr: %s", stdout, stderr)
+	}
+}
+
+// ── Task 6: question create/update partial fields ───────────────────────────
+
+func TestCLIQuestionCreateFullFields(t *testing.T) {
+	chID := createTestChallenge(t, "QFull")
+	out, stderr, code := runCLI(t, "question", "create",
+		"--challenge", chID, "--name", "Full", "--flag", "flag{full}",
+		"--description", "solve it", "--flag-mask", "flag{****}", "--points", "200", "--case-sensitive")
+	assertSuccess(t, out, stderr, code)
+	qs := apiQuestions(t, chID)
+	if len(qs) != 1 {
+		t.Fatalf("expected 1 question, got %d", len(qs))
+	}
+	if qs[0].Description != "solve it" {
+		t.Errorf("description: got %q", qs[0].Description)
+	}
+	if qs[0].CaseSensitive != true {
+		t.Error("case_sensitive: expected true")
+	}
+	if qs[0].FlagMask != "flag{****}" {
+		t.Errorf("flag_mask: got %q", qs[0].FlagMask)
+	}
+}
+
+func TestCLIQuestionUpdatePreservesFlag(t *testing.T) {
+	chID := createTestChallenge(t, "QPreserve")
+	qID := createTestQuestion(t, chID, "Q", "flag{keepme}", 100)
+	out, stderr, code := runCLI(t, "question", "update", qID, "--name", "Renamed")
+	assertSuccess(t, out, stderr, code)
+	q := apiGetQuestion(t, chID)
+	if q.Name != "Renamed" {
+		t.Errorf("name: got %q", q.Name)
+	}
+	out, stderr, code = runCLI(t, "flag", "submit", qID, "flag{keepme}")
+	if code != 0 {
+		t.Fatalf("flag resubmit failed: code=%d stderr=%s", code, stderr)
+	}
+	if !strings.Contains(out, "Correct") {
+		t.Errorf("flag was wiped: expected 'Correct' on resubmit, got: %s", out)
+	}
+}
+
+func TestCLIQuestionUpdateFlagMask(t *testing.T) {
+	chID := createTestChallenge(t, "QMask")
+	qID := createTestQuestion(t, chID, "Q", "flag{x}", 100)
+	_, _, code := runCLI(t, "question", "update", qID, "--flag-mask", "flag{*****}")
+	if code != 0 {
+		t.Fatalf("update failed")
+	}
+	q := apiGetQuestion(t, chID)
+	if q.FlagMask != "flag{*****}" {
+		t.Errorf("flag_mask: got %q", q.FlagMask)
+	}
+	if q.Name != "Q" {
+		t.Errorf("name was wiped: got %q", q.Name)
+	}
+}
+
+func TestCLIQuestionUpdatePreservesDescriptionAndPoints(t *testing.T) {
+	chID := createTestChallenge(t, "QPreserveDP")
+	out, stderr, code := runCLI(t, "question", "create",
+		"--challenge", chID, "--name", "Q", "--flag", "flag{dp}",
+		"--description", "some desc", "--points", "300", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	qID := strings.TrimSpace(out)
+	out, stderr, code = runCLI(t, "question", "update", qID, "--name", "Renamed")
+	assertSuccess(t, out, stderr, code)
+	q := apiGetQuestion(t, chID)
+	if q.Name != "Renamed" {
+		t.Errorf("name: got %q", q.Name)
+	}
+	if q.Description != "some desc" {
+		t.Errorf("description was wiped: got %q", q.Description)
+	}
+	if q.Points != 300 {
+		t.Errorf("points were wiped: got %d", q.Points)
+	}
+}
+
+// ── Task 8: competition create/update rules-html and timing fields ───────────
+
+type apiCompetition struct {
+	ID                int64  `json:"id"`
+	Name              string `json:"name"`
+	Description       string `json:"description"`
+	RulesHTML         string `json:"rules_html"`
+	StartAt           string `json:"start_at"`
+	EndAt             string `json:"end_at"`
+	RegistrationStart string `json:"registration_start"`
+	RegistrationEnd   string `json:"registration_end"`
+	Status            string `json:"status"`
+}
+
+func apiGetCompetition(t *testing.T, id string) apiCompetition {
+	t.Helper()
+	resp, err := http.Get(cliServer + "/api/competitions/" + id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /api/competitions/%s status %d", id, resp.StatusCode)
+	}
+	var comp apiCompetition
+	if err := json.NewDecoder(resp.Body).Decode(&comp); err != nil {
+		t.Fatal(err)
+	}
+	return comp
+}
+
+func TestCLICompetitionUpdatePreservesFields(t *testing.T) {
+	id := createTestCompetition(t, "CompPreserve")
+	// set rules + times first
+	_, _, code := runCLI(t, "competition", "update", id,
+		"--rules-html", "<p>Rules</p>",
+		"--start", "2026-09-01T00:00:00Z",
+		"--end", "2026-09-02T00:00:00Z",
+		"--registration-start", "2026-08-01T00:00:00Z",
+		"--registration-end", "2026-08-15T00:00:00Z")
+	if code != 0 {
+		t.Fatalf("set update failed")
+	}
+	// now a partial update (name only) must NOT wipe the above
+	_, _, code2 := runCLI(t, "competition", "update", id, "--name", "CompRenamed")
+	if code2 != 0 {
+		t.Fatalf("partial update failed")
+	}
+	comp := apiGetCompetition(t, id)
+	if comp.Name != "CompRenamed" {
+		t.Errorf("name: got %q", comp.Name)
+	}
+	if comp.RulesHTML != "<p>Rules</p>" {
+		t.Errorf("rules_html: got %q", comp.RulesHTML)
+	}
+	if comp.StartAt == "" {
+		t.Error("start_at was wiped")
+	}
+	if comp.EndAt == "" {
+		t.Error("end_at was wiped")
+	}
+	if comp.RegistrationStart == "" {
+		t.Error("registration_start was wiped")
+	}
+	if comp.RegistrationEnd == "" {
+		t.Error("registration_end was wiped")
+	}
+}
+
+func TestCLICompetitionCreateWithFields(t *testing.T) {
+	out, stderr, code := runCLI(t, "competition", "create", "CompCreateFields",
+		"--description", "desc",
+		"--rules-html", "<p>R</p>",
+		"--start", "2026-10-01T00:00:00Z",
+		"--end", "2026-10-02T00:00:00Z",
+		"--registration-start", "2026-09-01T00:00:00Z",
+		"--registration-end", "2026-09-15T00:00:00Z",
+		"--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+	if id == "" {
+		t.Fatal("expected competition id from --quiet output")
+	}
+	comp := apiGetCompetition(t, id)
+	if comp.Name != "CompCreateFields" {
+		t.Errorf("name: got %q", comp.Name)
+	}
+	if comp.Description != "desc" {
+		t.Errorf("description: got %q", comp.Description)
+	}
+	if comp.RulesHTML != "<p>R</p>" {
+		t.Errorf("rules_html: got %q", comp.RulesHTML)
+	}
+	if comp.StartAt == "" {
+		t.Error("start_at not set")
+	}
+	if comp.EndAt == "" {
+		t.Error("end_at not set")
+	}
+	if comp.RegistrationStart == "" {
+		t.Error("registration_start not set")
+	}
+	if comp.RegistrationEnd == "" {
+		t.Error("registration_end not set")
+	}
+}
+
+func TestCLICompetitionUpdateClearsTime(t *testing.T) {
+	id := createTestCompetition(t, "CompClearTime")
+	_, _, code := runCLI(t, "competition", "update", id, "--start", "2026-09-01T00:00:00Z")
+	if code != 0 {
+		t.Fatalf("set start update failed")
+	}
+	comp := apiGetCompetition(t, id)
+	if comp.StartAt == "" {
+		t.Fatal("start_at not set before clearing")
+	}
+	// explicit empty string must clear the start time while preserving others
+	_, _, code2 := runCLI(t, "competition", "update", id, "--start", "")
+	if code2 != 0 {
+		t.Fatalf("clear start update failed")
+	}
+	comp = apiGetCompetition(t, id)
+	if comp.StartAt != "" {
+		t.Errorf("start_at: expected cleared, got %q", comp.StartAt)
+	}
+	if comp.Name != "CompClearTime" {
+		t.Errorf("name was wiped: got %q", comp.Name)
+	}
+	if comp.RulesHTML != "" {
+		t.Errorf("rules_html: expected empty (never set), got %q", comp.RulesHTML)
+	}
+}
+
+// ── Task 9: hint create order + difficulty colors + challenge default points ──
+
+func TestCLIHintCreateWithOrder(t *testing.T) {
+	chID := createTestChallenge(t, "HOrd")
+	qID := createTestQuestion(t, chID, "Q", "flag{x}", 100)
+	out, stderr, code := runCLI(t, "hint", "create", "--question", qID, "--content", "h", "--cost", "10", "--order", "3")
+	assertSuccess(t, out, stderr, code)
+	hints := apiHints(t, qID)
+	if len(hints) != 1 || hints[0].Order != 3 {
+		t.Fatalf("expected order=3, got %+v", hints)
+	}
+}
+
+func TestCLIDifficultyCreateWithColor(t *testing.T) {
+	out, stderr, code := runCLI(t, "difficulty", "create", "brutal",
+		"--color", "bg-red-600 text-white", "--text-color", "text-red-300", "--order", "9")
+	assertSuccess(t, out, stderr, code)
+	diffs := apiDifficulties(t)
+	found := false
+	for _, d := range diffs {
+		if d.Name == "brutal" {
+			found = true
+			if d.Color != "bg-red-600 text-white" || d.TextColor != "text-red-300" {
+				t.Errorf("colors: got %q/%q", d.Color, d.TextColor)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("difficulty not created")
+	}
+}
+
+func TestCLIChallengeCreateDefaultPoints(t *testing.T) {
+	out, stderr, code := runCLI(t, "challenge", "create", "--title", "DefaultPts", "--category", "web", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	ch := apiGetChallenge(t, strings.TrimSpace(out))
+	if ch.InitialPoints != 1000 {
+		t.Errorf("initial_points: got %d want 1000", ch.InitialPoints)
+	}
+}
+
+func TestCLIChallengeCreateDynamicScoringDefaults(t *testing.T) {
+	out, stderr, code := runCLI(t, "challenge", "create", "--title", "Dyn", "--category", "web", "--dynamic-scoring", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	ch := apiGetChallenge(t, strings.TrimSpace(out))
+	if ch.InitialPoints <= 0 {
+		t.Errorf("initial_points: got %d want > 0", ch.InitialPoints)
+	}
+	if ch.MinimumPoints != 100 {
+		t.Errorf("minimum_points: got %d want 100", ch.MinimumPoints)
+	}
+	if ch.DecayThreshold != 100 {
+		t.Errorf("decay_threshold: got %d want 100", ch.DecayThreshold)
+	}
+	if !ch.DynamicScoring {
+		t.Error("dynamic_scoring: got false want true")
+	}
+}
+
+// ── category / difficulty update ─────────────────────────────────────────────
+
+func TestCLICategoryUpdate(t *testing.T) {
+	out, stderr, code := runCLI(t, "category", "create", "rev", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+	out2, stderr2, code2 := runCLI(t, "category", "update", id, "--name", "rev2", "--order", "5")
+	assertSuccess(t, out2, stderr2, code2)
+	cats := apiCategories(t)
+	for _, c := range cats {
+		if c.ID == id {
+			if c.Name != "rev2" || c.SortOrder != 5 {
+				t.Errorf("category update: got %q/%d", c.Name, c.SortOrder)
+			}
+			return
+		}
+	}
+	t.Fatal("category not found")
+}
+
+func TestCLIDifficultyUpdate(t *testing.T) {
+	out, stderr, code := runCLI(t, "difficulty", "create", "trivial", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+	_, _, code2 := runCLI(t, "difficulty", "update", id,
+		"--name", "trivial2", "--color", "bg-green-600", "--text-color", "text-green-200", "--order", "3")
+	if code2 != 0 {
+		t.Fatalf("difficulty update failed")
+	}
+	diffs := apiDifficulties(t)
+	for _, d := range diffs {
+		if d.ID == id {
+			if d.Name != "trivial2" || d.Color != "bg-green-600" || d.TextColor != "text-green-200" || d.SortOrder != 3 {
+				t.Errorf("difficulty update: got %+v", d)
+			}
+			return
+		}
+	}
+	t.Fatal("difficulty not found")
+}
+
+// Partial-name updates must preserve untouched fields (non-TTY merge path).
+func TestCLICategoryUpdatePartialName(t *testing.T) {
+	out, stderr, code := runCLI(t, "category", "create", "partial0", "--order", "7", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+	out2, stderr2, code2 := runCLI(t, "category", "update", id, "--name", "partial")
+	assertSuccess(t, out2, stderr2, code2)
+	cats := apiCategories(t)
+	for _, c := range cats {
+		if c.ID == id {
+			if c.Name != "partial" || c.SortOrder != 7 {
+				t.Errorf("category partial update: got %q/%d", c.Name, c.SortOrder)
+			}
+			return
+		}
+	}
+	t.Fatal("category not found")
+}
+
+func TestCLIDifficultyUpdatePartialName(t *testing.T) {
+	out, stderr, code := runCLI(t, "difficulty", "create", "partiald",
+		"--color", "bg-red-600 text-white", "--text-color", "text-red-300", "--order", "7", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+	_, _, code2 := runCLI(t, "difficulty", "update", id, "--name", "partial2")
+	if code2 != 0 {
+		t.Fatalf("difficulty partial update failed")
+	}
+	diffs := apiDifficulties(t)
+	for _, d := range diffs {
+		if d.ID == id {
+			if d.Name != "partial2" || d.Color != "bg-red-600 text-white" || d.TextColor != "text-red-300" || d.SortOrder != 7 {
+				t.Errorf("difficulty partial update: got %+v", d)
+			}
+			return
+		}
+	}
+	t.Fatal("difficulty not found")
+}
+
+func TestCLICategoryUpdateNotFound(t *testing.T) {
+	_, _, code := runCLI(t, "category", "update", "nonexistent-id", "--name", "x")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for nonexistent category")
+	}
+}
+
+func TestCLIDifficultyUpdateNotFound(t *testing.T) {
+	_, _, code := runCLI(t, "difficulty", "update", "nonexistent-id", "--name", "x")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for nonexistent difficulty")
+	}
+}
+
+func TestCLIQuestionGet(t *testing.T) {
+	chID := createTestChallenge(t, "QGet")
+	qID := createTestQuestion(t, chID, "Q", "flag{x}", 100)
+	out, stderr, code := runCLI(t, "question", "get", qID)
+	assertSuccess(t, out, stderr, code)
+	assertContains(t, out, "Q")
+	// JSON mode
+	out2, stderr2, code2 := runCLI(t, "question", "get", qID, "--json")
+	assertSuccess(t, out2, stderr2, code2)
+	var q struct {
+		ID     string `json:"id"`
+		Name   string `json:"name"`
+		Points int    `json:"points"`
+	}
+	if err := json.Unmarshal([]byte(out2), &q); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if q.ID != qID || q.Name != "Q" {
+		t.Errorf("got %+v", q)
+	}
+}
+
+// ── team invite-permission ───────────────────────────────────────────────────
+
+type apiTeam struct {
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	OwnerID          string `json:"owner_id"`
+	InviteID         string `json:"invite_id"`
+	InvitePermission string `json:"invite_permission"`
+}
+
+func apiGetTeam(t *testing.T, id string) apiTeam {
+	t.Helper()
+	req, _ := http.NewRequest("GET", cliServer+"/api/teams/"+id, nil)
+	req.AddCookie(&http.Cookie{Name: "auth_token", Value: adminToken(t)})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var env struct {
+		Team apiTeam `json:"team"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+		t.Fatal(err)
+	}
+	return env.Team
+}
+
+func TestCLITeamInvitePermission(t *testing.T) {
+	out, stderr, code := runCLI(t, "team", "create", "PermTeam", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+	defer leaveTeam(t)
+
+	_, _, code2 := runCLI(t, "team", "invite-permission", "all_members")
+	if code2 != 0 {
+		t.Fatalf("invite-permission failed")
+	}
+	team := apiGetTeam(t, id)
+	if team.InvitePermission != "all_members" {
+		t.Errorf("invite_permission: got %q want all_members", team.InvitePermission)
+	}
+
+	// invalid value must error
+	_, _, code3 := runCLI(t, "team", "invite-permission", "bogus")
+	if code3 == 0 {
+		t.Fatal("expected error for invalid permission value")
+	}
+}
+
+// ── auth: password reset (public endpoints, no login required) ────────────────
+
+func TestCLIForgotPassword(t *testing.T) {
+	// must work without being logged in: use a public client via --server
+	out, stderr, code := runCLI(t, "forgot-password", "--email", "nobody@example.com", "--server", cliServer)
+	assertSuccess(t, out, stderr, code)
+	assertContains(t, out, "reset")
+}
+
+func TestCLIResetPasswordBadToken(t *testing.T) {
+	_, _, code := runCLI(t, "reset-password", "--token", "bogus-token", "--password", "newpass123", "--server", cliServer)
+	if code == 0 {
+		t.Fatal("expected failure for invalid reset token")
+	}
+}
+
+// ── custom-code get / set ──────────────────────────────────────────────────────
+
+func TestCLICustomCodeSetGet(t *testing.T) {
+	_, _, code := runCLI(t, "custom-code", "set",
+		"--head-html", "<meta name=\"x\" content=\"1\">",
+		"--body-end-html", "<div>foot</div>",
+		"--pages", "all",
+		"--motd", "Welcome!")
+	if code != 0 {
+		t.Fatalf("set failed")
+	}
+	out, stderr, code2 := runCLI(t, "custom-code", "get", "--json")
+	assertSuccess(t, out, stderr, code2)
+	var res struct {
+		HeadHTML    string `json:"head_html"`
+		BodyEndHTML string `json:"body_end_html"`
+		PagesJSON   string `json:"pages_json"`
+		Motd        string `json:"motd"`
+	}
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		t.Fatalf("decode: %v\n%s", err, out)
+	}
+	if res.HeadHTML == "" || res.BodyEndHTML == "" || res.PagesJSON != "all" || res.Motd != "Welcome!" {
+		t.Errorf("got %+v", res)
+	}
+
+	// Partial set: only motd changes, prior head_html must survive (server
+	// applies per-field semantics based on form field presence).
+	_, _, code = runCLI(t, "custom-code", "set", "--motd", "Partial MOTD")
+	if code != 0 {
+		t.Fatalf("partial set failed")
+	}
+	out, _, code2 = runCLI(t, "custom-code", "get", "--json")
+	if code2 != 0 {
+		t.Fatalf("get failed")
+	}
+	var res2 struct {
+		HeadHTML string `json:"head_html"`
+		Motd     string `json:"motd"`
+	}
+	if err := json.Unmarshal([]byte(out), &res2); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if res2.Motd != "Partial MOTD" {
+		t.Errorf("motd: got %q", res2.Motd)
+	}
+	if res2.HeadHTML == "" {
+		t.Error("head_html was cleared by a partial update")
+	}
+}
+
+// ── Task 15: scoreboard teams / evolution / admin-visibility / force-record + ctftime ──
+
+func TestCLIScoreboardTeams(t *testing.T) {
+	out, stderr, code := runCLI(t, "scoreboard", "teams", "--json")
+	assertSuccess(t, out, stderr, code)
+	var entries []map[string]any
+	if err := json.Unmarshal([]byte(out), &entries); err != nil {
+		t.Fatalf("teams scoreboard not JSON: %v\n%s", err, out)
+	}
+}
+
+func TestCLICtfTime(t *testing.T) {
+	// needs at least one team; admin is in a team? create one to be safe
+	_, _, code := runCLI(t, "team", "create", "CtfTeam", "--quiet")
+	if code != 0 {
+		t.Skip("team creation unavailable")
+	}
+	out, stderr, code2 := runCLI(t, "ctftime")
+	assertSuccess(t, out, stderr, code2)
+	var resp struct {
+		Standings []struct {
+			Pos   int    `json:"pos"`
+			Team  string `json:"team"`
+			Score int    `json:"score"`
+		} `json:"standings"`
+	}
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("ctftime not JSON: %v\n%s", err, out)
+	}
+}
+
+func TestCLIScoreboardAdminVisibility(t *testing.T) {
+	out, stderr, code := runCLI(t, "scoreboard", "admin-visibility", "off")
+	assertSuccess(t, out, stderr, code)
+	_, _, code2 := runCLI(t, "scoreboard", "admin-visibility", "on")
+	if code2 != 0 {
+		t.Fatalf("admin-visibility on failed")
+	}
+}
+
+func TestCLIScoreboardForceRecord(t *testing.T) {
+	_, _, code := runCLI(t, "scoreboard", "force-record")
+	if code != 0 {
+		t.Fatalf("force-record failed")
+	}
+}
+
+func TestCLIScoreboardEvolution(t *testing.T) {
+	out, stderr, code := runCLI(t, "scoreboard", "evolution", "--mode", "individual", "--limit", "5", "--json")
+	assertSuccess(t, out, stderr, code)
+	var resp struct {
+		Intervals []string `json:"intervals"`
+		Series    []any    `json:"series"`
+	}
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("evolution not JSON: %v\n%s", err, out)
 	}
 }

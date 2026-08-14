@@ -11,6 +11,7 @@ type QuestionDetail struct {
 	ID            string  `json:"id"`
 	ChallengeID   string  `json:"challenge_id"`
 	Name          string  `json:"name"`
+	Description   string  `json:"description"`
 	Points        int     `json:"points"`
 	FlagMask      *string `json:"flag_mask"`
 	CaseSensitive bool    `json:"case_sensitive"`
@@ -21,12 +22,15 @@ func (c *Client) ListQuestions(challengeID string) ([]Question, error) {
 	return qs, err
 }
 
-func (c *Client) CreateQuestion(challengeID, name, flag string, points int) (*QuestionDetail, error) {
+func (c *Client) CreateQuestion(challengeID, name, description, flag string, flagMask *string, caseSensitive bool, points int) (*QuestionDetail, error) {
 	body, _ := json.Marshal(map[string]any{
-		"challenge_id": challengeID,
-		"name":         name,
-		"flag":         flag,
-		"points":       points,
+		"challenge_id":   challengeID,
+		"name":           name,
+		"description":    description,
+		"flag":           flag,
+		"flag_mask":      flagMask,
+		"case_sensitive": caseSensitive,
+		"points":         points,
 	})
 	var out QuestionDetail
 	return &out, c.doJSON("POST", "/api/admin/questions", bytes.NewReader(body), &out)
@@ -43,13 +47,17 @@ func (c *Client) GetQuestion(id string) (*QuestionDetail, error) {
 	return &out, decodeJSON(resp, &out)
 }
 
-func (c *Client) UpdateQuestion(id, name, flag string, points int, caseSensitive bool) error {
-	body, _ := json.Marshal(map[string]any{
-		"name":           name,
-		"flag":           flag,
-		"points":         points,
-		"case_sensitive": caseSensitive,
-	})
+type QuestionUpdate struct {
+	Name          *string `json:"name,omitempty"`
+	Description   *string `json:"description,omitempty"`
+	Flag          *string `json:"flag,omitempty"`
+	FlagMask      *string `json:"flag_mask,omitempty"`
+	Points        *int    `json:"points,omitempty"`
+	CaseSensitive *bool   `json:"case_sensitive,omitempty"`
+}
+
+func (c *Client) UpdateQuestion(id string, u QuestionUpdate) error {
+	body, _ := json.Marshal(u)
 	return c.doStatus("PUT", "/api/admin/questions/"+id, bytes.NewReader(body))
 }
 

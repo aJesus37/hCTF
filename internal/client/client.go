@@ -43,7 +43,9 @@ func decodeJSON(resp *http.Response, v any) error {
 	}
 	if resp.StatusCode >= 400 {
 		b, _ := io.ReadAll(resp.Body)
-		var e struct{ Error string `json:"error"` }
+		var e struct {
+			Error string `json:"error"`
+		}
 		if json.Unmarshal(b, &e) == nil && e.Error != "" {
 			return fmt.Errorf("server error: %s", e.Error)
 		}
@@ -92,7 +94,9 @@ func (c *Client) doStatus(method, path string, body io.Reader) error {
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		b, _ := io.ReadAll(resp.Body)
-		var e struct{ Error string `json:"error"` }
+		var e struct {
+			Error string `json:"error"`
+		}
 		if json.Unmarshal(b, &e) == nil && e.Error != "" {
 			return fmt.Errorf("server error: %s", e.Error)
 		}
@@ -117,7 +121,9 @@ func (c *Client) doNoBody(method, path string) error {
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		b, _ := io.ReadAll(resp.Body)
-		var e struct{ Error string `json:"error"` }
+		var e struct {
+			Error string `json:"error"`
+		}
 		if json.Unmarshal(b, &e) == nil && e.Error != "" {
 			return fmt.Errorf("server error: %s", e.Error)
 		}

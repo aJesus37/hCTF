@@ -3,9 +3,9 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/ajesus37/hCTF/internal/auth"
 	"github.com/ajesus37/hCTF/internal/database"
+	"github.com/go-chi/chi/v5"
 )
 
 type ProfileHandler struct {
@@ -34,13 +34,13 @@ func (h *ProfileHandler) ViewOwnProfile(w http.ResponseWriter, r *http.Request) 
 	solved, _ := h.db.GetUserSolvedChallenges(claims.UserID)
 
 	data := map[string]interface{}{
-		"Title":               "My Profile",
-		"Page":                "profile",
-		"User":                claims,
-		"Stats":               stats,
-		"RecentSubmissions":   submissions,
-		"SolvedChallenges":    solved,
-		"IsOwnProfile":        true,
+		"Title":             "My Profile",
+		"Page":              "profile",
+		"User":              claims,
+		"Stats":             stats,
+		"RecentSubmissions": submissions,
+		"SolvedChallenges":  solved,
+		"IsOwnProfile":      true,
 	}
 
 	// Render using server's render function
@@ -62,13 +62,13 @@ func (h *ProfileHandler) ViewUserProfile(w http.ResponseWriter, r *http.Request)
 	solved, _ := h.db.GetUserSolvedChallenges(userID)
 
 	data := map[string]interface{}{
-		"Title":               "User Profile",
-		"Page":                "profile",
-		"User":                claims,
-		"Stats":               stats,
-		"RecentSubmissions":   submissions,
-		"SolvedChallenges":    solved,
-		"IsOwnProfile":        false,
+		"Title":             "User Profile",
+		"Page":              "profile",
+		"User":              claims,
+		"Stats":             stats,
+		"RecentSubmissions": submissions,
+		"SolvedChallenges":  solved,
+		"IsOwnProfile":      false,
 	}
 
 	_ = data // Will be used by main.go template rendering

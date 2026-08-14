@@ -3,18 +3,20 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"html"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/ajesus37/hCTF/internal/auth"
 	"github.com/ajesus37/hCTF/internal/database"
 	"github.com/ajesus37/hCTF/internal/models"
 	"github.com/ajesus37/hCTF/internal/ratelimit"
 	"github.com/ajesus37/hCTF/internal/storage"
+	"github.com/go-chi/chi/v5"
 )
 
 type ChallengeHandler struct {
@@ -265,11 +267,27 @@ func (h *ChallengeHandler) SubmitFlag(w http.ResponseWriter, r *http.Request) {
 	// Return HTMX-friendly HTML response
 	if isCorrect {
 		// Show hint cost info if hints were used
+		var msg string
 		if hintCost > 0 {
-			w.Write([]byte(fmt.Sprintf(`<div class="text-green-400">✅ Correct! You earned %d points <span class="text-yellow-300 text-sm">(-%d hint cost)</span></div>`, pointsEarned, hintCost)))
+			msg = fmt.Sprintf(`<div class="text-green-400">✅ Correct! You earned %d points <span class="text-yellow-300 text-sm">(-%d hint cost)</span></div>`, pointsEarned, hintCost)
 		} else {
-			w.Write([]byte(fmt.Sprintf(`<div class="text-green-400">✅ Correct! You earned %d points</div>`, pointsEarned)))
+			msg = fmt.Sprintf(`<div class="text-green-400">✅ Correct! You earned %d points</div>`, pointsEarned)
 		}
+
+		// Swap the submit form for a disabled solved state (no page refresh needed)
+		solvedForm := fmt.Sprintf(`
+            <form id="flag-form-%s" hx-swap-oob="outerHTML" class="flex gap-2 opacity-60">
+                <input type="text" disabled value="%s"
+                       class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded cursor-not-allowed">
+                <button type="button" disabled
+                        class="px-6 py-2 bg-green-600 dark:bg-green-700 text-white dark:text-white rounded cursor-not-allowed">
+                    ✓ Solved
+                </button>
+            </form>`, questionID, html.EscapeString(strings.TrimSpace(req.Flag)))
+
+		// Refresh hints so unlock buttons render disabled (question is now solved)
+		w.Header().Set("HX-Trigger", "refreshHints")
+		w.Write([]byte(msg + solvedForm))
 	} else {
 		w.Write([]byte(`<div class="text-red-400">❌ Incorrect, try again</div>`))
 	}
@@ -328,6 +346,24 @@ type CreateChallengeRequest struct {
 	InitialPoints  int     `json:"initial_points"`
 	MinimumPoints  int     `json:"minimum_points"`
 	DecayThreshold int     `json:"decay_threshold"`
+}
+
+// UpdateChallengeRequest carries optional fields for a partial challenge update.
+// nil pointer = keep existing value.
+type UpdateChallengeRequest struct {
+	Name           *string `json:"name,omitempty"`
+	Description    *string `json:"description,omitempty"`
+	Category       *string `json:"category,omitempty"`
+	Difficulty     *string `json:"difficulty,omitempty"`
+	Tags           *string `json:"tags,omitempty"`
+	Visible        *bool   `json:"visible,omitempty"`
+	SQLEnabled     *bool   `json:"sql_enabled,omitempty"`
+	SQLDatasetURL  *string `json:"sql_dataset_url,omitempty"`
+	SQLSchemaHint  *string `json:"sql_schema_hint,omitempty"`
+	DynamicScoring *bool   `json:"dynamic_scoring,omitempty"`
+	InitialPoints  *int    `json:"initial_points,omitempty"`
+	MinimumPoints  *int    `json:"minimum_points,omitempty"`
+	DecayThreshold *int    `json:"decay_threshold,omitempty"`
 }
 
 // CreateChallenge godoc
@@ -481,8 +517,8 @@ func (h *ChallengeHandler) CreateChallenge(w http.ResponseWriter, r *http.Reques
 					if err == nil {
 						sizeBytes := header.Size
 						if _, dbErr := h.db.CreateChallengeFile(challenge.ID, header.Filename, "local", url, &sizeBytes); dbErr != nil {
-						log.Printf("warning: failed to save file record for %s: %v", header.Filename, dbErr)
-					}
+							log.Printf("warning: failed to save file record for %s: %v", header.Filename, dbErr)
+						}
 					}
 				}
 			} else if source == "external" {
@@ -564,7 +600,7 @@ func (h *ChallengeHandler) getDifficultyColor(name string) string {
 // @Produce json
 // @Security CookieAuth
 // @Param id path string true "Challenge ID"
-// @Param challenge body CreateChallengeRequest true "Updated challenge data"
+// @Param challenge body UpdateChallengeRequest true "Updated challenge data"
 // @Success 200 {string} string "Challenge updated"
 // @Failure 400 {object} object{error=string}
 // @Failure 500 {object} object{error=string}
@@ -575,10 +611,64 @@ func (h *ChallengeHandler) UpdateChallenge(w http.ResponseWriter, r *http.Reques
 	var req CreateChallengeRequest
 
 	if strings.Contains(contentType, "application/json") {
-		// JSON request
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// JSON partial update: only fields present in the request are applied.
+		var update UpdateChallengeRequest
+		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
+		}
+
+		existing, err := h.db.GetChallengeByID(id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "Challenge not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Failed to update challenge", http.StatusInternalServerError)
+			}
+			return
+		}
+		req.Name, req.Description, req.Category, req.Difficulty = existing.Name, existing.Description, existing.Category, existing.Difficulty
+		req.Tags, req.Visible = existing.Tags, existing.Visible
+		req.SQLEnabled, req.SQLDatasetURL, req.SQLSchemaHint = existing.SQLEnabled, existing.SQLDatasetURL, existing.SQLSchemaHint
+		req.DynamicScoring, req.InitialPoints, req.MinimumPoints, req.DecayThreshold = existing.DynamicScoring, existing.InitialPoints, existing.MinimumPoints, existing.DecayThreshold
+		if update.Name != nil {
+			req.Name = *update.Name
+		}
+		if update.Description != nil {
+			req.Description = *update.Description
+		}
+		if update.Category != nil {
+			req.Category = *update.Category
+		}
+		if update.Difficulty != nil {
+			req.Difficulty = *update.Difficulty
+		}
+		if update.Tags != nil {
+			req.Tags = update.Tags
+		}
+		if update.Visible != nil {
+			req.Visible = *update.Visible
+		}
+		if update.SQLEnabled != nil {
+			req.SQLEnabled = *update.SQLEnabled
+		}
+		if update.SQLDatasetURL != nil {
+			req.SQLDatasetURL = update.SQLDatasetURL
+		}
+		if update.SQLSchemaHint != nil {
+			req.SQLSchemaHint = update.SQLSchemaHint
+		}
+		if update.DynamicScoring != nil {
+			req.DynamicScoring = *update.DynamicScoring
+		}
+		if update.InitialPoints != nil {
+			req.InitialPoints = *update.InitialPoints
+		}
+		if update.MinimumPoints != nil {
+			req.MinimumPoints = *update.MinimumPoints
+		}
+		if update.DecayThreshold != nil {
+			req.DecayThreshold = *update.DecayThreshold
 		}
 	} else {
 		// Form data from HTMX
@@ -625,6 +715,16 @@ func (h *ChallengeHandler) UpdateChallenge(w http.ResponseWriter, r *http.Reques
 		if schemaHint != "" {
 			req.SQLSchemaHint = &schemaHint
 		}
+		existing, err := h.db.GetChallengeByID(id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "Challenge not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Failed to update challenge", http.StatusInternalServerError)
+			}
+			return
+		}
+		req.Tags = existing.Tags
 	}
 
 	if err := h.db.UpdateChallenge(id, req.Name, req.Description, req.Category, req.Difficulty, req.Tags, req.Visible, req.SQLEnabled, req.SQLDatasetURL, req.SQLSchemaHint, req.DynamicScoring, req.InitialPoints, req.MinimumPoints, req.DecayThreshold); err != nil {
@@ -717,6 +817,18 @@ type CreateQuestionRequest struct {
 	FlagMask      *string `json:"flag_mask,omitempty"`
 	CaseSensitive bool    `json:"case_sensitive"`
 	Points        int     `json:"points"`
+	FileURL       *string `json:"file_url,omitempty"`
+}
+
+// UpdateQuestionRequest carries optional fields for a partial question update.
+// nil pointer = keep existing value.
+type UpdateQuestionRequest struct {
+	Name          *string `json:"name,omitempty"`
+	Description   *string `json:"description,omitempty"`
+	Flag          *string `json:"flag,omitempty"`
+	FlagMask      *string `json:"flag_mask,omitempty"`
+	CaseSensitive *bool   `json:"case_sensitive,omitempty"`
+	Points        *int    `json:"points,omitempty"`
 	FileURL       *string `json:"file_url,omitempty"`
 }
 
@@ -832,7 +944,7 @@ func (h *ChallengeHandler) CreateQuestion(w http.ResponseWriter, r *http.Request
 // @Produce json
 // @Security CookieAuth
 // @Param id path string true "Question ID"
-// @Param question body CreateQuestionRequest true "Updated question data"
+// @Param question body UpdateQuestionRequest true "Updated question data"
 // @Success 200 {string} string "Question updated"
 // @Failure 400 {object} object{error=string}
 // @Failure 500 {object} object{error=string}
@@ -843,10 +955,50 @@ func (h *ChallengeHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request
 	var req CreateQuestionRequest
 
 	if strings.Contains(contentType, "application/json") {
-		// JSON request
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// JSON partial update: only fields present in the request are applied.
+		var update UpdateQuestionRequest
+		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
+		}
+
+		existing, err := h.db.GetQuestionByID(id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "Question not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Failed to update question", http.StatusInternalServerError)
+			}
+			return
+		}
+		req.Name, req.Description, req.Points, req.CaseSensitive = existing.Name, existing.Description, existing.Points, existing.CaseSensitive
+		req.Flag, req.FlagMask = existing.Flag, existing.FlagMask
+		req.FileURL = existing.FileURL
+		if update.Name != nil {
+			req.Name = *update.Name
+		}
+		if update.Description != nil {
+			req.Description = *update.Description
+		}
+		if update.Points != nil {
+			req.Points = *update.Points
+		}
+		if update.CaseSensitive != nil {
+			req.CaseSensitive = *update.CaseSensitive
+		}
+		if update.FileURL != nil {
+			req.FileURL = update.FileURL
+		}
+		if update.Flag != nil && *update.Flag != "" {
+			// A provided non-empty flag always applies; if no explicit mask was sent,
+			// set flagMask nil so the DB regenerates it from the new flag.
+			req.Flag = *update.Flag
+			if update.FlagMask == nil {
+				req.FlagMask = nil
+			}
+		}
+		if update.FlagMask != nil {
+			req.FlagMask = update.FlagMask
 		}
 	} else {
 		// Form data from HTMX
@@ -871,6 +1023,16 @@ func (h *ChallengeHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request
 			}
 		}
 		req.Points = points
+		existing, err := h.db.GetQuestionByID(id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "Question not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Failed to update question", http.StatusInternalServerError)
+			}
+			return
+		}
+		req.FileURL = existing.FileURL
 	}
 
 	if err := h.db.UpdateQuestion(id, req.Name, req.Description, req.Flag, req.FlagMask, req.CaseSensitive, req.Points, req.FileURL); err != nil {
@@ -989,6 +1151,14 @@ type CreateHintRequest struct {
 	Order      int    `json:"order"`
 }
 
+// UpdateHintRequest carries optional fields for a partial hint update.
+// nil pointer = keep existing value.
+type UpdateHintRequest struct {
+	Content *string `json:"content,omitempty"`
+	Cost    *int    `json:"cost,omitempty"`
+	Order   *int    `json:"order,omitempty"`
+}
+
 // CreateHint godoc
 // @Summary Create a new hint for a question (admin only)
 // @Tags Admin
@@ -1103,7 +1273,7 @@ func (h *ChallengeHandler) CreateHint(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Security CookieAuth
 // @Param id path string true "Hint ID"
-// @Param hint body CreateHintRequest true "Updated hint data"
+// @Param hint body UpdateHintRequest true "Updated hint data"
 // @Success 200 {string} string "Hint updated"
 // @Failure 400 {object} object{error=string}
 // @Failure 500 {object} object{error=string}
@@ -1114,9 +1284,31 @@ func (h *ChallengeHandler) UpdateHint(w http.ResponseWriter, r *http.Request) {
 	var req CreateHintRequest
 
 	if strings.Contains(contentType, "application/json") {
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// JSON partial update: only fields present in the request are applied.
+		var update UpdateHintRequest
+		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
+		}
+
+		existing, err := h.db.GetHintByID(id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "Hint not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Failed to update hint", http.StatusInternalServerError)
+			}
+			return
+		}
+		req.Content, req.Cost, req.Order = existing.Content, existing.Cost, existing.Order
+		if update.Content != nil {
+			req.Content = *update.Content
+		}
+		if update.Cost != nil {
+			req.Cost = *update.Cost
+		}
+		if update.Order != nil {
+			req.Order = *update.Order
 		}
 	} else {
 		// Form data from HTMX
@@ -1369,8 +1561,8 @@ func (h *ChallengeHandler) DeleteChallengeFile(w http.ResponseWriter, r *http.Re
 
 	if challenge.FileURL != nil && *challenge.FileURL != "" {
 		if err := h.storage.Delete(r.Context(), *challenge.FileURL); err != nil {
-		log.Printf("warning: failed to delete file from storage %s: %v", *challenge.FileURL, err)
-	}
+			log.Printf("warning: failed to delete file from storage %s: %v", *challenge.FileURL, err)
+		}
 	}
 
 	if err := h.db.SetChallengeFileURL(challengeID, ""); err != nil {
