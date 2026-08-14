@@ -31,23 +31,33 @@ var exportOutput string
 var exportFormat string
 
 var (
-	createTitle       string
-	createCategory    string
-	createDifficulty  string
-	createDescription string
-	createPoints      int
-	createVisible     bool
-	createMinPoints   int
-	createDecay       int
+	createTitle          string
+	createCategory       string
+	createDifficulty     string
+	createDescription    string
+	createPoints         int
+	createVisible        bool
+	createMinPoints      int
+	createDecay          int
+	createTags           string
+	createDynamicScoring bool
+	createSQLEnabled     bool
+	createSQLDatasetURL  string
+	createSQLSchemaHint  string
 
-	updateTitle       string
-	updateCategory    string
-	updateDifficulty  string
-	updateDescription string
-	updatePoints      int
-	updateVisible     bool
-	updateMinPoints   int
-	updateDecay       int
+	updateTitle          string
+	updateCategory       string
+	updateDifficulty     string
+	updateDescription    string
+	updatePoints         int
+	updateVisible        bool
+	updateMinPoints      int
+	updateDecay          int
+	updateTags           string
+	updateDynamicScoring bool
+	updateSQLEnabled     bool
+	updateSQLDatasetURL  string
+	updateSQLSchemaHint  string
 )
 
 func init() {
@@ -63,6 +73,11 @@ func init() {
 	challengeCreateCmd.Flags().BoolVar(&createVisible, "visible", false, "Make challenge visible")
 	challengeCreateCmd.Flags().IntVar(&createMinPoints, "min-points", 0, "Minimum points (0 = disabled)")
 	challengeCreateCmd.Flags().IntVar(&createDecay, "decay", 0, "Decay threshold (0 = disabled)")
+	challengeCreateCmd.Flags().StringVar(&createTags, "tags", "", "Comma-separated tags")
+	challengeCreateCmd.Flags().BoolVar(&createDynamicScoring, "dynamic-scoring", false, "Enable dynamic scoring")
+	challengeCreateCmd.Flags().BoolVar(&createSQLEnabled, "sql-enabled", false, "Enable SQL playground")
+	challengeCreateCmd.Flags().StringVar(&createSQLDatasetURL, "sql-dataset-url", "", "SQL dataset URL")
+	challengeCreateCmd.Flags().StringVar(&createSQLSchemaHint, "sql-schema-hint", "", "SQL schema hint")
 
 	challengeUpdateCmd.Flags().StringVar(&updateTitle, "title", "", "Challenge title")
 	challengeUpdateCmd.Flags().StringVar(&updateCategory, "category", "", "Category")
@@ -72,6 +87,11 @@ func init() {
 	challengeUpdateCmd.Flags().BoolVar(&updateVisible, "visible", false, "Make challenge visible")
 	challengeUpdateCmd.Flags().IntVar(&updateMinPoints, "min-points", 0, "Minimum points (0 = disabled)")
 	challengeUpdateCmd.Flags().IntVar(&updateDecay, "decay", 0, "Decay threshold (0 = disabled)")
+	challengeUpdateCmd.Flags().StringVar(&updateTags, "tags", "", "Comma-separated tags")
+	challengeUpdateCmd.Flags().BoolVar(&updateDynamicScoring, "dynamic-scoring", false, "Enable dynamic scoring")
+	challengeUpdateCmd.Flags().BoolVar(&updateSQLEnabled, "sql-enabled", false, "Enable SQL playground")
+	challengeUpdateCmd.Flags().StringVar(&updateSQLDatasetURL, "sql-dataset-url", "", "SQL dataset URL")
+	challengeUpdateCmd.Flags().StringVar(&updateSQLSchemaHint, "sql-schema-hint", "", "SQL schema hint")
 }
 
 func runChallengeList(_ *cobra.Command, _ []string) error {
@@ -151,6 +171,7 @@ func buildChallengeGroups(
 	cats []client.Category, diffs []client.Difficulty,
 	title, category, difficulty, description, pointsStr *string,
 	visible *bool, minPointsStr, decayStr *string,
+	tags *string, sqlEnabled *bool, datasetURL, schemaHint *string, dynamicScoring *bool,
 ) []*huh.Group {
 	catNames := make([]string, len(cats))
 	for i, c := range cats {
@@ -170,6 +191,11 @@ func buildChallengeGroups(
 		huh.NewGroup(huh.NewConfirm().Title("Visible?").Value(visible)),
 		huh.NewGroup(huh.NewInput().Title("Minimum points (0 = disabled)").Value(minPointsStr)),
 		huh.NewGroup(huh.NewInput().Title("Decay threshold (0 = disabled)").Value(decayStr)),
+		huh.NewGroup(huh.NewInput().Title("Tags (comma-separated)").Value(tags)),
+		huh.NewGroup(huh.NewConfirm().Title("Enable SQL playground?").Value(sqlEnabled)),
+		huh.NewGroup(huh.NewInput().Title("SQL dataset URL").Value(datasetURL)),
+		huh.NewGroup(huh.NewInput().Title("SQL schema hint").Value(schemaHint)),
+		huh.NewGroup(huh.NewConfirm().Title("Dynamic scoring?").Value(dynamicScoring)),
 	}
 }
 
@@ -187,7 +213,8 @@ func runChallengeCreate(_ *cobra.Command, _ []string) error {
 
 		groups := buildChallengeGroups(cats, diffs,
 			&createTitle, &createCategory, &createDifficulty, &createDescription, &pointsStr,
-			&createVisible, &minPointsStr, &decayStr)
+			&createVisible, &minPointsStr, &decayStr,
+			&createTags, &createSQLEnabled, &createSQLDatasetURL, &createSQLSchemaHint, &createDynamicScoring)
 
 		if err := huh.NewForm(groups...).Run(); err != nil {
 			return err
@@ -203,7 +230,7 @@ func runChallengeCreate(_ *cobra.Command, _ []string) error {
 			createDecay = d
 		}
 	}
-	ch, err := c.CreateChallenge(createTitle, createCategory, createDifficulty, createDescription, createPoints, createVisible, createMinPoints, createDecay, nil, false, nil, nil, false)
+	ch, err := c.CreateChallenge(createTitle, createCategory, createDifficulty, createDescription, createPoints, createVisible, createMinPoints, createDecay, flagIfNonEmpty(createTags), createSQLEnabled, flagIfNonEmpty(createSQLDatasetURL), flagIfNonEmpty(createSQLSchemaHint), createDynamicScoring)
 	if err != nil {
 		return err
 	}
@@ -215,7 +242,7 @@ func runChallengeCreate(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-func runChallengeUpdate(_ *cobra.Command, args []string) error {
+func runChallengeUpdate(cmd *cobra.Command, args []string) error {
 	c, err := newClient()
 	if err != nil {
 		return err
@@ -223,7 +250,7 @@ func runChallengeUpdate(_ *cobra.Command, args []string) error {
 	id := args[0]
 
 	// On TTY with no flags, pre-fill form from current values.
-	if term.IsTerminal(int(os.Stdin.Fd())) && updateTitle == "" {
+	if term.IsTerminal(int(os.Stdin.Fd())) && !cmd.Flags().Changed("title") {
 		ch, err := c.GetChallenge(id)
 		if err != nil {
 			return err
@@ -242,6 +269,17 @@ func runChallengeUpdate(_ *cobra.Command, args []string) error {
 		if updateDecay == 0 {
 			updateDecay = ch.DecayThreshold
 		}
+		if ch.Tags != nil {
+			updateTags = *ch.Tags
+		}
+		updateSQLEnabled = ch.SQLEnabled
+		if ch.SQLDatasetURL != nil {
+			updateSQLDatasetURL = *ch.SQLDatasetURL
+		}
+		if ch.SQLSchemaHint != nil {
+			updateSQLSchemaHint = *ch.SQLSchemaHint
+		}
+		updateDynamicScoring = ch.DynamicScoring
 
 		cats, _ := c.ListCategories()
 		diffs, _ := c.ListDifficulties()
@@ -251,7 +289,8 @@ func runChallengeUpdate(_ *cobra.Command, args []string) error {
 		decayStr := strconv.Itoa(updateDecay)
 		groups := buildChallengeGroups(cats, diffs,
 			&updateTitle, &updateCategory, &updateDifficulty, &updateDescription, &pointsStr,
-			&updateVisible, &minPointsStr, &decayStr)
+			&updateVisible, &minPointsStr, &decayStr,
+			&updateTags, &updateSQLEnabled, &updateSQLDatasetURL, &updateSQLSchemaHint, &updateDynamicScoring)
 
 		if err := huh.NewForm(groups...).Run(); err != nil {
 			return err
@@ -266,18 +305,51 @@ func runChallengeUpdate(_ *cobra.Command, args []string) error {
 		if d, err := strconv.Atoi(decayStr); err == nil {
 			updateDecay = d
 		}
+
+		// On TTY everything is considered provided. Nullable string fields use
+		// flagIfNonEmpty so an empty form field keeps the existing value (nil)
+		// rather than persisting an empty string.
+		ch, err = c.UpdateChallenge(id, client.ChallengeUpdate{
+			Title:          &updateTitle,
+			Category:       &updateCategory,
+			Difficulty:     &updateDifficulty,
+			Description:    &updateDescription,
+			Points:         &updatePoints,
+			Visible:        &updateVisible,
+			MinimumPoints:  &updateMinPoints,
+			DecayThreshold: &updateDecay,
+			Tags:           flagIfNonEmpty(updateTags),
+			SQLEnabled:     &updateSQLEnabled,
+			SQLDatasetURL:  flagIfNonEmpty(updateSQLDatasetURL),
+			SQLSchemaHint:  flagIfNonEmpty(updateSQLSchemaHint),
+			DynamicScoring: &updateDynamicScoring,
+		})
+		if err != nil {
+			return err
+		}
+		if quietOutput {
+			fmt.Fprintln(os.Stdout, ch.ID)
+			return nil
+		}
+		fmt.Fprintf(os.Stdout, "Updated challenge %s (%s)\n", updateTitle, ch.ID)
+		return nil
 	}
 
-	ch, err := c.UpdateChallenge(id, client.ChallengeUpdate{
-		Title:          &updateTitle,
-		Category:       &updateCategory,
-		Difficulty:     &updateDifficulty,
-		Description:    &updateDescription,
-		Points:         &updatePoints,
-		Visible:        &updateVisible,
-		MinimumPoints:  &updateMinPoints,
-		DecayThreshold: &updateDecay,
-	})
+	u := client.ChallengeUpdate{}
+	setStrIfChanged(cmd, &u.Title, "title", updateTitle)
+	setStrIfChanged(cmd, &u.Category, "category", updateCategory)
+	setStrIfChanged(cmd, &u.Difficulty, "difficulty", updateDifficulty)
+	setStrIfChanged(cmd, &u.Description, "description", updateDescription)
+	setIntIfChanged(cmd, &u.Points, "points", updatePoints)
+	setBoolIfChanged(cmd, &u.Visible, "visible", updateVisible)
+	setIntIfChanged(cmd, &u.MinimumPoints, "min-points", updateMinPoints)
+	setIntIfChanged(cmd, &u.DecayThreshold, "decay", updateDecay)
+	setStrIfChanged(cmd, &u.Tags, "tags", updateTags)
+	setBoolIfChanged(cmd, &u.SQLEnabled, "sql-enabled", updateSQLEnabled)
+	setStrIfChanged(cmd, &u.SQLDatasetURL, "sql-dataset-url", updateSQLDatasetURL)
+	setStrIfChanged(cmd, &u.SQLSchemaHint, "sql-schema-hint", updateSQLSchemaHint)
+	setBoolIfChanged(cmd, &u.DynamicScoring, "dynamic-scoring", updateDynamicScoring)
+	ch, err := c.UpdateChallenge(id, u)
 	if err != nil {
 		return err
 	}

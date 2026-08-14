@@ -1557,11 +1557,19 @@ func createTestChallenge(t *testing.T, title string) string {
 }
 
 type apiChallengeDetail struct {
-	ID             string `json:"id"`
-	Visible        bool   `json:"visible"`
-	MinimumPoints  int    `json:"minimum_points"`
-	DecayThreshold int    `json:"decay_threshold"`
-	InitialPoints  int    `json:"initial_points"`
+	ID             string  `json:"id"`
+	Title          string  `json:"name"`
+	Category       string  `json:"category"`
+	Difficulty     string  `json:"difficulty"`
+	Visible        bool    `json:"visible"`
+	MinimumPoints  int     `json:"minimum_points"`
+	DecayThreshold int     `json:"decay_threshold"`
+	InitialPoints  int     `json:"initial_points"`
+	Tags           *string `json:"tags,omitempty"`
+	SQLEnabled     bool    `json:"sql_enabled"`
+	SQLDatasetURL  *string `json:"sql_dataset_url,omitempty"`
+	SQLSchemaHint  *string `json:"sql_schema_hint,omitempty"`
+	DynamicScoring bool    `json:"dynamic_scoring"`
 }
 
 func apiGetChallenge(t *testing.T, id string) apiChallengeDetail {
@@ -1667,6 +1675,68 @@ func TestCLIChallengeUpdateDynamicScoring(t *testing.T) {
 	}
 	if ch.DecayThreshold != 10 {
 		t.Fatalf("expected decay=10, got %d", ch.DecayThreshold)
+	}
+}
+
+func TestCLIChallengeUpdatePreservesAdvancedFields(t *testing.T) {
+	out, stderr, code := runCLI(t, "challenge", "create",
+		"--title", "Adv", "--category", "web", "--difficulty", "hard",
+		"--tags", "a,b", "--dynamic-scoring", "--sql-enabled",
+		"--sql-dataset-url", "https://example.com/d.csv", "--sql-schema-hint", "CREATE TABLE t;",
+		"--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+
+	out2, stderr2, code2 := runCLI(t, "challenge", "update", id, "--title", "Adv2")
+	assertSuccess(t, out2, stderr2, code2)
+
+	ch := apiGetChallenge(t, id)
+	if ch.Title != "Adv2" {
+		t.Errorf("title: got %q", ch.Title)
+	}
+	if ch.Category != "web" {
+		t.Errorf("category: got %q", ch.Category)
+	}
+	if ch.Difficulty != "hard" {
+		t.Errorf("difficulty: got %q", ch.Difficulty)
+	}
+	if ch.InitialPoints != 100 {
+		t.Errorf("initial_points: got %d", ch.InitialPoints)
+	}
+	if ch.DynamicScoring != true {
+		t.Error("dynamic_scoring was wiped")
+	}
+	if ch.SQLEnabled != true {
+		t.Error("sql_enabled was wiped")
+	}
+	if ch.Tags == nil || *ch.Tags != "a,b" {
+		t.Error("tags were wiped")
+	}
+	if ch.SQLDatasetURL == nil || *ch.SQLDatasetURL != "https://example.com/d.csv" {
+		t.Error("sql_dataset_url was wiped")
+	}
+	if ch.SQLSchemaHint == nil || *ch.SQLSchemaHint != "CREATE TABLE t;" {
+		t.Error("sql_schema_hint was wiped")
+	}
+}
+
+func TestCLIChallengeUpdateSetsFields(t *testing.T) {
+	out, stderr, code := runCLI(t, "challenge", "create",
+		"--title", "SetFields", "--category", "web", "--difficulty", "easy",
+		"--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+
+	out2, stderr2, code2 := runCLI(t, "challenge", "update", id,
+		"--tags", "x,y", "--dynamic-scoring=false")
+	assertSuccess(t, out2, stderr2, code2)
+
+	ch := apiGetChallenge(t, id)
+	if ch.Tags == nil || *ch.Tags != "x,y" {
+		t.Errorf("tags: got %v", ch.Tags)
+	}
+	if ch.DynamicScoring != false {
+		t.Error("dynamic_scoring should stay false")
 	}
 }
 
