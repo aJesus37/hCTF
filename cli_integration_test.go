@@ -2419,3 +2419,137 @@ func TestCLIQuestionUpdatePreservesDescriptionAndPoints(t *testing.T) {
 		t.Errorf("points were wiped: got %d", q.Points)
 	}
 }
+
+// ── Task 8: competition create/update rules-html and timing fields ───────────
+
+type apiCompetition struct {
+	ID                int64  `json:"id"`
+	Name              string `json:"name"`
+	Description       string `json:"description"`
+	RulesHTML         string `json:"rules_html"`
+	StartAt           string `json:"start_at"`
+	EndAt             string `json:"end_at"`
+	RegistrationStart string `json:"registration_start"`
+	RegistrationEnd   string `json:"registration_end"`
+	Status            string `json:"status"`
+}
+
+func apiGetCompetition(t *testing.T, id string) apiCompetition {
+	t.Helper()
+	resp, err := http.Get(cliServer + "/api/competitions/" + id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /api/competitions/%s status %d", id, resp.StatusCode)
+	}
+	var comp apiCompetition
+	if err := json.NewDecoder(resp.Body).Decode(&comp); err != nil {
+		t.Fatal(err)
+	}
+	return comp
+}
+
+func TestCLICompetitionUpdatePreservesFields(t *testing.T) {
+	id := createTestCompetition(t, "CompPreserve")
+	// set rules + times first
+	_, _, code := runCLI(t, "competition", "update", id,
+		"--rules-html", "<p>Rules</p>",
+		"--start", "2026-09-01T00:00:00Z",
+		"--end", "2026-09-02T00:00:00Z",
+		"--registration-start", "2026-08-01T00:00:00Z",
+		"--registration-end", "2026-08-15T00:00:00Z")
+	if code != 0 {
+		t.Fatalf("set update failed")
+	}
+	// now a partial update (name only) must NOT wipe the above
+	_, _, code2 := runCLI(t, "competition", "update", id, "--name", "CompRenamed")
+	if code2 != 0 {
+		t.Fatalf("partial update failed")
+	}
+	comp := apiGetCompetition(t, id)
+	if comp.Name != "CompRenamed" {
+		t.Errorf("name: got %q", comp.Name)
+	}
+	if comp.RulesHTML != "<p>Rules</p>" {
+		t.Errorf("rules_html: got %q", comp.RulesHTML)
+	}
+	if comp.StartAt == "" {
+		t.Error("start_at was wiped")
+	}
+	if comp.EndAt == "" {
+		t.Error("end_at was wiped")
+	}
+	if comp.RegistrationStart == "" {
+		t.Error("registration_start was wiped")
+	}
+	if comp.RegistrationEnd == "" {
+		t.Error("registration_end was wiped")
+	}
+}
+
+func TestCLICompetitionCreateWithFields(t *testing.T) {
+	out, stderr, code := runCLI(t, "competition", "create", "CompCreateFields",
+		"--description", "desc",
+		"--rules-html", "<p>R</p>",
+		"--start", "2026-10-01T00:00:00Z",
+		"--end", "2026-10-02T00:00:00Z",
+		"--registration-start", "2026-09-01T00:00:00Z",
+		"--registration-end", "2026-09-15T00:00:00Z",
+		"--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+	if id == "" {
+		t.Fatal("expected competition id from --quiet output")
+	}
+	comp := apiGetCompetition(t, id)
+	if comp.Name != "CompCreateFields" {
+		t.Errorf("name: got %q", comp.Name)
+	}
+	if comp.Description != "desc" {
+		t.Errorf("description: got %q", comp.Description)
+	}
+	if comp.RulesHTML != "<p>R</p>" {
+		t.Errorf("rules_html: got %q", comp.RulesHTML)
+	}
+	if comp.StartAt == "" {
+		t.Error("start_at not set")
+	}
+	if comp.EndAt == "" {
+		t.Error("end_at not set")
+	}
+	if comp.RegistrationStart == "" {
+		t.Error("registration_start not set")
+	}
+	if comp.RegistrationEnd == "" {
+		t.Error("registration_end not set")
+	}
+}
+
+func TestCLICompetitionUpdateClearsTime(t *testing.T) {
+	id := createTestCompetition(t, "CompClearTime")
+	_, _, code := runCLI(t, "competition", "update", id, "--start", "2026-09-01T00:00:00Z")
+	if code != 0 {
+		t.Fatalf("set start update failed")
+	}
+	comp := apiGetCompetition(t, id)
+	if comp.StartAt == "" {
+		t.Fatal("start_at not set before clearing")
+	}
+	// explicit empty string must clear the start time while preserving others
+	_, _, code2 := runCLI(t, "competition", "update", id, "--start", "")
+	if code2 != 0 {
+		t.Fatalf("clear start update failed")
+	}
+	comp = apiGetCompetition(t, id)
+	if comp.StartAt != "" {
+		t.Errorf("start_at: expected cleared, got %q", comp.StartAt)
+	}
+	if comp.Name != "CompClearTime" {
+		t.Errorf("name was wiped: got %q", comp.Name)
+	}
+	if comp.RulesHTML != "" {
+		t.Errorf("rules_html: expected empty (never set), got %q", comp.RulesHTML)
+	}
+}

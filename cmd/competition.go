@@ -32,8 +32,19 @@ var compTeamsCmd = &cobra.Command{Use: "teams <id>", Short: "List teams register
 var compScoreboardCmd = &cobra.Command{Use: "scoreboard <id>", Short: "Show scoreboard for a competition", Args: cobra.ExactArgs(1), RunE: runCompScoreboard}
 
 var createCompDescription string
+var createCompRulesHTML string
+var createCompStart string
+var createCompEnd string
+var createCompRegStart string
+var createCompRegEnd string
+
 var updateCompName string
 var updateCompDescription string
+var updateCompRulesHTML string
+var updateCompStart string
+var updateCompEnd string
+var updateCompRegStart string
+var updateCompRegEnd string
 
 func parseCompetitionID(s string) (int64, error) {
 	id, err := strconv.ParseInt(s, 10, 64)
@@ -49,8 +60,18 @@ func init() {
 		compGetCmd, compAddChallengeCmd, compRemoveChallengeCmd, compFreezeCmd, compUnfreezeCmd,
 		compBlackoutCmd, compUnblackoutCmd, compUpdateCmd, compTeamsCmd, compScoreboardCmd)
 	compCreateCmd.Flags().StringVar(&createCompDescription, "description", "", "Competition description")
+	compCreateCmd.Flags().StringVar(&createCompRulesHTML, "rules-html", "", "Competition rules (HTML)")
+	compCreateCmd.Flags().StringVar(&createCompStart, "start", "", "Start time (RFC3339 or 2006-01-02T15:04)")
+	compCreateCmd.Flags().StringVar(&createCompEnd, "end", "", "End time (RFC3339 or 2006-01-02T15:04)")
+	compCreateCmd.Flags().StringVar(&createCompRegStart, "registration-start", "", "Registration start time (RFC3339 or 2006-01-02T15:04)")
+	compCreateCmd.Flags().StringVar(&createCompRegEnd, "registration-end", "", "Registration end time (RFC3339 or 2006-01-02T15:04)")
 	compUpdateCmd.Flags().StringVar(&updateCompName, "name", "", "Competition name")
 	compUpdateCmd.Flags().StringVar(&updateCompDescription, "description", "", "Competition description")
+	compUpdateCmd.Flags().StringVar(&updateCompRulesHTML, "rules-html", "", "Competition rules (HTML)")
+	compUpdateCmd.Flags().StringVar(&updateCompStart, "start", "", "Start time (RFC3339 or 2006-01-02T15:04)")
+	compUpdateCmd.Flags().StringVar(&updateCompEnd, "end", "", "End time (RFC3339 or 2006-01-02T15:04)")
+	compUpdateCmd.Flags().StringVar(&updateCompRegStart, "registration-start", "", "Registration start time (RFC3339 or 2006-01-02T15:04)")
+	compUpdateCmd.Flags().StringVar(&updateCompRegEnd, "registration-end", "", "Registration end time (RFC3339 or 2006-01-02T15:04)")
 }
 
 func runCompList(_ *cobra.Command, _ []string) error {
@@ -87,6 +108,11 @@ func runCompCreate(_ *cobra.Command, args []string) error {
 	if term.IsTerminal(int(os.Stdin.Fd())) && createCompDescription == "" {
 		groups := []*huh.Group{
 			huh.NewGroup(huh.NewText().Title("Description").Value(&createCompDescription)),
+			huh.NewGroup(huh.NewText().Title("Rules (HTML)").Value(&createCompRulesHTML)),
+			huh.NewGroup(huh.NewInput().Title("Start (RFC3339)").Value(&createCompStart)),
+			huh.NewGroup(huh.NewInput().Title("End (RFC3339)").Value(&createCompEnd)),
+			huh.NewGroup(huh.NewInput().Title("Registration start (RFC3339)").Value(&createCompRegStart)),
+			huh.NewGroup(huh.NewInput().Title("Registration end (RFC3339)").Value(&createCompRegEnd)),
 		}
 		if createCompName == "" {
 			groups = append([]*huh.Group{huh.NewGroup(huh.NewInput().Title("Name").Value(&createCompName))}, groups...)
@@ -104,7 +130,7 @@ func runCompCreate(_ *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	co, err := c.CreateCompetition(createCompName, createCompDescription, "", nil, nil, nil, nil)
+	co, err := c.CreateCompetition(createCompName, createCompDescription, createCompRulesHTML, flagIfNonEmpty(createCompStart), flagIfNonEmpty(createCompEnd), flagIfNonEmpty(createCompRegStart), flagIfNonEmpty(createCompRegEnd))
 	if err != nil {
 		return err
 	}
@@ -316,7 +342,7 @@ func runCompUnblackout(_ *cobra.Command, args []string) error {
 	return runCompToggle(args, c.SetCompetitionBlackout, "Disabled scoreboard blackout for competition %d\n", false)
 }
 
-func runCompUpdate(_ *cobra.Command, args []string) error {
+func runCompUpdate(cmd *cobra.Command, args []string) error {
 	id, err := parseCompetitionID(args[0])
 	if err != nil {
 		return err
@@ -326,26 +352,63 @@ func runCompUpdate(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	if term.IsTerminal(int(os.Stdin.Fd())) && updateCompName == "" {
+	// On TTY with no flags, pre-fill the form from current values and send every
+	// field (all non-nil) so nothing is lost.
+	if term.IsTerminal(int(os.Stdin.Fd())) && !cmd.Flags().Changed("name") {
 		co, err := c.GetCompetition(id)
 		if err != nil {
 			return err
 		}
 		updateCompName = co.Name
 		updateCompDescription = co.Description
+		updateCompRulesHTML = co.RulesHTML
+		updateCompStart = co.StartAt
+		updateCompEnd = co.EndAt
+		updateCompRegStart = co.RegistrationStart
+		updateCompRegEnd = co.RegistrationEnd
 
 		if err := huh.NewForm(
 			huh.NewGroup(huh.NewInput().Title("Name").Value(&updateCompName)),
 			huh.NewGroup(huh.NewText().Title("Description").Value(&updateCompDescription)),
+			huh.NewGroup(huh.NewText().Title("Rules (HTML)").Value(&updateCompRulesHTML)),
+			huh.NewGroup(huh.NewInput().Title("Start (RFC3339)").Value(&updateCompStart)),
+			huh.NewGroup(huh.NewInput().Title("End (RFC3339)").Value(&updateCompEnd)),
+			huh.NewGroup(huh.NewInput().Title("Registration start (RFC3339)").Value(&updateCompRegStart)),
+			huh.NewGroup(huh.NewInput().Title("Registration end (RFC3339)").Value(&updateCompRegEnd)),
 		).Run(); err != nil {
 			return err
 		}
+
+		co, err = c.UpdateCompetition(id, client.CompetitionUpdate{
+			Name:              &updateCompName,
+			Description:       &updateCompDescription,
+			RulesHTML:         &updateCompRulesHTML,
+			StartAt:           &updateCompStart,
+			EndAt:             &updateCompEnd,
+			RegistrationStart: &updateCompRegStart,
+			RegistrationEnd:   &updateCompRegEnd,
+		})
+		if err != nil {
+			return err
+		}
+		if quietOutput {
+			fmt.Fprintln(os.Stdout, co.ID)
+			return nil
+		}
+		fmt.Fprintf(os.Stdout, "Updated competition %q (id: %d)\n", co.Name, co.ID)
+		return nil
 	}
 
-	co, err := c.UpdateCompetition(id, client.CompetitionUpdate{
-		Name:        &updateCompName,
-		Description: &updateCompDescription,
-	})
+	// Non-interactive: send only explicitly provided flags.
+	u := client.CompetitionUpdate{}
+	setStrIfChanged(cmd, &u.Name, "name", updateCompName)
+	setStrIfChanged(cmd, &u.Description, "description", updateCompDescription)
+	setStrIfChanged(cmd, &u.RulesHTML, "rules-html", updateCompRulesHTML)
+	setStrIfChanged(cmd, &u.StartAt, "start", updateCompStart)
+	setStrIfChanged(cmd, &u.EndAt, "end", updateCompEnd)
+	setStrIfChanged(cmd, &u.RegistrationStart, "registration-start", updateCompRegStart)
+	setStrIfChanged(cmd, &u.RegistrationEnd, "registration-end", updateCompRegEnd)
+	co, err := c.UpdateCompetition(id, u)
 	if err != nil {
 		return err
 	}
