@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/ajesus37/hCTF/internal/auth"
 	"github.com/ajesus37/hCTF/internal/database"
+	"github.com/go-chi/chi/v5"
 )
 
 type HintHandler struct {

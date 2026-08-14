@@ -11,12 +11,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/ajesus37/hCTF/internal/auth"
 	"github.com/ajesus37/hCTF/internal/database"
 	"github.com/ajesus37/hCTF/internal/models"
 	"github.com/ajesus37/hCTF/internal/ratelimit"
 	"github.com/ajesus37/hCTF/internal/storage"
+	"github.com/go-chi/chi/v5"
 )
 
 type ChallengeHandler struct {
@@ -517,8 +517,8 @@ func (h *ChallengeHandler) CreateChallenge(w http.ResponseWriter, r *http.Reques
 					if err == nil {
 						sizeBytes := header.Size
 						if _, dbErr := h.db.CreateChallengeFile(challenge.ID, header.Filename, "local", url, &sizeBytes); dbErr != nil {
-						log.Printf("warning: failed to save file record for %s: %v", header.Filename, dbErr)
-					}
+							log.Printf("warning: failed to save file record for %s: %v", header.Filename, dbErr)
+						}
 					}
 				}
 			} else if source == "external" {
@@ -1541,8 +1541,8 @@ func (h *ChallengeHandler) DeleteChallengeFile(w http.ResponseWriter, r *http.Re
 
 	if challenge.FileURL != nil && *challenge.FileURL != "" {
 		if err := h.storage.Delete(r.Context(), *challenge.FileURL); err != nil {
-		log.Printf("warning: failed to delete file from storage %s: %v", *challenge.FileURL, err)
-	}
+			log.Printf("warning: failed to delete file from storage %s: %v", *challenge.FileURL, err)
+		}
 	}
 
 	if err := h.db.SetChallengeFileURL(challengeID, ""); err != nil {

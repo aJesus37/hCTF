@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/ajesus37/hCTF/internal/auth"
 	"github.com/ajesus37/hCTF/internal/database"
 	"github.com/ajesus37/hCTF/internal/models"
+	"github.com/go-chi/chi/v5"
 )
 
 type CompetitionHandler struct {

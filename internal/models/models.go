@@ -3,26 +3,26 @@ package models
 import "time"
 
 type User struct {
-	ID           string     `json:"id"`
-	Email        string     `json:"email"`
-	PasswordHash string     `json:"-"`
-	Name         string     `json:"name"`
-	AvatarURL    *string    `json:"avatar_url,omitempty"`
-	TeamID       *string    `json:"team_id,omitempty"`
-	IsAdmin      bool       `json:"is_admin"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	ID           string    `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"-"`
+	Name         string    `json:"name"`
+	AvatarURL    *string   `json:"avatar_url,omitempty"`
+	TeamID       *string   `json:"team_id,omitempty"`
+	IsAdmin      bool      `json:"is_admin"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type Team struct {
-	ID                 string    `json:"id"`
-	Name               string    `json:"name"`
-	Description        *string   `json:"description,omitempty"`
-	OwnerID            string    `json:"owner_id"`
-	InviteID           string    `json:"invite_id"`
-	InvitePermission   string    `json:"invite_permission"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID               string    `json:"id"`
+	Name             string    `json:"name"`
+	Description      *string   `json:"description,omitempty"`
+	OwnerID          string    `json:"owner_id"`
+	InviteID         string    `json:"invite_id"`
+	InvitePermission string    `json:"invite_permission"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 type Challenge struct {
@@ -47,13 +47,13 @@ type Challenge struct {
 
 // ChallengeFile represents a file attachment for a challenge
 type ChallengeFile struct {
-	ID           string    `json:"id"`
-	ChallengeID  string    `json:"challenge_id"`
-	Filename     string    `json:"filename"`
-	StorageType  string    `json:"storage_type"` // 'local' or 'external'
-	StoragePath  string    `json:"storage_path"` // URL or local path
-	SizeBytes    *int64    `json:"size_bytes,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID          string    `json:"id"`
+	ChallengeID string    `json:"challenge_id"`
+	Filename    string    `json:"filename"`
+	StorageType string    `json:"storage_type"` // 'local' or 'external'
+	StoragePath string    `json:"storage_path"` // URL or local path
+	SizeBytes   *int64    `json:"size_bytes,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type Question struct {

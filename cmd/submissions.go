@@ -35,7 +35,6 @@ var submissionsCols = []tui.Column{
 	{Header: "CORRECT", Width: 10},
 }
 
-
 func runSubmissions(_ *cobra.Command, _ []string) error {
 	c, err := newClient()
 	if err != nil {

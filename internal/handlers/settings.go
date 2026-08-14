@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/ajesus37/hCTF/internal/auth"
 	"github.com/ajesus37/hCTF/internal/database"
 	"github.com/ajesus37/hCTF/internal/models"
+	"github.com/go-chi/chi/v5"
 )
 
 type SettingsHandler struct {
@@ -163,7 +163,9 @@ func (h *SettingsHandler) CreateCategory(w http.ResponseWriter, r *http.Request)
 
 	sortOrder := 0
 	if s := r.FormValue("sort_order"); s != "" {
-		if v, err := strconv.Atoi(s); err == nil { sortOrder = v }
+		if v, err := strconv.Atoi(s); err == nil {
+			sortOrder = v
+		}
 	}
 
 	cat, err := h.db.CreateCategory(name, sortOrder)
@@ -204,7 +206,9 @@ func (h *SettingsHandler) UpdateCategory(w http.ResponseWriter, r *http.Request)
 
 	sortOrder := 0
 	if s := r.FormValue("sort_order"); s != "" {
-		if v, err := strconv.Atoi(s); err == nil { sortOrder = v }
+		if v, err := strconv.Atoi(s); err == nil {
+			sortOrder = v
+		}
 	}
 
 	cat, err := h.db.UpdateCategory(id, name, sortOrder)
@@ -274,7 +278,9 @@ func (h *SettingsHandler) CreateDifficulty(w http.ResponseWriter, r *http.Reques
 
 	sortOrder := 0
 	if s := r.FormValue("sort_order"); s != "" {
-		if v, err := strconv.Atoi(s); err == nil { sortOrder = v }
+		if v, err := strconv.Atoi(s); err == nil {
+			sortOrder = v
+		}
 	}
 
 	diff, err := h.db.CreateDifficulty(name, color, textColor, sortOrder)
@@ -327,7 +333,9 @@ func (h *SettingsHandler) UpdateDifficulty(w http.ResponseWriter, r *http.Reques
 
 	sortOrder := 0
 	if s := r.FormValue("sort_order"); s != "" {
-		if v, err := strconv.Atoi(s); err == nil { sortOrder = v }
+		if v, err := strconv.Atoi(s); err == nil {
+			sortOrder = v
+		}
 	}
 
 	diff, err := h.db.UpdateDifficulty(id, name, color, textColor, sortOrder)

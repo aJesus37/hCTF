@@ -73,7 +73,7 @@ func (h *ScoreboardHandler) GetScoreboard(w http.ResponseWriter, r *http.Request
 			if e.TeamName != nil {
 				teamName = *e.TeamName
 			}
-			
+
 			var teamCell string
 			if e.TeamID != nil && *e.TeamID != "" {
 				teamCell = fmt.Sprintf(`<a href="/teams/%s/profile" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium underline decoration-blue-400/50 hover:decoration-blue-600 underline-offset-2">%s</a>`, *e.TeamID, teamName)
@@ -270,12 +270,12 @@ func (h *ScoreboardHandler) ForceScoreRecord(w http.ResponseWriter, r *http.Requ
 		http.Error(w, `{"error":"score recorder not initialized"}`, http.StatusInternalServerError)
 		return
 	}
-	
+
 	if err := h.recorder.ForceRecord(); err != nil {
 		http.Error(w, `{"error":"failed to trigger recording"}`, http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "Score recording triggered successfully"})
 }
