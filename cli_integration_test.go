@@ -2842,3 +2842,54 @@ func TestCLIResetPasswordBadToken(t *testing.T) {
 		t.Fatal("expected failure for invalid reset token")
 	}
 }
+
+// ── custom-code get / set ──────────────────────────────────────────────────────
+
+func TestCLICustomCodeSetGet(t *testing.T) {
+	_, _, code := runCLI(t, "custom-code", "set",
+		"--head-html", "<meta name=\"x\" content=\"1\">",
+		"--body-end-html", "<div>foot</div>",
+		"--pages", "all",
+		"--motd", "Welcome!")
+	if code != 0 {
+		t.Fatalf("set failed")
+	}
+	out, stderr, code2 := runCLI(t, "custom-code", "get", "--json")
+	assertSuccess(t, out, stderr, code2)
+	var res struct {
+		HeadHTML    string `json:"head_html"`
+		BodyEndHTML string `json:"body_end_html"`
+		PagesJSON   string `json:"pages_json"`
+		Motd        string `json:"motd"`
+	}
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		t.Fatalf("decode: %v\n%s", err, out)
+	}
+	if res.HeadHTML == "" || res.BodyEndHTML == "" || res.PagesJSON != "all" || res.Motd != "Welcome!" {
+		t.Errorf("got %+v", res)
+	}
+
+	// Partial set: only motd changes, prior head_html must survive (server
+	// applies per-field semantics based on form field presence).
+	_, _, code = runCLI(t, "custom-code", "set", "--motd", "Partial MOTD")
+	if code != 0 {
+		t.Fatalf("partial set failed")
+	}
+	out, _, code2 = runCLI(t, "custom-code", "get", "--json")
+	if code2 != 0 {
+		t.Fatalf("get failed")
+	}
+	var res2 struct {
+		HeadHTML string `json:"head_html"`
+		Motd     string `json:"motd"`
+	}
+	if err := json.Unmarshal([]byte(out), &res2); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if res2.Motd != "Partial MOTD" {
+		t.Errorf("motd: got %q", res2.Motd)
+	}
+	if res2.HeadHTML == "" {
+		t.Error("head_html was cleared by a partial update")
+	}
+}
