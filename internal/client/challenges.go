@@ -12,15 +12,20 @@ import (
 )
 
 type Challenge struct {
-	ID             string `json:"id"`
-	Title          string `json:"name"`           // server field is "name"
-	Category       string `json:"category"`
-	Difficulty     string `json:"difficulty"`
-	InitialPoints  int    `json:"initial_points"` // server field is "initial_points"
-	Description    string `json:"description"`
-	Visible        bool   `json:"visible"`
-	MinimumPoints  int    `json:"minimum_points"`
-	DecayThreshold int    `json:"decay_threshold"`
+	ID             string  `json:"id"`
+	Title          string  `json:"name"` // server field is "name"
+	Category       string  `json:"category"`
+	Difficulty     string  `json:"difficulty"`
+	InitialPoints  int     `json:"initial_points"` // server field is "initial_points"
+	Description    string  `json:"description"`
+	Visible        bool    `json:"visible"`
+	MinimumPoints  int     `json:"minimum_points"`
+	DecayThreshold int     `json:"decay_threshold"`
+	Tags           *string `json:"tags,omitempty"`
+	SQLEnabled     bool    `json:"sql_enabled"`
+	SQLDatasetURL  *string `json:"sql_dataset_url,omitempty"`
+	SQLSchemaHint  *string `json:"sql_schema_hint,omitempty"`
+	DynamicScoring bool    `json:"dynamic_scoring"`
 }
 
 type Question struct {
@@ -116,22 +121,37 @@ func (c *Client) GetQuestionSolution(questionID string) (string, error) {
 	return out.Flag, nil
 }
 
-func (c *Client) CreateChallenge(title, category, difficulty, description string, points int, visible bool, minPoints, decay int) (*Challenge, error) {
+type ChallengeUpdate struct {
+	Title          *string `json:"name,omitempty"`
+	Category       *string `json:"category,omitempty"`
+	Difficulty     *string `json:"difficulty,omitempty"`
+	Description    *string `json:"description,omitempty"`
+	Points         *int    `json:"initial_points,omitempty"`
+	Visible        *bool   `json:"visible,omitempty"`
+	MinimumPoints  *int    `json:"minimum_points,omitempty"`
+	DecayThreshold *int    `json:"decay_threshold,omitempty"`
+	Tags           *string `json:"tags,omitempty"`
+	SQLEnabled     *bool   `json:"sql_enabled,omitempty"`
+	SQLDatasetURL  *string `json:"sql_dataset_url,omitempty"`
+	SQLSchemaHint  *string `json:"sql_schema_hint,omitempty"`
+	DynamicScoring *bool   `json:"dynamic_scoring,omitempty"`
+}
+
+func (c *Client) CreateChallenge(title, category, difficulty, description string, points int, visible bool, minPoints, decay int, tags *string, sqlEnabled bool, sqlDatasetURL, sqlSchemaHint *string, dynamicScoring bool) (*Challenge, error) {
 	body, _ := json.Marshal(map[string]any{
 		"name": title, "category": category, "difficulty": difficulty,
 		"description": description, "initial_points": points,
 		"visible": visible, "minimum_points": minPoints, "decay_threshold": decay,
+		"tags": tags, "sql_enabled": sqlEnabled,
+		"sql_dataset_url": sqlDatasetURL, "sql_schema_hint": sqlSchemaHint,
+		"dynamic_scoring": dynamicScoring,
 	})
 	var out Challenge
 	return &out, c.doJSON("POST", "/api/admin/challenges", bytes.NewReader(body), &out)
 }
 
-func (c *Client) UpdateChallenge(id, title, category, difficulty, description string, points int, visible bool, minPoints, decay int) (*Challenge, error) {
-	body, _ := json.Marshal(map[string]any{
-		"name": title, "category": category, "difficulty": difficulty,
-		"description": description, "initial_points": points,
-		"visible": visible, "minimum_points": minPoints, "decay_threshold": decay,
-	})
+func (c *Client) UpdateChallenge(id string, u ChallengeUpdate) (*Challenge, error) {
+	body, _ := json.Marshal(u)
 	req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/admin/challenges/%s", c.ServerURL, id), bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.Do(req)
@@ -142,19 +162,7 @@ func (c *Client) UpdateChallenge(id, title, category, difficulty, description st
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("server returned %d", resp.StatusCode)
 	}
-	// Server returns plain text "Challenge updated" on success; synthesise a
-	// minimal Challenge with the supplied values so callers can display them.
-	return &Challenge{
-		ID:             id,
-		Title:          title,
-		Category:       category,
-		Difficulty:     difficulty,
-		Description:    description,
-		InitialPoints:  points,
-		Visible:        visible,
-		MinimumPoints:  minPoints,
-		DecayThreshold: decay,
-	}, nil
+	return &Challenge{ID: id}, nil
 }
 
 func (c *Client) ExportChallenges() ([]byte, error) {

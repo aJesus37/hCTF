@@ -16,6 +16,9 @@ type Competition struct {
 	ScoreboardBlackout bool   `json:"scoreboard_blackout"`
 	StartAt            string `json:"start_at,omitempty"`
 	EndAt              string `json:"end_at,omitempty"`
+	RulesHTML          string `json:"rules_html,omitempty"`
+	RegistrationStart  string `json:"registration_start,omitempty"`
+	RegistrationEnd    string `json:"registration_end,omitempty"`
 }
 
 func (c *Client) ListCompetitions() ([]Competition, error) {
@@ -28,8 +31,32 @@ func (c *Client) ListCompetitions() ([]Competition, error) {
 	return out, decodeJSON(resp, &out)
 }
 
-func (c *Client) CreateCompetition(name, description string) (*Competition, error) {
-	body := strings.NewReader(url.Values{"name": {name}, "description": {description}}.Encode())
+type CompetitionUpdate struct {
+	Name              *string
+	Description       *string
+	RulesHTML         *string
+	StartAt           *string
+	EndAt             *string
+	RegistrationStart *string
+	RegistrationEnd   *string
+}
+
+func (c *Client) CreateCompetition(name, description, rulesHTML string, startAt, endAt, regStart, regEnd *string) (*Competition, error) {
+	vals := url.Values{}
+	if name != "" {
+		vals.Set("name", name)
+	}
+	if description != "" {
+		vals.Set("description", description)
+	}
+	if rulesHTML != "" {
+		vals.Set("rules_html", rulesHTML)
+	}
+	setOpt(vals, "start_at", startAt)
+	setOpt(vals, "end_at", endAt)
+	setOpt(vals, "registration_start", regStart)
+	setOpt(vals, "registration_end", regEnd)
+	body := strings.NewReader(vals.Encode())
 	req, _ := http.NewRequest("POST", c.ServerURL+"/api/admin/competitions", body)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := c.Do(req)
@@ -38,6 +65,38 @@ func (c *Client) CreateCompetition(name, description string) (*Competition, erro
 	}
 	var out Competition
 	return &out, decodeJSON(resp, &out)
+}
+
+func (c *Client) UpdateCompetition(id int64, u CompetitionUpdate) (*Competition, error) {
+	vals := url.Values{}
+	if u.Name != nil {
+		vals.Set("name", *u.Name)
+	}
+	if u.Description != nil {
+		vals.Set("description", *u.Description)
+	}
+	if u.RulesHTML != nil {
+		vals.Set("rules_html", *u.RulesHTML)
+	}
+	setOpt(vals, "start_at", u.StartAt)
+	setOpt(vals, "end_at", u.EndAt)
+	setOpt(vals, "registration_start", u.RegistrationStart)
+	setOpt(vals, "registration_end", u.RegistrationEnd)
+	body := strings.NewReader(vals.Encode())
+	req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/admin/competitions/%d", c.ServerURL, id), body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	var out Competition
+	return &out, decodeJSON(resp, &out)
+}
+
+func setOpt(vals url.Values, key string, v *string) {
+	if v != nil {
+		vals.Set(key, *v)
+	}
 }
 
 func (c *Client) ForceStartCompetition(id int64) error {
@@ -121,18 +180,6 @@ func (c *Client) SetCompetitionBlackout(id int64, blackout bool) error {
 
 func (c *Client) DeleteCompetition(id int64) error {
 	return c.doNoBody("DELETE", fmt.Sprintf("/api/admin/competitions/%d", id))
-}
-
-func (c *Client) UpdateCompetition(id int64, name, description string) (*Competition, error) {
-	body := strings.NewReader(url.Values{"name": {name}, "description": {description}}.Encode())
-	req, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/admin/competitions/%d", c.ServerURL, id), body)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := c.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	var out Competition
-	return &out, decodeJSON(resp, &out)
 }
 
 type CompetitionScoreboardEntry struct {

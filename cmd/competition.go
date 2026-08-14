@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/ajesus37/hCTF/internal/client"
 	"github.com/ajesus37/hCTF/internal/tui"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -103,7 +104,7 @@ func runCompCreate(_ *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	co, err := c.CreateCompetition(createCompName, createCompDescription)
+	co, err := c.CreateCompetition(createCompName, createCompDescription, "", nil, nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -341,7 +342,10 @@ func runCompUpdate(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	co, err := c.UpdateCompetition(id, updateCompName, updateCompDescription)
+	co, err := c.UpdateCompetition(id, client.CompetitionUpdate{
+		Name:        &updateCompName,
+		Description: &updateCompDescription,
+	})
 	if err != nil {
 		return err
 	}

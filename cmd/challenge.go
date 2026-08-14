@@ -203,7 +203,7 @@ func runChallengeCreate(_ *cobra.Command, _ []string) error {
 			createDecay = d
 		}
 	}
-	ch, err := c.CreateChallenge(createTitle, createCategory, createDifficulty, createDescription, createPoints, createVisible, createMinPoints, createDecay)
+	ch, err := c.CreateChallenge(createTitle, createCategory, createDifficulty, createDescription, createPoints, createVisible, createMinPoints, createDecay, nil, false, nil, nil, false)
 	if err != nil {
 		return err
 	}
@@ -268,7 +268,16 @@ func runChallengeUpdate(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	ch, err := c.UpdateChallenge(id, updateTitle, updateCategory, updateDifficulty, updateDescription, updatePoints, updateVisible, updateMinPoints, updateDecay)
+	ch, err := c.UpdateChallenge(id, client.ChallengeUpdate{
+		Title:          &updateTitle,
+		Category:       &updateCategory,
+		Difficulty:     &updateDifficulty,
+		Description:    &updateDescription,
+		Points:         &updatePoints,
+		Visible:        &updateVisible,
+		MinimumPoints:  &updateMinPoints,
+		DecayThreshold: &updateDecay,
+	})
 	if err != nil {
 		return err
 	}
@@ -276,7 +285,7 @@ func runChallengeUpdate(_ *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stdout, ch.ID)
 		return nil
 	}
-	fmt.Fprintf(os.Stdout, "Updated challenge %s (%s)\n", ch.Title, ch.ID)
+	fmt.Fprintf(os.Stdout, "Updated challenge %s (%s)\n", updateTitle, ch.ID)
 	return nil
 }
 

@@ -112,7 +112,7 @@ func runHintCreate(_ *cobra.Command, _ []string) error {
 	if hintQuestionID == "" || hintContent == "" {
 		return fmt.Errorf("--question and --content are required")
 	}
-	h, err := c.CreateHint(hintQuestionID, hintContent, hintCost)
+	h, err := c.CreateHint(hintQuestionID, hintContent, hintCost, 0)
 	if err != nil {
 		return err
 	}

@@ -51,11 +51,12 @@ func (c *Client) UpdateHint(id, content string, cost, order int) error {
 }
 
 // CreateHint creates a new hint for a question (admin only).
-func (c *Client) CreateHint(questionID, content string, cost int) (*Hint, error) {
+func (c *Client) CreateHint(questionID, content string, cost, order int) (*Hint, error) {
 	body, _ := json.Marshal(map[string]any{
 		"question_id": questionID,
 		"content":     content,
 		"cost":        cost,
+		"order":       order,
 	})
 	var out Hint
 	return &out, c.doJSON("POST", "/api/admin/hints", bytes.NewReader(body), &out)

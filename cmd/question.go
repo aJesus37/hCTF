@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/ajesus37/hCTF/internal/client"
 	"github.com/ajesus37/hCTF/internal/tui"
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
@@ -19,13 +20,13 @@ var questionDeleteCmd = &cobra.Command{Use: "delete <id>", Short: "Delete a ques
 var questionUpdateCmd = &cobra.Command{Use: "update <id>", Short: "Update a question (admin)", Args: cobra.ExactArgs(1), RunE: runQuestionUpdate}
 
 var (
-	qChallengeID  string
-	qName         string
-	qFlag         string
-	qPoints       int
-	quName        string
-	quFlag        string
-	quPoints      int
+	qChallengeID    string
+	qName           string
+	qFlag           string
+	qPoints         int
+	quName          string
+	quFlag          string
+	quPoints        int
 	quCaseSensitive bool
 )
 
@@ -96,7 +97,7 @@ func runQuestionCreate(_ *cobra.Command, _ []string) error {
 	if qChallengeID == "" || qFlag == "" {
 		return fmt.Errorf("--challenge and --flag are required")
 	}
-	q, err := c.CreateQuestion(qChallengeID, qName, qFlag, qPoints)
+	q, err := c.CreateQuestion(qChallengeID, qName, "", qFlag, nil, false, qPoints)
 	if err != nil {
 		return err
 	}
@@ -159,7 +160,12 @@ func runQuestionUpdate(_ *cobra.Command, args []string) error {
 		}
 	}
 
-	if err := c.UpdateQuestion(id, quName, quFlag, quPoints, quCaseSensitive); err != nil {
+	if err := c.UpdateQuestion(id, client.QuestionUpdate{
+		Name:          &quName,
+		Flag:          &quFlag,
+		Points:        &quPoints,
+		CaseSensitive: &quCaseSensitive,
+	}); err != nil {
 		return err
 	}
 	if quietOutput {
@@ -169,4 +175,3 @@ func runQuestionUpdate(_ *cobra.Command, args []string) error {
 	fmt.Fprintf(os.Stdout, "Updated question %s\n", id)
 	return nil
 }
-
