@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"html"
 	"log"
 	"net/http"
 	"strconv"
@@ -265,11 +266,27 @@ func (h *ChallengeHandler) SubmitFlag(w http.ResponseWriter, r *http.Request) {
 	// Return HTMX-friendly HTML response
 	if isCorrect {
 		// Show hint cost info if hints were used
+		var msg string
 		if hintCost > 0 {
-			w.Write([]byte(fmt.Sprintf(`<div class="text-green-400">✅ Correct! You earned %d points <span class="text-yellow-300 text-sm">(-%d hint cost)</span></div>`, pointsEarned, hintCost)))
+			msg = fmt.Sprintf(`<div class="text-green-400">✅ Correct! You earned %d points <span class="text-yellow-300 text-sm">(-%d hint cost)</span></div>`, pointsEarned, hintCost)
 		} else {
-			w.Write([]byte(fmt.Sprintf(`<div class="text-green-400">✅ Correct! You earned %d points</div>`, pointsEarned)))
+			msg = fmt.Sprintf(`<div class="text-green-400">✅ Correct! You earned %d points</div>`, pointsEarned)
 		}
+
+		// Swap the submit form for a disabled solved state (no page refresh needed)
+		solvedForm := fmt.Sprintf(`
+            <form id="flag-form-%s" hx-swap-oob="outerHTML" class="flex gap-2 opacity-60">
+                <input type="text" disabled value="%s"
+                       class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded cursor-not-allowed">
+                <button type="button" disabled
+                        class="px-6 py-2 bg-green-600 dark:bg-green-700 text-white dark:text-white rounded cursor-not-allowed">
+                    ✓ Solved
+                </button>
+            </form>`, questionID, html.EscapeString(strings.TrimSpace(req.Flag)))
+
+		// Refresh hints so unlock buttons render disabled (question is now solved)
+		w.Header().Set("HX-Trigger", "refreshHints")
+		w.Write([]byte(msg + solvedForm))
 	} else {
 		w.Write([]byte(`<div class="text-red-400">❌ Incorrect, try again</div>`))
 	}

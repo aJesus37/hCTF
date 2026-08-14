@@ -81,7 +81,7 @@
                            class="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 rounded cursor-not-allowed">
                     <button type="button"
                             disabled
-                            class="px-6 py-2 bg-gray-400 dark:bg-gray-600 text-white dark:text-gray-400 rounded cursor-not-allowed">
+                            class="px-6 py-2 bg-green-600 dark:bg-green-700 text-white dark:text-white rounded cursor-not-allowed">
                         ✓ Solved
                     </button>
                 </form>
@@ -89,7 +89,8 @@
             </div>
             {{else}}
             <!-- Unsolved Question - Submit Form -->
-            <form hx-post="/api/questions/{{.ID}}/submit"
+            <form id="flag-form-{{.ID}}"
+                  hx-post="/api/questions/{{.ID}}/submit"
                   hx-target="#result-{{.ID}}"
                   hx-swap="innerHTML"
                   class="flex gap-2">
