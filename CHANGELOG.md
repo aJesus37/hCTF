@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-14
+
 ### Added
 - `healthcheck` CLI subcommand — hits `/healthz` and exits 0/1; used by Docker `HEALTHCHECK` in scratch images where no shell or wget is available
 - `HEALTHCHECK` directive added to `Dockerfile` (uses `hctf healthcheck`) and `Dockerfile.demo` (uses `wget`); both `docker-compose.yml` files updated with corresponding `healthcheck:` blocks
@@ -220,7 +222,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker deployment support
 - Task-based build system (Taskfile.yml)
 
-[Unreleased]: https://github.com/ajesus37/hCTF/compare/v0.8.6...HEAD
+[Unreleased]: https://github.com/ajesus37/hCTF/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/ajesus37/hCTF/compare/v0.8.8...v0.9.0
+[0.8.8]: https://github.com/ajesus37/hCTF/compare/v0.8.7...v0.8.8
+[0.8.7]: https://github.com/ajesus37/hCTF/compare/v0.8.6...v0.8.7
 [0.8.6]: https://github.com/ajesus37/hCTF/compare/v0.8.5...v0.8.6
 [0.8.5]: https://github.com/ajesus37/hCTF/compare/v0.8.4...v0.8.5
 [0.8.4]: https://github.com/ajesus37/hCTF/compare/v0.8.2...v0.8.4
