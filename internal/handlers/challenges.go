@@ -1131,6 +1131,14 @@ type CreateHintRequest struct {
 	Order      int    `json:"order"`
 }
 
+// UpdateHintRequest carries optional fields for a partial hint update.
+// nil pointer = keep existing value.
+type UpdateHintRequest struct {
+	Content *string `json:"content,omitempty"`
+	Cost    *int    `json:"cost,omitempty"`
+	Order   *int    `json:"order,omitempty"`
+}
+
 // CreateHint godoc
 // @Summary Create a new hint for a question (admin only)
 // @Tags Admin
@@ -1256,9 +1264,31 @@ func (h *ChallengeHandler) UpdateHint(w http.ResponseWriter, r *http.Request) {
 	var req CreateHintRequest
 
 	if strings.Contains(contentType, "application/json") {
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// JSON partial update: only fields present in the request are applied.
+		var update UpdateHintRequest
+		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
+		}
+
+		existing, err := h.db.GetHintByID(id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "Hint not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Failed to update hint", http.StatusInternalServerError)
+			}
+			return
+		}
+		req.Content, req.Cost, req.Order = existing.Content, existing.Cost, existing.Order
+		if update.Content != nil {
+			req.Content = *update.Content
+		}
+		if update.Cost != nil {
+			req.Cost = *update.Cost
+		}
+		if update.Order != nil {
+			req.Order = *update.Order
 		}
 	} else {
 		// Form data from HTMX

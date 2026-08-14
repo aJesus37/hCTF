@@ -27,6 +27,14 @@ func withChallengeID(req *http.Request, id string) *http.Request {
 	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 }
 
+// withHintID injects the chi route context so handlers using
+// chi.URLParam(r, "id") can resolve the hint id in direct unit tests.
+func withHintID(req *http.Request, id string) *http.Request {
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", id)
+	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+}
+
 func TestUpdateChallengePartial(t *testing.T) {
 	db, err := database.New(":memory:")
 	if err != nil {
@@ -363,5 +371,147 @@ func TestUpdateChallengeInvalidJSON(t *testing.T) {
 	}
 	if got.Name != "C" || got.Description != "desc" {
 		t.Errorf("challenge mutated on invalid JSON: got name %q desc %q", got.Name, got.Description)
+	}
+}
+
+func TestUpdateHintPartial(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+	ch, err := db.CreateChallenge("C", "", "web", "easy", nil, true, false, nil, nil, false, 100, 0, 0, nil)
+	if err != nil {
+		t.Fatalf("create challenge: %v", err)
+	}
+	q, err := db.CreateQuestion(ch.ID, "Q", "", "flag{x}", nil, false, 100, nil)
+	if err != nil {
+		t.Fatalf("create question: %v", err)
+	}
+	hint, err := db.CreateHint(q.ID, "hint content", 20, 1)
+	if err != nil {
+		t.Fatalf("create hint: %v", err)
+	}
+
+	h := NewChallengeHandler(db, nil, nil, nil)
+	// PUT only {cost} — content and order must be preserved.
+	req := httptest.NewRequest("PUT", "/api/admin/hints/"+hint.ID, strings.NewReader(`{"cost":50}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.UpdateHint(rr, withHintID(req, hint.ID))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+	}
+
+	got, err := db.GetHintByID(hint.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Cost != 50 {
+		t.Errorf("cost: got %d want 50", got.Cost)
+	}
+	if got.Content != "hint content" {
+		t.Errorf("content: got %q", got.Content)
+	}
+	if got.Order != 1 {
+		t.Errorf("order: got %d want 1", got.Order)
+	}
+}
+
+func TestUpdateHintNotFound(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+
+	h := NewChallengeHandler(db, nil, nil, nil)
+	req := httptest.NewRequest("PUT", "/api/admin/hints/nonexistent", strings.NewReader(`{"cost":50}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.UpdateHint(rr, withHintID(req, "nonexistent"))
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status %d, want 404, body: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestUpdateHintExplicitZero(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+	ch, err := db.CreateChallenge("C", "", "web", "easy", nil, true, false, nil, nil, false, 100, 0, 0, nil)
+	if err != nil {
+		t.Fatalf("create challenge: %v", err)
+	}
+	q, err := db.CreateQuestion(ch.ID, "Q", "", "flag{x}", nil, false, 100, nil)
+	if err != nil {
+		t.Fatalf("create question: %v", err)
+	}
+	hint, err := db.CreateHint(q.ID, "hint content", 20, 2)
+	if err != nil {
+		t.Fatalf("create hint: %v", err)
+	}
+
+	h := NewChallengeHandler(db, nil, nil, nil)
+	// Explicit zero must be applied, not treated as "omitted".
+	req := httptest.NewRequest("PUT", "/api/admin/hints/"+hint.ID, strings.NewReader(`{"cost":0}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.UpdateHint(rr, withHintID(req, hint.ID))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+	}
+
+	got, err := db.GetHintByID(hint.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Cost != 0 {
+		t.Errorf("cost: got %d want 0", got.Cost)
+	}
+	if got.Content != "hint content" {
+		t.Errorf("content: got %q want 'hint content' (preserved)", got.Content)
+	}
+	if got.Order != 2 {
+		t.Errorf("order: got %d want 2 (preserved)", got.Order)
+	}
+}
+
+func TestUpdateHintInvalidJSON(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+	ch, err := db.CreateChallenge("C", "", "web", "easy", nil, true, false, nil, nil, false, 100, 0, 0, nil)
+	if err != nil {
+		t.Fatalf("create challenge: %v", err)
+	}
+	q, err := db.CreateQuestion(ch.ID, "Q", "", "flag{x}", nil, false, 100, nil)
+	if err != nil {
+		t.Fatalf("create question: %v", err)
+	}
+	hint, err := db.CreateHint(q.ID, "hint content", 20, 1)
+	if err != nil {
+		t.Fatalf("create hint: %v", err)
+	}
+
+	h := NewChallengeHandler(db, nil, nil, nil)
+	req := httptest.NewRequest("PUT", "/api/admin/hints/"+hint.ID, strings.NewReader(`{not json`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.UpdateHint(rr, withHintID(req, hint.ID))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status %d, want 400, body: %s", rr.Code, rr.Body.String())
+	}
+
+	got, err := db.GetHintByID(hint.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Content != "hint content" || got.Cost != 20 || got.Order != 1 {
+		t.Errorf("hint mutated on invalid JSON: got content %q cost %d order %d", got.Content, got.Cost, got.Order)
 	}
 }
