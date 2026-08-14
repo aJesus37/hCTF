@@ -2754,3 +2754,25 @@ func TestCLIDifficultyUpdateNotFound(t *testing.T) {
 		t.Fatal("expected non-zero exit for nonexistent difficulty")
 	}
 }
+
+func TestCLIQuestionGet(t *testing.T) {
+	chID := createTestChallenge(t, "QGet")
+	qID := createTestQuestion(t, chID, "Q", "flag{x}", 100)
+	out, stderr, code := runCLI(t, "question", "get", qID)
+	assertSuccess(t, out, stderr, code)
+	assertContains(t, out, "Q")
+	// JSON mode
+	out2, stderr2, code2 := runCLI(t, "question", "get", qID, "--json")
+	assertSuccess(t, out2, stderr2, code2)
+	var q struct {
+		ID     string `json:"id"`
+		Name   string `json:"name"`
+		Points int    `json:"points"`
+	}
+	if err := json.Unmarshal([]byte(out2), &q); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if q.ID != qID || q.Name != "Q" {
+		t.Errorf("got %+v", q)
+	}
+}

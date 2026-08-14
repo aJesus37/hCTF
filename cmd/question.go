@@ -14,6 +14,7 @@ import (
 )
 
 var questionCmd = &cobra.Command{Use: "question", Short: "Manage challenge questions (admin)", Aliases: []string{"q"}}
+var questionGetCmd = &cobra.Command{Use: "get <id>", Short: "Show question details (admin)", Args: cobra.ExactArgs(1), RunE: runQuestionGet}
 var questionListCmd = &cobra.Command{Use: "list <challenge-id>", Short: "List questions for a challenge", Args: cobra.ExactArgs(1), RunE: runQuestionList}
 var questionCreateCmd = &cobra.Command{Use: "create", Short: "Create a question (admin)", RunE: runQuestionCreate}
 var questionDeleteCmd = &cobra.Command{Use: "delete <id>", Short: "Delete a question (admin)", Args: cobra.ExactArgs(1), RunE: runQuestionDelete}
@@ -37,7 +38,7 @@ var (
 
 func init() {
 	rootCmd.AddCommand(questionCmd)
-	questionCmd.AddCommand(questionListCmd, questionCreateCmd, questionDeleteCmd, questionUpdateCmd)
+	questionCmd.AddCommand(questionGetCmd, questionListCmd, questionCreateCmd, questionDeleteCmd, questionUpdateCmd)
 	questionCreateCmd.Flags().StringVar(&qChallengeID, "challenge", "", "Challenge ID")
 	questionCreateCmd.Flags().StringVar(&qName, "name", "", "Question name")
 	questionCreateCmd.Flags().StringVar(&qDescription, "description", "", "Question description")
@@ -52,6 +53,45 @@ func init() {
 	questionUpdateCmd.Flags().StringVar(&quFlagMask, "flag-mask", "", "Flag display mask")
 	questionUpdateCmd.Flags().IntVar(&quPoints, "points", 0, "Point value")
 	questionUpdateCmd.Flags().BoolVar(&quCaseSensitive, "case-sensitive", false, "Case-sensitive flag matching")
+}
+
+func runQuestionGet(_ *cobra.Command, args []string) error {
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	q, err := c.GetQuestion(args[0])
+	if err != nil {
+		return err
+	}
+	if jsonOutput {
+		return json.NewEncoder(os.Stdout).Encode(q)
+	}
+	if quietOutput {
+		fmt.Fprintln(os.Stdout, q.ID)
+		return nil
+	}
+	flagMask := ""
+	if q.FlagMask != nil {
+		flagMask = *q.FlagMask
+	}
+	cols := []tui.Column{
+		{Header: "FIELD", Width: 20},
+		{Header: "VALUE", Width: 40},
+	}
+	rows := [][]string{
+		{"ID", q.ID},
+		{"Challenge", q.ChallengeID},
+		{"Name", q.Name},
+		{"Points", strconv.Itoa(q.Points)},
+		{"Flag mask", flagMask},
+		{"Case sensitive", boolToYesNo(q.CaseSensitive)},
+	}
+	if q.Description != "" {
+		rows = append(rows, []string{"Description", q.Description})
+	}
+	tui.PrintTable(os.Stdout, cols, rows)
+	return nil
 }
 
 func runQuestionList(_ *cobra.Command, args []string) error {
