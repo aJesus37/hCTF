@@ -29,6 +29,7 @@ type ExportChallenge struct {
 	InitialPoints  int              `json:"initial_points"`
 	MinimumPoints  int              `json:"minimum_points"`
 	DecayThreshold int              `json:"decay_threshold"`
+	Tags           string           `json:"tags,omitempty"`
 	FileURL        string           `json:"file_url,omitempty"`
 	SQLEnabled     bool             `json:"sql_enabled,omitempty"`
 	SQLDatasetURL  string           `json:"sql_dataset_url,omitempty"`
@@ -80,7 +81,7 @@ type ExportCompetition struct {
 // ConfigBundle is the full platform config backup (version 2).
 // It is a superset of ExportBundle, adding competitions and site settings.
 type ConfigBundle struct {
-	Version      int                 `json:"version"`     // always 2
+	Version      int                 `json:"version"` // always 2
 	ExportedAt   time.Time           `json:"exported_at"`
 	Categories   []ExportCategory    `json:"categories"`
 	Difficulties []ExportDifficulty  `json:"difficulties"`
