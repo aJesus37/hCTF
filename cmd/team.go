@@ -29,10 +29,16 @@ var teamInviteRegenCmd = &cobra.Command{
 	Short: "Regenerate your team's invite code",
 	RunE:  runTeamInviteRegen,
 }
+var teamInvitePermCmd = &cobra.Command{
+	Use:   "invite-permission <owner_only|all_members>",
+	Short: "Set who can see the team invite code (owner only)",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runTeamInvitePerm,
+}
 
 func init() {
 	rootCmd.AddCommand(teamCmd)
-	teamCmd.AddCommand(teamListCmd, teamGetCmd, teamCreateCmd, teamJoinCmd, teamLeaveCmd, teamDisbandCmd, teamTransferCmd, teamInviteRegenCmd)
+	teamCmd.AddCommand(teamListCmd, teamGetCmd, teamCreateCmd, teamJoinCmd, teamLeaveCmd, teamDisbandCmd, teamTransferCmd, teamInviteRegenCmd, teamInvitePermCmd)
 }
 
 func runTeamList(_ *cobra.Command, _ []string) error {
@@ -208,5 +214,23 @@ func runTeamInviteRegen(_ *cobra.Command, _ []string) error {
 		return err
 	}
 	fmt.Fprintln(os.Stdout, code)
+	return nil
+}
+
+func runTeamInvitePerm(_ *cobra.Command, args []string) error {
+	permission := args[0]
+	if permission != "owner_only" && permission != "all_members" {
+		return fmt.Errorf("invalid permission %q (must be owner_only or all_members)", permission)
+	}
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+	if err := c.SetInvitePermission(permission); err != nil {
+		return err
+	}
+	if !quietOutput {
+		fmt.Fprintf(os.Stdout, "Invite permission set to %s\n", permission)
+	}
 	return nil
 }

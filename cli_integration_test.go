@@ -2776,3 +2776,53 @@ func TestCLIQuestionGet(t *testing.T) {
 		t.Errorf("got %+v", q)
 	}
 }
+
+// ── team invite-permission ───────────────────────────────────────────────────
+
+type apiTeam struct {
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	OwnerID          string `json:"owner_id"`
+	InviteID         string `json:"invite_id"`
+	InvitePermission string `json:"invite_permission"`
+}
+
+func apiGetTeam(t *testing.T, id string) apiTeam {
+	t.Helper()
+	req, _ := http.NewRequest("GET", cliServer+"/api/teams/"+id, nil)
+	req.AddCookie(&http.Cookie{Name: "auth_token", Value: adminToken(t)})
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var env struct {
+		Team apiTeam `json:"team"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+		t.Fatal(err)
+	}
+	return env.Team
+}
+
+func TestCLITeamInvitePermission(t *testing.T) {
+	out, stderr, code := runCLI(t, "team", "create", "PermTeam", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+	defer leaveTeam(t)
+
+	_, _, code2 := runCLI(t, "team", "invite-permission", "all_members")
+	if code2 != 0 {
+		t.Fatalf("invite-permission failed")
+	}
+	team := apiGetTeam(t, id)
+	if team.InvitePermission != "all_members" {
+		t.Errorf("invite_permission: got %q want all_members", team.InvitePermission)
+	}
+
+	// invalid value must error
+	_, _, code3 := runCLI(t, "team", "invite-permission", "bogus")
+	if code3 == 0 {
+		t.Fatal("expected error for invalid permission value")
+	}
+}
