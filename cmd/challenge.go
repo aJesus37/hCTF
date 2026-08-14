@@ -69,7 +69,7 @@ func init() {
 	challengeCreateCmd.Flags().StringVar(&createCategory, "category", "", "Category")
 	challengeCreateCmd.Flags().StringVar(&createDifficulty, "difficulty", "", "Difficulty")
 	challengeCreateCmd.Flags().StringVar(&createDescription, "description", "", "Description (markdown)")
-	challengeCreateCmd.Flags().IntVar(&createPoints, "points", 100, "Point value")
+	challengeCreateCmd.Flags().IntVar(&createPoints, "points", 1000, "Point value")
 	challengeCreateCmd.Flags().BoolVar(&createVisible, "visible", false, "Make challenge visible")
 	challengeCreateCmd.Flags().IntVar(&createMinPoints, "min-points", 0, "Minimum points (0 = disabled)")
 	challengeCreateCmd.Flags().IntVar(&createDecay, "decay", 0, "Decay threshold (0 = disabled)")

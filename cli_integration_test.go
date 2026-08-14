@@ -1649,6 +1649,51 @@ func createTestHint(t *testing.T, questionID, content string, cost int) string {
 	return strings.TrimSpace(out)
 }
 
+type apiHint struct {
+	ID       string `json:"id"`
+	Order    int    `json:"order"`
+	Cost     int    `json:"cost"`
+	Unlocked bool   `json:"unlocked"`
+}
+
+func apiHints(t *testing.T, questionID string) []apiHint {
+	t.Helper()
+	req, _ := http.NewRequest("GET", cliServer+"/api/questions/"+questionID+"/hints", nil)
+	req.Header.Set("Accept", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out []apiHint
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+type apiDifficulty struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Color     string `json:"color"`
+	TextColor string `json:"text_color"`
+	SortOrder int    `json:"sort_order"`
+}
+
+func apiDifficulties(t *testing.T) []apiDifficulty {
+	t.Helper()
+	resp, err := http.Get(cliServer + "/api/difficulties")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out []apiDifficulty
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
 // ── Task 1: challenge update — visible, min-points, decay flags ───────────────
 
 func TestCLIChallengeUpdateVisible(t *testing.T) {
@@ -1700,7 +1745,7 @@ func TestCLIChallengeUpdatePreservesAdvancedFields(t *testing.T) {
 	if ch.Difficulty != "hard" {
 		t.Errorf("difficulty: got %q", ch.Difficulty)
 	}
-	if ch.InitialPoints != 100 {
+	if ch.InitialPoints != 1000 {
 		t.Errorf("initial_points: got %d", ch.InitialPoints)
 	}
 	if ch.DynamicScoring != true {
@@ -2551,5 +2596,46 @@ func TestCLICompetitionUpdateClearsTime(t *testing.T) {
 	}
 	if comp.RulesHTML != "" {
 		t.Errorf("rules_html: expected empty (never set), got %q", comp.RulesHTML)
+	}
+}
+
+// ── Task 9: hint create order + difficulty colors + challenge default points ──
+
+func TestCLIHintCreateWithOrder(t *testing.T) {
+	chID := createTestChallenge(t, "HOrd")
+	qID := createTestQuestion(t, chID, "Q", "flag{x}", 100)
+	out, stderr, code := runCLI(t, "hint", "create", "--question", qID, "--content", "h", "--cost", "10", "--order", "3")
+	assertSuccess(t, out, stderr, code)
+	hints := apiHints(t, qID)
+	if len(hints) != 1 || hints[0].Order != 3 {
+		t.Fatalf("expected order=3, got %+v", hints)
+	}
+}
+
+func TestCLIDifficultyCreateWithColor(t *testing.T) {
+	out, stderr, code := runCLI(t, "difficulty", "create", "brutal",
+		"--color", "bg-red-600 text-white", "--text-color", "text-red-300", "--order", "9")
+	assertSuccess(t, out, stderr, code)
+	diffs := apiDifficulties(t)
+	found := false
+	for _, d := range diffs {
+		if d.Name == "brutal" {
+			found = true
+			if d.Color != "bg-red-600 text-white" || d.TextColor != "text-red-300" {
+				t.Errorf("colors: got %q/%q", d.Color, d.TextColor)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("difficulty not created")
+	}
+}
+
+func TestCLIChallengeCreateDefaultPoints(t *testing.T) {
+	out, stderr, code := runCLI(t, "challenge", "create", "--title", "DefaultPts", "--category", "web", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	ch := apiGetChallenge(t, strings.TrimSpace(out))
+	if ch.InitialPoints != 1000 {
+		t.Errorf("initial_points: got %d want 1000", ch.InitialPoints)
 	}
 }

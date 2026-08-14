@@ -75,8 +75,10 @@ var difficultyDeleteCmd = &cobra.Command{
 }
 
 var (
-	diffName  string
-	diffOrder int
+	diffName      string
+	diffOrder     int
+	diffColor     string
+	diffTextColor string
 )
 
 func init() {
@@ -89,6 +91,8 @@ func init() {
 	difficultyCmd.AddCommand(difficultyListCmd, difficultyCreateCmd, difficultyDeleteCmd)
 	difficultyCreateCmd.Flags().StringVar(&diffName, "name", "", "Difficulty name")
 	difficultyCreateCmd.Flags().IntVar(&diffOrder, "order", 0, "Sort order")
+	difficultyCreateCmd.Flags().StringVar(&diffColor, "color", "", "Badge color (Tailwind classes)")
+	difficultyCreateCmd.Flags().StringVar(&diffTextColor, "text-color", "", "Text color (Tailwind class)")
 }
 
 // settingItem is a generic representation of a category or difficulty row.
@@ -224,7 +228,7 @@ func runDifficultyList(_ *cobra.Command, _ []string) error {
 
 func runDifficultyCreate(_ *cobra.Command, args []string) error {
 	return runSettingCreate(args, &diffName, &diffOrder, "difficulty", func(c *client.Client, name string, order int) (settingItem, error) {
-		d, err := c.CreateDifficulty(name, order)
+		d, err := c.CreateDifficulty(name, order, diffColor, diffTextColor)
 		if err != nil {
 			return settingItem{}, err
 		}

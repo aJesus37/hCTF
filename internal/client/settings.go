@@ -59,8 +59,13 @@ func (c *Client) DeleteCategory(id string) error {
 	return c.doNoBody("DELETE", "/api/admin/categories/"+id)
 }
 
-func (c *Client) CreateDifficulty(name string, order int) (*Difficulty, error) {
-	form := url.Values{"name": {name}, "sort_order": {strconv.Itoa(order)}}
+func (c *Client) CreateDifficulty(name string, order int, color, textColor string) (*Difficulty, error) {
+	form := url.Values{
+		"name":       {name},
+		"sort_order": {strconv.Itoa(order)},
+		"color":      {color},
+		"text_color": {textColor},
+	}
 	req, _ := http.NewRequest("POST", c.ServerURL+"/api/admin/difficulties", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := c.Do(req)
