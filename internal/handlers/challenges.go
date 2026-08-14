@@ -348,6 +348,24 @@ type CreateChallengeRequest struct {
 	DecayThreshold int     `json:"decay_threshold"`
 }
 
+// UpdateChallengeRequest carries optional fields for a partial challenge update.
+// nil pointer = keep existing value.
+type UpdateChallengeRequest struct {
+	Name           *string `json:"name,omitempty"`
+	Description    *string `json:"description,omitempty"`
+	Category       *string `json:"category,omitempty"`
+	Difficulty     *string `json:"difficulty,omitempty"`
+	Tags           *string `json:"tags,omitempty"`
+	Visible        *bool   `json:"visible,omitempty"`
+	SQLEnabled     *bool   `json:"sql_enabled,omitempty"`
+	SQLDatasetURL  *string `json:"sql_dataset_url,omitempty"`
+	SQLSchemaHint  *string `json:"sql_schema_hint,omitempty"`
+	DynamicScoring *bool   `json:"dynamic_scoring,omitempty"`
+	InitialPoints  *int    `json:"initial_points,omitempty"`
+	MinimumPoints  *int    `json:"minimum_points,omitempty"`
+	DecayThreshold *int    `json:"decay_threshold,omitempty"`
+}
+
 // CreateChallenge godoc
 // @Summary Create a new challenge (admin only)
 // @Tags Admin
@@ -593,10 +611,64 @@ func (h *ChallengeHandler) UpdateChallenge(w http.ResponseWriter, r *http.Reques
 	var req CreateChallengeRequest
 
 	if strings.Contains(contentType, "application/json") {
-		// JSON request
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// JSON partial update: only fields present in the request are applied.
+		var update UpdateChallengeRequest
+		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
+		}
+
+		existing, err := h.db.GetChallengeByID(id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "Challenge not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Failed to update challenge", http.StatusInternalServerError)
+			}
+			return
+		}
+		req.Name, req.Description, req.Category, req.Difficulty = existing.Name, existing.Description, existing.Category, existing.Difficulty
+		req.Tags, req.Visible = existing.Tags, existing.Visible
+		req.SQLEnabled, req.SQLDatasetURL, req.SQLSchemaHint = existing.SQLEnabled, existing.SQLDatasetURL, existing.SQLSchemaHint
+		req.DynamicScoring, req.InitialPoints, req.MinimumPoints, req.DecayThreshold = existing.DynamicScoring, existing.InitialPoints, existing.MinimumPoints, existing.DecayThreshold
+		if update.Name != nil {
+			req.Name = *update.Name
+		}
+		if update.Description != nil {
+			req.Description = *update.Description
+		}
+		if update.Category != nil {
+			req.Category = *update.Category
+		}
+		if update.Difficulty != nil {
+			req.Difficulty = *update.Difficulty
+		}
+		if update.Tags != nil {
+			req.Tags = update.Tags
+		}
+		if update.Visible != nil {
+			req.Visible = *update.Visible
+		}
+		if update.SQLEnabled != nil {
+			req.SQLEnabled = *update.SQLEnabled
+		}
+		if update.SQLDatasetURL != nil {
+			req.SQLDatasetURL = update.SQLDatasetURL
+		}
+		if update.SQLSchemaHint != nil {
+			req.SQLSchemaHint = update.SQLSchemaHint
+		}
+		if update.DynamicScoring != nil {
+			req.DynamicScoring = *update.DynamicScoring
+		}
+		if update.InitialPoints != nil {
+			req.InitialPoints = *update.InitialPoints
+		}
+		if update.MinimumPoints != nil {
+			req.MinimumPoints = *update.MinimumPoints
+		}
+		if update.DecayThreshold != nil {
+			req.DecayThreshold = *update.DecayThreshold
 		}
 	} else {
 		// Form data from HTMX

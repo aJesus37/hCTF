@@ -19,6 +19,61 @@ func withQuestionID(req *http.Request, id string) *http.Request {
 	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 }
 
+// withChallengeID injects the chi route context so handlers using
+// chi.URLParam(r, "id") can resolve the challenge id in direct unit tests.
+func withChallengeID(req *http.Request, id string) *http.Request {
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", id)
+	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+}
+
+func TestUpdateChallengePartial(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+	dataset := "https://example.com/d.csv"
+	hint := "schema hint"
+	tags := "a,b"
+	ch, err := db.CreateChallenge("Old", "desc", "web", "easy", &tags, true, true, &dataset, &hint, true, 1000, 100, 50, nil)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h := NewChallengeHandler(db, nil, nil, nil)
+	req := httptest.NewRequest("PUT", "/api/admin/challenges/"+ch.ID, strings.NewReader(`{"name":"New"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.UpdateChallenge(rr, withChallengeID(req, ch.ID))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+	}
+
+	got, err := db.GetChallengeByID(ch.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Name != "New" {
+		t.Errorf("name: got %q", got.Name)
+	}
+	if got.Description != "desc" {
+		t.Errorf("description: got %q", got.Description)
+	}
+	if !got.SQLEnabled || got.SQLDatasetURL == nil || got.SQLSchemaHint == nil {
+		t.Error("sql fields were wiped")
+	}
+	if !got.DynamicScoring || got.InitialPoints != 1000 || got.MinimumPoints != 100 || got.DecayThreshold != 50 {
+		t.Error("dynamic scoring fields were wiped")
+	}
+	if !got.Visible {
+		t.Error("visible was wiped")
+	}
+	if got.Tags == nil || *got.Tags != tags {
+		t.Error("tags were wiped")
+	}
+}
+
 func TestUpdateQuestionPartial(t *testing.T) {
 	db, err := database.New(":memory:")
 	if err != nil {
@@ -220,5 +275,93 @@ func TestUpdateQuestionMaskOnly(t *testing.T) {
 	}
 	if got.FlagMask == nil || *got.FlagMask != newMask {
 		t.Errorf("flag_mask: got %v want %q", got.FlagMask, newMask)
+	}
+}
+
+func TestUpdateChallengeExplicitZerosApplied(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+	ch, err := db.CreateChallenge("C", "desc", "web", "easy", nil, true, false, nil, nil, true, 1000, 100, 50, nil)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h := NewChallengeHandler(db, nil, nil, nil)
+	// Explicit false/zero values must be applied, not treated as "omitted".
+	req := httptest.NewRequest("PUT", "/api/admin/challenges/"+ch.ID, strings.NewReader(`{"visible":false,"initial_points":0}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.UpdateChallenge(rr, withChallengeID(req, ch.ID))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+	}
+
+	got, err := db.GetChallengeByID(ch.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Visible {
+		t.Error("visible: got true want false")
+	}
+	if got.InitialPoints != 0 {
+		t.Errorf("initial_points: got %d want 0", got.InitialPoints)
+	}
+	if !got.DynamicScoring {
+		t.Error("dynamic_scoring: got false want true (preserved)")
+	}
+	if got.MinimumPoints != 100 {
+		t.Errorf("minimum_points: got %d want 100 (preserved)", got.MinimumPoints)
+	}
+	if got.Description != "desc" {
+		t.Errorf("description: got %q want desc (preserved)", got.Description)
+	}
+}
+
+func TestUpdateChallengeNotFound(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+
+	h := NewChallengeHandler(db, nil, nil, nil)
+	req := httptest.NewRequest("PUT", "/api/admin/challenges/nonexistent", strings.NewReader(`{"name":"New"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.UpdateChallenge(rr, withChallengeID(req, "nonexistent"))
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status %d, want 404, body: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestUpdateChallengeInvalidJSON(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+	ch, err := db.CreateChallenge("C", "desc", "web", "easy", nil, true, false, nil, nil, false, 100, 0, 0, nil)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h := NewChallengeHandler(db, nil, nil, nil)
+	req := httptest.NewRequest("PUT", "/api/admin/challenges/"+ch.ID, strings.NewReader(`{not json`))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	h.UpdateChallenge(rr, withChallengeID(req, ch.ID))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status %d, want 400, body: %s", rr.Code, rr.Body.String())
+	}
+
+	got, err := db.GetChallengeByID(ch.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Name != "C" || got.Description != "desc" {
+		t.Errorf("challenge mutated on invalid JSON: got name %q desc %q", got.Name, got.Description)
 	}
 }
