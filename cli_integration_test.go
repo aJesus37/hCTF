@@ -1595,10 +1595,15 @@ func createTestQuestion(t *testing.T, challengeID, name, flag string, points int
 }
 
 type apiQuestion struct {
-	Name string `json:"name"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	Flag          string `json:"flag"`
+	FlagMask      string `json:"flag_mask"`
+	CaseSensitive bool   `json:"case_sensitive"`
+	Points        int    `json:"points"`
 }
 
-func apiGetQuestion(t *testing.T, challengeID string) apiQuestion {
+func apiQuestions(t *testing.T, challengeID string) []apiQuestion {
 	t.Helper()
 	resp, err := http.Get(cliServer + "/api/challenges/" + challengeID)
 	if err != nil {
@@ -1611,10 +1616,16 @@ func apiGetQuestion(t *testing.T, challengeID string) apiQuestion {
 	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
 		t.Fatal(err)
 	}
-	if len(env.Questions) == 0 {
+	return env.Questions
+}
+
+func apiGetQuestion(t *testing.T, challengeID string) apiQuestion {
+	t.Helper()
+	qs := apiQuestions(t, challengeID)
+	if len(qs) == 0 {
 		t.Fatal("no questions found")
 	}
-	return env.Questions[0]
+	return qs[0]
 }
 
 func createTestHint(t *testing.T, questionID, content string, cost int) string {
@@ -2258,5 +2269,83 @@ func TestUpdateCheck(t *testing.T) {
 		!strings.Contains(combined, "Current:") &&
 		!strings.Contains(combined, "Checking") {
 		t.Errorf("unexpected output:\nstdout: %s\nstderr: %s", stdout, stderr)
+	}
+}
+
+// ── Task 6: question create/update partial fields ───────────────────────────
+
+func TestCLIQuestionCreateFullFields(t *testing.T) {
+	chID := createTestChallenge(t, "QFull")
+	out, stderr, code := runCLI(t, "question", "create",
+		"--challenge", chID, "--name", "Full", "--flag", "flag{full}",
+		"--description", "solve it", "--flag-mask", "flag{****}", "--points", "200", "--case-sensitive")
+	assertSuccess(t, out, stderr, code)
+	qs := apiQuestions(t, chID)
+	if len(qs) != 1 {
+		t.Fatalf("expected 1 question, got %d", len(qs))
+	}
+	if qs[0].Description != "solve it" {
+		t.Errorf("description: got %q", qs[0].Description)
+	}
+	if qs[0].CaseSensitive != true {
+		t.Error("case_sensitive: expected true")
+	}
+	if qs[0].FlagMask != "flag{****}" {
+		t.Errorf("flag_mask: got %q", qs[0].FlagMask)
+	}
+}
+
+func TestCLIQuestionUpdatePreservesFlag(t *testing.T) {
+	chID := createTestChallenge(t, "QPreserve")
+	qID := createTestQuestion(t, chID, "Q", "flag{keepme}", 100)
+	out, stderr, code := runCLI(t, "question", "update", qID, "--name", "Renamed")
+	assertSuccess(t, out, stderr, code)
+	q := apiGetQuestion(t, chID)
+	if q.Name != "Renamed" {
+		t.Errorf("name: got %q", q.Name)
+	}
+	out, stderr, code = runCLI(t, "flag", "submit", qID, "flag{keepme}")
+	if code != 0 {
+		t.Fatalf("flag resubmit failed: code=%d stderr=%s", code, stderr)
+	}
+	if !strings.Contains(out, "Correct") {
+		t.Errorf("flag was wiped: expected 'Correct' on resubmit, got: %s", out)
+	}
+}
+
+func TestCLIQuestionUpdateFlagMask(t *testing.T) {
+	chID := createTestChallenge(t, "QMask")
+	qID := createTestQuestion(t, chID, "Q", "flag{x}", 100)
+	_, _, code := runCLI(t, "question", "update", qID, "--flag-mask", "flag{*****}")
+	if code != 0 {
+		t.Fatalf("update failed")
+	}
+	q := apiGetQuestion(t, chID)
+	if q.FlagMask != "flag{*****}" {
+		t.Errorf("flag_mask: got %q", q.FlagMask)
+	}
+	if q.Name != "Q" {
+		t.Errorf("name was wiped: got %q", q.Name)
+	}
+}
+
+func TestCLIQuestionUpdatePreservesDescriptionAndPoints(t *testing.T) {
+	chID := createTestChallenge(t, "QPreserveDP")
+	out, stderr, code := runCLI(t, "question", "create",
+		"--challenge", chID, "--name", "Q", "--flag", "flag{dp}",
+		"--description", "some desc", "--points", "300", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	qID := strings.TrimSpace(out)
+	out, stderr, code = runCLI(t, "question", "update", qID, "--name", "Renamed")
+	assertSuccess(t, out, stderr, code)
+	q := apiGetQuestion(t, chID)
+	if q.Name != "Renamed" {
+		t.Errorf("name: got %q", q.Name)
+	}
+	if q.Description != "some desc" {
+		t.Errorf("description was wiped: got %q", q.Description)
+	}
+	if q.Points != 300 {
+		t.Errorf("points were wiped: got %d", q.Points)
 	}
 }

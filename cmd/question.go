@@ -22,10 +22,15 @@ var questionUpdateCmd = &cobra.Command{Use: "update <id>", Short: "Update a ques
 var (
 	qChallengeID    string
 	qName           string
+	qDescription    string
 	qFlag           string
+	qFlagMask       string
+	qCaseSensitive  bool
 	qPoints         int
 	quName          string
+	quDescription   string
 	quFlag          string
+	quFlagMask      string
 	quPoints        int
 	quCaseSensitive bool
 )
@@ -35,11 +40,16 @@ func init() {
 	questionCmd.AddCommand(questionListCmd, questionCreateCmd, questionDeleteCmd, questionUpdateCmd)
 	questionCreateCmd.Flags().StringVar(&qChallengeID, "challenge", "", "Challenge ID")
 	questionCreateCmd.Flags().StringVar(&qName, "name", "", "Question name")
+	questionCreateCmd.Flags().StringVar(&qDescription, "description", "", "Question description")
 	questionCreateCmd.Flags().StringVar(&qFlag, "flag", "", "Flag value")
+	questionCreateCmd.Flags().StringVar(&qFlagMask, "flag-mask", "", "Flag display mask")
+	questionCreateCmd.Flags().BoolVar(&qCaseSensitive, "case-sensitive", false, "Case-sensitive flag matching")
 	questionCreateCmd.Flags().IntVar(&qPoints, "points", 100, "Point value")
 
 	questionUpdateCmd.Flags().StringVar(&quName, "name", "", "Question name")
+	questionUpdateCmd.Flags().StringVar(&quDescription, "description", "", "Question description")
 	questionUpdateCmd.Flags().StringVar(&quFlag, "flag", "", "Flag value")
+	questionUpdateCmd.Flags().StringVar(&quFlagMask, "flag-mask", "", "Flag display mask")
 	questionUpdateCmd.Flags().IntVar(&quPoints, "points", 0, "Point value")
 	questionUpdateCmd.Flags().BoolVar(&quCaseSensitive, "case-sensitive", false, "Case-sensitive flag matching")
 }
@@ -82,12 +92,15 @@ func runQuestionCreate(_ *cobra.Command, _ []string) error {
 	}
 	if term.IsTerminal(int(os.Stdin.Fd())) && qName == "" {
 		pointsStr := strconv.Itoa(qPoints)
-		if err := huh.NewForm(huh.NewGroup(
-			huh.NewInput().Title("Challenge ID").Value(&qChallengeID),
-			huh.NewInput().Title("Question name").Value(&qName),
-			huh.NewInput().Title("Flag").Value(&qFlag),
-			huh.NewInput().Title("Points").Value(&pointsStr),
-		)).Run(); err != nil {
+		if err := huh.NewForm(
+			huh.NewGroup(huh.NewInput().Title("Challenge ID").Value(&qChallengeID)),
+			huh.NewGroup(huh.NewInput().Title("Question name").Value(&qName)),
+			huh.NewGroup(huh.NewText().Title("Description").Value(&qDescription)),
+			huh.NewGroup(huh.NewInput().Title("Flag").Value(&qFlag)),
+			huh.NewGroup(huh.NewInput().Title("Flag mask").Value(&qFlagMask)),
+			huh.NewGroup(huh.NewInput().Title("Points").Value(&pointsStr)),
+			huh.NewGroup(huh.NewConfirm().Title("Case-sensitive flag?").Value(&qCaseSensitive)),
+		).Run(); err != nil {
 			return err
 		}
 		if p, err := strconv.Atoi(pointsStr); err == nil {
@@ -97,7 +110,7 @@ func runQuestionCreate(_ *cobra.Command, _ []string) error {
 	if qChallengeID == "" || qFlag == "" {
 		return fmt.Errorf("--challenge and --flag are required")
 	}
-	q, err := c.CreateQuestion(qChallengeID, qName, "", qFlag, nil, false, qPoints)
+	q, err := c.CreateQuestion(qChallengeID, qName, qDescription, qFlag, flagIfNonEmpty(qFlagMask), qCaseSensitive, qPoints)
 	if err != nil {
 		return err
 	}
@@ -123,55 +136,80 @@ func runQuestionDelete(_ *cobra.Command, args []string) error {
 	return nil
 }
 
-func buildQuestionGroups(name, flag, pointsStr *string, caseSensitive *bool) []*huh.Group {
+func buildQuestionGroups(name, description, flag, flagMask, pointsStr *string, caseSensitive *bool) []*huh.Group {
 	return []*huh.Group{
 		huh.NewGroup(huh.NewInput().Title("Name").Value(name)),
+		huh.NewGroup(huh.NewText().Title("Description").Value(description)),
 		huh.NewGroup(huh.NewInput().Title("Flag").Value(flag)),
+		huh.NewGroup(huh.NewInput().Title("Flag mask").Value(flagMask)),
 		huh.NewGroup(huh.NewInput().Title("Points").Value(pointsStr)),
 		huh.NewGroup(huh.NewConfirm().Title("Case-sensitive flag?").Value(caseSensitive)),
 	}
 }
 
-func runQuestionUpdate(_ *cobra.Command, args []string) error {
+func runQuestionUpdate(cmd *cobra.Command, args []string) error {
 	c, err := newClient()
 	if err != nil {
 		return err
 	}
 	id := args[0]
 
-	if term.IsTerminal(int(os.Stdin.Fd())) && quName == "" {
+	if term.IsTerminal(int(os.Stdin.Fd())) && !cmd.Flags().Changed("name") {
 		q, err := c.GetQuestion(id)
 		if err != nil {
 			return err
 		}
 		quName = q.Name
+		quDescription = q.Description
 		quCaseSensitive = q.CaseSensitive
+		if q.FlagMask != nil {
+			quFlagMask = *q.FlagMask
+		}
 		if quPoints == 0 {
 			quPoints = q.Points
 		}
-
 		pointsStr := strconv.Itoa(quPoints)
-		groups := buildQuestionGroups(&quName, &quFlag, &pointsStr, &quCaseSensitive)
+		groups := buildQuestionGroups(&quName, &quDescription, &quFlag, &quFlagMask, &pointsStr, &quCaseSensitive)
 		if err := huh.NewForm(groups...).Run(); err != nil {
 			return err
 		}
 		if p, err := strconv.Atoi(pointsStr); err == nil {
 			quPoints = p
 		}
+		// On TTY everything is considered provided.
+		u := client.QuestionUpdate{
+			Name:          &quName,
+			Description:   &quDescription,
+			Flag:          flagIfNonEmpty(quFlag),
+			FlagMask:      &quFlagMask,
+			Points:        &quPoints,
+			CaseSensitive: &quCaseSensitive,
+		}
+		if err := c.UpdateQuestion(id, u); err != nil {
+			return err
+		}
+		if quietOutput {
+			fmt.Fprintln(os.Stdout, id)
+		} else {
+			fmt.Fprintf(os.Stdout, "Updated question %s\n", id)
+		}
+		return nil
 	}
 
-	if err := c.UpdateQuestion(id, client.QuestionUpdate{
-		Name:          &quName,
-		Flag:          &quFlag,
-		Points:        &quPoints,
-		CaseSensitive: &quCaseSensitive,
-	}); err != nil {
+	u := client.QuestionUpdate{}
+	setStrIfChanged(cmd, &u.Name, "name", quName)
+	setStrIfChanged(cmd, &u.Description, "description", quDescription)
+	setStrIfChanged(cmd, &u.Flag, "flag", quFlag)
+	setStrIfChanged(cmd, &u.FlagMask, "flag-mask", quFlagMask)
+	setIntIfChanged(cmd, &u.Points, "points", quPoints)
+	setBoolIfChanged(cmd, &u.CaseSensitive, "case-sensitive", quCaseSensitive)
+	if err := c.UpdateQuestion(id, u); err != nil {
 		return err
 	}
 	if quietOutput {
 		fmt.Fprintln(os.Stdout, id)
-		return nil
+	} else {
+		fmt.Fprintf(os.Stdout, "Updated question %s\n", id)
 	}
-	fmt.Fprintf(os.Stdout, "Updated question %s\n", id)
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/charmbracelet/huh"
+	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
@@ -35,4 +36,33 @@ func boolToYesNo(b bool) string {
 // abortedMsg prints "Aborted." to stdout.
 func abortedMsg() {
 	fmt.Fprintln(os.Stdout, "Aborted.")
+}
+
+// setStrIfChanged sets *dst to val only when the named flag was explicitly set.
+func setStrIfChanged(cmd *cobra.Command, dst **string, name, val string) {
+	if cmd.Flags().Changed(name) {
+		*dst = &val
+	}
+}
+
+// setIntIfChanged sets *dst to val only when the named flag was explicitly set.
+func setIntIfChanged(cmd *cobra.Command, dst **int, name string, val int) {
+	if cmd.Flags().Changed(name) {
+		*dst = &val
+	}
+}
+
+// setBoolIfChanged sets *dst to val only when the named flag was explicitly set.
+func setBoolIfChanged(cmd *cobra.Command, dst **bool, name string, val bool) {
+	if cmd.Flags().Changed(name) {
+		*dst = &val
+	}
+}
+
+// flagIfNonEmpty returns a pointer to s, or nil when s is empty.
+func flagIfNonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
