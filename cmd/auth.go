@@ -170,7 +170,7 @@ func runResetPassword(_ *cobra.Command, _ []string) error {
 		}
 	}
 	if resetToken == "" || resetPassword == "" {
-		return fmt.Errorf("--token and --password required")
+		return fmt.Errorf("both a reset token and a new password are required")
 	}
 
 	serverURL := serverOverride
