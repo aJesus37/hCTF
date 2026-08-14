@@ -230,6 +230,12 @@ func runChallengeCreate(_ *cobra.Command, _ []string) error {
 			createDecay = d
 		}
 	}
+	if createDynamicScoring && createMinPoints == 0 {
+		createMinPoints = 100
+	}
+	if createDynamicScoring && createDecay == 0 {
+		createDecay = 100
+	}
 	ch, err := c.CreateChallenge(createTitle, createCategory, createDifficulty, createDescription, createPoints, createVisible, createMinPoints, createDecay, flagIfNonEmpty(createTags), createSQLEnabled, flagIfNonEmpty(createSQLDatasetURL), flagIfNonEmpty(createSQLSchemaHint), createDynamicScoring)
 	if err != nil {
 		return err

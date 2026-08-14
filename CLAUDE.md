@@ -336,7 +336,7 @@ Current version: **v0.8.6** (CI test fix)
 
 ### Current State
 - ✅ Unit tests in `handlers_test.go`
-- ✅ CLI integration tests in `cli_integration_test.go` (TestMain builds binary, starts real server, 137 tests)
+- ✅ CLI integration tests in `cli_integration_test.go` (TestMain builds binary, starts real server, 166 tests)
 - ✅ Manual testing via browser
 
 ### Running Tests
@@ -514,7 +514,7 @@ The following features have been implemented:
 23. ✅ **Multi-attempt Wrong Answers** - Removed unique constraint on submissions so users can submit multiple wrong flags without errors
 24. ✅ **Question Anchor Links** - Each question card has a `#question-{id}` anchor; hover the title to copy a direct link; live feed and profile activity link directly to the anchored question
 25. ✅ **Full CLI** - Complete web UI parity: all CRUD (challenge/question/hint/team/competition/user/category/difficulty), submissions feed (`--watch` live mode), user profile, challenge import/export, competition scoreboard/blackout, scoreboard freeze; interactive huh forms on TTY with per-field pages (back navigation), JSON/quiet flags throughout; `internal/client/` HTTP client; `internal/config/` config file at `~/.config/hctf/config.yaml`. Partial (non-destructive) updates for challenge/question/hint/competition — update commands apply only provided flags and leave unspecified fields unchanged. Additional commands: `question create/update --description --flag-mask --case-sensitive`, `challenge create/update --tags --dynamic-scoring --sql-enabled --sql-dataset-url --sql-schema-hint`, `competition create/update --rules-html --start --end --registration-start --registration-end`, `hint create --order`, `difficulty create --color --text-color`, `category update`, `difficulty update`, `question get`, `team invite-permission`, `forgot-password`, `reset-password`, `custom-code get/set`, `scoreboard teams/evolution/admin-visibility/force-record`, `ctftime`
-26. ✅ **CLI Integration Tests** - `cli_integration_test.go`: TestMain pattern builds real binary and starts server subprocess; `runCLI(t, args...) (stdout, stderr, exitCode)`; 137 tests covering all commands, JSON output, error cases, and edge cases
+26. ✅ **CLI Integration Tests** - `cli_integration_test.go`: TestMain pattern builds real binary and starts server subprocess; `runCLI(t, args...) (stdout, stderr, exitCode)`; 166 tests covering all commands, JSON output, error cases, and edge cases
 
 ### Planned Features
 

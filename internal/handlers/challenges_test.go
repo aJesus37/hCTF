@@ -328,6 +328,76 @@ func TestUpdateChallengeExplicitZerosApplied(t *testing.T) {
 	}
 }
 
+func TestUpdateChallengeFormPreservesTags(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+	tags := "a,b"
+	ch, err := db.CreateChallenge("Old", "desc", "web", "easy", &tags, true, false, nil, nil, false, 100, 0, 0, nil)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	h := NewChallengeHandler(db, nil, nil, nil)
+	req := httptest.NewRequest("PUT", "/api/admin/challenges/"+ch.ID, strings.NewReader("name=New&category=web&difficulty=easy&description=d"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	h.UpdateChallenge(rr, withChallengeID(req, ch.ID))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rr.Code, rr.Body.String())
+	}
+
+	got, err := db.GetChallengeByID(ch.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Name != "New" {
+		t.Errorf("name: got %q", got.Name)
+	}
+	if got.Tags == nil || *got.Tags != tags {
+		t.Errorf("tags: got %v want %q", got.Tags, tags)
+	}
+}
+
+func TestUpdateQuestionFormPreservesFileURL(t *testing.T) {
+	db, err := database.New(":memory:")
+	if err != nil {
+		t.Fatalf("db: %v", err)
+	}
+	defer db.Close()
+	ch, err := db.CreateChallenge("C", "", "web", "easy", nil, true, false, nil, nil, false, 100, 0, 0, nil)
+	if err != nil {
+		t.Fatalf("create challenge: %v", err)
+	}
+	fileURL := "https://example.com/x.csv"
+	q, err := db.CreateQuestion(ch.ID, "Old", "", "flag{secret}", nil, false, 100, &fileURL)
+	if err != nil {
+		t.Fatalf("create question: %v", err)
+	}
+
+	h := NewChallengeHandler(db, nil, nil, nil)
+	req := httptest.NewRequest("PUT", "/api/admin/questions/"+q.ID, strings.NewReader("name=New&points=100"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rr := httptest.NewRecorder()
+	h.UpdateQuestion(rr, withQuestionID(req, q.ID))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status %d, body: %s", rr.Code, rr.Body.String())
+	}
+
+	got, err := db.GetQuestionByID(q.ID)
+	if err != nil {
+		t.Fatalf("get question: %v", err)
+	}
+	if got.Name != "New" {
+		t.Errorf("name: got %q want New", got.Name)
+	}
+	if got.FileURL == nil || *got.FileURL != fileURL {
+		t.Errorf("file_url: got %v want %q", got.FileURL, fileURL)
+	}
+}
+
 func TestUpdateChallengeNotFound(t *testing.T) {
 	db, err := database.New(":memory:")
 	if err != nil {

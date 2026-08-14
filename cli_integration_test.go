@@ -2660,6 +2660,24 @@ func TestCLIChallengeCreateDefaultPoints(t *testing.T) {
 	}
 }
 
+func TestCLIChallengeCreateDynamicScoringDefaults(t *testing.T) {
+	out, stderr, code := runCLI(t, "challenge", "create", "--title", "Dyn", "--category", "web", "--dynamic-scoring", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	ch := apiGetChallenge(t, strings.TrimSpace(out))
+	if ch.InitialPoints <= 0 {
+		t.Errorf("initial_points: got %d want > 0", ch.InitialPoints)
+	}
+	if ch.MinimumPoints != 100 {
+		t.Errorf("minimum_points: got %d want 100", ch.MinimumPoints)
+	}
+	if ch.DecayThreshold != 100 {
+		t.Errorf("decay_threshold: got %d want 100", ch.DecayThreshold)
+	}
+	if !ch.DynamicScoring {
+		t.Error("dynamic_scoring: got false want true")
+	}
+}
+
 // ── category / difficulty update ─────────────────────────────────────────────
 
 func TestCLICategoryUpdate(t *testing.T) {

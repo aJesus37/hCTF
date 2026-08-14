@@ -715,6 +715,16 @@ func (h *ChallengeHandler) UpdateChallenge(w http.ResponseWriter, r *http.Reques
 		if schemaHint != "" {
 			req.SQLSchemaHint = &schemaHint
 		}
+		existing, err := h.db.GetChallengeByID(id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "Challenge not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Failed to update challenge", http.StatusInternalServerError)
+			}
+			return
+		}
+		req.Tags = existing.Tags
 	}
 
 	if err := h.db.UpdateChallenge(id, req.Name, req.Description, req.Category, req.Difficulty, req.Tags, req.Visible, req.SQLEnabled, req.SQLDatasetURL, req.SQLSchemaHint, req.DynamicScoring, req.InitialPoints, req.MinimumPoints, req.DecayThreshold); err != nil {
@@ -1013,6 +1023,16 @@ func (h *ChallengeHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request
 			}
 		}
 		req.Points = points
+		existing, err := h.db.GetQuestionByID(id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "Question not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Failed to update question", http.StatusInternalServerError)
+			}
+			return
+		}
+		req.FileURL = existing.FileURL
 	}
 
 	if err := h.db.UpdateQuestion(id, req.Name, req.Description, req.Flag, req.FlagMask, req.CaseSensitive, req.Points, req.FileURL); err != nil {
