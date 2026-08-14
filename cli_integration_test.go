@@ -2893,3 +2893,62 @@ func TestCLICustomCodeSetGet(t *testing.T) {
 		t.Error("head_html was cleared by a partial update")
 	}
 }
+
+// ── Task 15: scoreboard teams / evolution / admin-visibility / force-record + ctftime ──
+
+func TestCLIScoreboardTeams(t *testing.T) {
+	out, stderr, code := runCLI(t, "scoreboard", "teams", "--json")
+	assertSuccess(t, out, stderr, code)
+	var entries []map[string]any
+	if err := json.Unmarshal([]byte(out), &entries); err != nil {
+		t.Fatalf("teams scoreboard not JSON: %v\n%s", err, out)
+	}
+}
+
+func TestCLICtfTime(t *testing.T) {
+	// needs at least one team; admin is in a team? create one to be safe
+	_, _, code := runCLI(t, "team", "create", "CtfTeam", "--quiet")
+	if code != 0 {
+		t.Skip("team creation unavailable")
+	}
+	out, stderr, code2 := runCLI(t, "ctftime")
+	assertSuccess(t, out, stderr, code2)
+	var resp struct {
+		Standings []struct {
+			Pos   int    `json:"pos"`
+			Team  string `json:"team"`
+			Score int    `json:"score"`
+		} `json:"standings"`
+	}
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("ctftime not JSON: %v\n%s", err, out)
+	}
+}
+
+func TestCLIScoreboardAdminVisibility(t *testing.T) {
+	out, stderr, code := runCLI(t, "scoreboard", "admin-visibility", "off")
+	assertSuccess(t, out, stderr, code)
+	_, _, code2 := runCLI(t, "scoreboard", "admin-visibility", "on")
+	if code2 != 0 {
+		t.Fatalf("admin-visibility on failed")
+	}
+}
+
+func TestCLIScoreboardForceRecord(t *testing.T) {
+	_, _, code := runCLI(t, "scoreboard", "force-record")
+	if code != 0 {
+		t.Fatalf("force-record failed")
+	}
+}
+
+func TestCLIScoreboardEvolution(t *testing.T) {
+	out, stderr, code := runCLI(t, "scoreboard", "evolution", "--mode", "individual", "--limit", "5", "--json")
+	assertSuccess(t, out, stderr, code)
+	var resp struct {
+		Intervals []string `json:"intervals"`
+		Series    []any    `json:"series"`
+	}
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("evolution not JSON: %v\n%s", err, out)
+	}
+}
