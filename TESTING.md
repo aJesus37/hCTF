@@ -9,7 +9,7 @@ hCTF has a comprehensive testing strategy covering unit tests, integration tests
 | Test Type | Purpose | Command |
 |-----------|---------|---------|
 | **Unit Tests** | HTTP handler tests | `task test` |
-| **CLI Integration Tests** | Full CLI command coverage (137 tests) | `go test -count=1 -timeout 120s .` |
+| **CLI Integration Tests** | Full CLI command coverage (166 tests) | `go test -count=1 -timeout 120s .` |
 | **Smoke Tests** | Quick validation of critical paths | `./scripts/smoke-test.sh` |
 | **E2E Tests** | Full browser automation validation | `./scripts/e2e-test.sh` |
 | **Browser Automation** | Detailed feature testing | `./scripts/browser-automation-tests.sh` |
