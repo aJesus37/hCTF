@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"log"
@@ -737,6 +738,18 @@ type CreateQuestionRequest struct {
 	FileURL       *string `json:"file_url,omitempty"`
 }
 
+// UpdateQuestionRequest carries optional fields for a partial question update.
+// nil pointer = keep existing value.
+type UpdateQuestionRequest struct {
+	Name          *string `json:"name,omitempty"`
+	Description   *string `json:"description,omitempty"`
+	Flag          *string `json:"flag,omitempty"`
+	FlagMask      *string `json:"flag_mask,omitempty"`
+	CaseSensitive *bool   `json:"case_sensitive,omitempty"`
+	Points        *int    `json:"points,omitempty"`
+	FileURL       *string `json:"file_url,omitempty"`
+}
+
 // CreateQuestion godoc
 // @Summary Create a new question for a challenge (admin only)
 // @Tags Admin
@@ -860,10 +873,50 @@ func (h *ChallengeHandler) UpdateQuestion(w http.ResponseWriter, r *http.Request
 	var req CreateQuestionRequest
 
 	if strings.Contains(contentType, "application/json") {
-		// JSON request
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// JSON partial update: only fields present in the request are applied.
+		var update UpdateQuestionRequest
+		if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
+		}
+
+		existing, err := h.db.GetQuestionByID(id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				http.Error(w, "Question not found", http.StatusNotFound)
+			} else {
+				http.Error(w, "Failed to update question", http.StatusInternalServerError)
+			}
+			return
+		}
+		req.Name, req.Description, req.Points, req.CaseSensitive = existing.Name, existing.Description, existing.Points, existing.CaseSensitive
+		req.Flag, req.FlagMask = existing.Flag, existing.FlagMask
+		req.FileURL = existing.FileURL
+		if update.Name != nil {
+			req.Name = *update.Name
+		}
+		if update.Description != nil {
+			req.Description = *update.Description
+		}
+		if update.Points != nil {
+			req.Points = *update.Points
+		}
+		if update.CaseSensitive != nil {
+			req.CaseSensitive = *update.CaseSensitive
+		}
+		if update.FileURL != nil {
+			req.FileURL = update.FileURL
+		}
+		if update.Flag != nil && *update.Flag != "" {
+			// A provided non-empty flag always applies; if no explicit mask was sent,
+			// set flagMask nil so the DB regenerates it from the new flag.
+			req.Flag = *update.Flag
+			if update.FlagMask == nil {
+				req.FlagMask = nil
+			}
+		}
+		if update.FlagMask != nil {
+			req.FlagMask = update.FlagMask
 		}
 	} else {
 		// Form data from HTMX
