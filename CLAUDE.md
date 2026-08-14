@@ -513,7 +513,7 @@ The following features have been implemented:
 22. ✅ **Live Submission Feed** - Per-competition and global `/submissions` page; public shows correct solves, admin sees all attempts with submitted flag text; polls every 10s
 23. ✅ **Multi-attempt Wrong Answers** - Removed unique constraint on submissions so users can submit multiple wrong flags without errors
 24. ✅ **Question Anchor Links** - Each question card has a `#question-{id}` anchor; hover the title to copy a direct link; live feed and profile activity link directly to the anchored question
-25. ✅ **Full CLI** - Complete web UI parity: all CRUD (challenge/question/hint/team/competition/user/category/difficulty), submissions feed (`--watch` live mode), user profile, challenge import/export, competition scoreboard/blackout, scoreboard freeze; interactive huh forms on TTY with per-field pages (back navigation), JSON/quiet flags throughout; `internal/client/` HTTP client; `internal/config/` config file at `~/.config/hctf/config.yaml`
+25. ✅ **Full CLI** - Complete web UI parity: all CRUD (challenge/question/hint/team/competition/user/category/difficulty), submissions feed (`--watch` live mode), user profile, challenge import/export, competition scoreboard/blackout, scoreboard freeze; interactive huh forms on TTY with per-field pages (back navigation), JSON/quiet flags throughout; `internal/client/` HTTP client; `internal/config/` config file at `~/.config/hctf/config.yaml`. Partial (non-destructive) updates for challenge/question/hint/competition — update commands apply only provided flags and leave unspecified fields unchanged. Additional commands: `question create/update --description --flag-mask --case-sensitive`, `challenge create/update --tags --dynamic-scoring --sql-enabled --sql-dataset-url --sql-schema-hint`, `competition create/update --rules-html --start --end --registration-start --registration-end`, `hint create --order`, `difficulty create --color --text-color`, `category update`, `difficulty update`, `question get`, `team invite-permission`, `forgot-password`, `reset-password`, `custom-code get/set`, `scoreboard teams/evolution/admin-visibility/force-record`, `ctftime`
 26. ✅ **CLI Integration Tests** - `cli_integration_test.go`: TestMain pattern builds real binary and starts server subprocess; `runCLI(t, args...) (stdout, stderr, exitCode)`; 137 tests covering all commands, JSON output, error cases, and edge cases
 
 ### Planned Features
@@ -525,7 +525,8 @@ The following features have been implemented:
 ## CLI Development Patterns
 
 ### TTY-interactive rule
-All create/update commands prompt for missing fields on TTY via `huh.NewForm`. Each field is its own `huh.NewGroup` (one group per page = back navigation works). Non-TTY requires all fields via flags. Pattern: `if term.IsTerminal(int(os.Stdin.Fd())) && field == ""`.
+Create commands prompt for missing required fields on TTY via `huh.NewForm`. Each field is its own `huh.NewGroup` (one group per page = back navigation works). Non-TTY requires all required fields via flags. Pattern: `if term.IsTerminal(int(os.Stdin.Fd())) && field == ""`.
+Update commands (challenge/question/hint/competition) do **partial updates**: on TTY they prompt for fields to change, and non-TTY they send only the flags provided — unspecified fields are left unchanged (nil pointer = keep existing value).
 
 ### huh form back navigation
 Use a single `huh.NewForm(group1, group2, ...)` — multiple groups = navigable pages with back support. Multiple separate `huh.NewForm` calls lose back navigation entirely.

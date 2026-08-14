@@ -147,6 +147,14 @@ All create/update commands prompt interactively on TTY. Pass `--quiet` to suppre
 
 Run `hctf --help` for the full command tree.
 
+Additional CLI commands and flags:
+
+- **Partial updates** — `challenge update`, `question update`, `hint update`, and `competition update` apply only the flags you pass; unspecified fields are left unchanged (non-destructive)
+- **Question flags** — `question create/update --description --flag-mask --case-sensitive`
+- **Challenge flags** — `challenge create/update --tags --dynamic-scoring --sql-enabled --sql-dataset-url --sql-schema-hint`
+- **Competition flags** — `competition create/update --rules-html --start --end --registration-start --registration-end`
+- **More commands** — `hint create --order`, `difficulty create --color --text-color`, `category update`, `difficulty update`, `question get`, `team invite-permission`, `forgot-password`, `reset-password`, `custom-code get/set`, `scoreboard teams`, `scoreboard evolution`, `scoreboard admin-visibility`, `scoreboard force-record`, `ctftime`
+
 ---
 
 ## Self-Hosting

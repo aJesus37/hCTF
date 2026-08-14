@@ -600,7 +600,7 @@ func (h *ChallengeHandler) getDifficultyColor(name string) string {
 // @Produce json
 // @Security CookieAuth
 // @Param id path string true "Challenge ID"
-// @Param challenge body CreateChallengeRequest true "Updated challenge data"
+// @Param challenge body UpdateChallengeRequest true "Updated challenge data"
 // @Success 200 {string} string "Challenge updated"
 // @Failure 400 {object} object{error=string}
 // @Failure 500 {object} object{error=string}
@@ -934,7 +934,7 @@ func (h *ChallengeHandler) CreateQuestion(w http.ResponseWriter, r *http.Request
 // @Produce json
 // @Security CookieAuth
 // @Param id path string true "Question ID"
-// @Param question body CreateQuestionRequest true "Updated question data"
+// @Param question body UpdateQuestionRequest true "Updated question data"
 // @Success 200 {string} string "Question updated"
 // @Failure 400 {object} object{error=string}
 // @Failure 500 {object} object{error=string}
@@ -1253,7 +1253,7 @@ func (h *ChallengeHandler) CreateHint(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Security CookieAuth
 // @Param id path string true "Hint ID"
-// @Param hint body CreateHintRequest true "Updated hint data"
+// @Param hint body UpdateHintRequest true "Updated hint data"
 // @Success 200 {string} string "Hint updated"
 // @Failure 400 {object} object{error=string}
 // @Failure 500 {object} object{error=string}
