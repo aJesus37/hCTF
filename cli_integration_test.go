@@ -1694,6 +1694,26 @@ func apiDifficulties(t *testing.T) []apiDifficulty {
 	return out
 }
 
+type apiCategory struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	SortOrder int    `json:"sort_order"`
+}
+
+func apiCategories(t *testing.T) []apiCategory {
+	t.Helper()
+	resp, err := http.Get(cliServer + "/api/categories")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var out []apiCategory
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
 // ── Task 1: challenge update — visible, min-points, decay flags ───────────────
 
 func TestCLIChallengeUpdateVisible(t *testing.T) {
@@ -2637,5 +2657,100 @@ func TestCLIChallengeCreateDefaultPoints(t *testing.T) {
 	ch := apiGetChallenge(t, strings.TrimSpace(out))
 	if ch.InitialPoints != 1000 {
 		t.Errorf("initial_points: got %d want 1000", ch.InitialPoints)
+	}
+}
+
+// ── category / difficulty update ─────────────────────────────────────────────
+
+func TestCLICategoryUpdate(t *testing.T) {
+	out, stderr, code := runCLI(t, "category", "create", "rev", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+	out2, stderr2, code2 := runCLI(t, "category", "update", id, "--name", "rev2", "--order", "5")
+	assertSuccess(t, out2, stderr2, code2)
+	cats := apiCategories(t)
+	for _, c := range cats {
+		if c.ID == id {
+			if c.Name != "rev2" || c.SortOrder != 5 {
+				t.Errorf("category update: got %q/%d", c.Name, c.SortOrder)
+			}
+			return
+		}
+	}
+	t.Fatal("category not found")
+}
+
+func TestCLIDifficultyUpdate(t *testing.T) {
+	out, stderr, code := runCLI(t, "difficulty", "create", "trivial", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+	_, _, code2 := runCLI(t, "difficulty", "update", id,
+		"--name", "trivial2", "--color", "bg-green-600", "--text-color", "text-green-200", "--order", "3")
+	if code2 != 0 {
+		t.Fatalf("difficulty update failed")
+	}
+	diffs := apiDifficulties(t)
+	for _, d := range diffs {
+		if d.ID == id {
+			if d.Name != "trivial2" || d.Color != "bg-green-600" || d.TextColor != "text-green-200" || d.SortOrder != 3 {
+				t.Errorf("difficulty update: got %+v", d)
+			}
+			return
+		}
+	}
+	t.Fatal("difficulty not found")
+}
+
+// Partial-name updates must preserve untouched fields (non-TTY merge path).
+func TestCLICategoryUpdatePartialName(t *testing.T) {
+	out, stderr, code := runCLI(t, "category", "create", "partial0", "--order", "7", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+	out2, stderr2, code2 := runCLI(t, "category", "update", id, "--name", "partial")
+	assertSuccess(t, out2, stderr2, code2)
+	cats := apiCategories(t)
+	for _, c := range cats {
+		if c.ID == id {
+			if c.Name != "partial" || c.SortOrder != 7 {
+				t.Errorf("category partial update: got %q/%d", c.Name, c.SortOrder)
+			}
+			return
+		}
+	}
+	t.Fatal("category not found")
+}
+
+func TestCLIDifficultyUpdatePartialName(t *testing.T) {
+	out, stderr, code := runCLI(t, "difficulty", "create", "partiald",
+		"--color", "bg-red-600 text-white", "--text-color", "text-red-300", "--order", "7", "--quiet")
+	assertSuccess(t, out, stderr, code)
+	id := strings.TrimSpace(out)
+	_, _, code2 := runCLI(t, "difficulty", "update", id, "--name", "partial2")
+	if code2 != 0 {
+		t.Fatalf("difficulty partial update failed")
+	}
+	diffs := apiDifficulties(t)
+	for _, d := range diffs {
+		if d.ID == id {
+			if d.Name != "partial2" || d.Color != "bg-red-600 text-white" || d.TextColor != "text-red-300" || d.SortOrder != 7 {
+				t.Errorf("difficulty partial update: got %+v", d)
+			}
+			return
+		}
+	}
+	t.Fatal("difficulty not found")
+}
+
+func TestCLICategoryUpdateNotFound(t *testing.T) {
+	_, _, code := runCLI(t, "category", "update", "nonexistent-id", "--name", "x")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for nonexistent category")
+	}
+}
+
+func TestCLIDifficultyUpdateNotFound(t *testing.T) {
+	_, _, code := runCLI(t, "difficulty", "update", "nonexistent-id", "--name", "x")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for nonexistent difficulty")
 	}
 }
